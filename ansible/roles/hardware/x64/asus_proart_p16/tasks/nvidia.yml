@@ -10,42 +10,56 @@
 # ║                                                                  ║
 # ║  CRITICAL: nouveau is loaded by default on Fedora 43.            ║
 # ║  It MUST be blacklisted before akmod-nvidia installation.        ║
+# ║                                                                  ║
+# ║  This file lives on mend-I/proart-nvidia.                        ║
+# ║  Epoch I carries a stub version of this task.                    ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
 # ─── Step 1: Blacklist nouveau ────────────────────────────────────
 - name: Blacklist nouveau kernel module
-  copy:
+  become: true
+  ansible.builtin.copy:
     dest: /etc/modprobe.d/blacklist-nouveau.conf
     content: |
       # RaBbLE-OS: Blacklist nouveau to allow akmod-nvidia
       # nouveau conflicts with the proprietary NVIDIA driver
       blacklist nouveau
       options nouveau modeset=0
+    mode: '0644'
   notify: regenerate initramfs
+  tags: [hardware, nvidia]
 
 - name: Check if nouveau is currently loaded
-  command: lsmod
+  ansible.builtin.command: lsmod
   register: lsmod_check
   changed_when: false
+  tags: [hardware, nvidia]
 
-- name: Warn if nouveau is still active (requires reboot after initramfs rebuild)
-  debug:
+- name: Warn if nouveau is still active (initramfs rebuild + reboot required after first run)
+  ansible.builtin.debug:
     msg: |
       ⚠️  nouveau is currently loaded in RAM.
       The blacklist takes effect after initramfs rebuild + reboot.
-      This playbook will rebuild initramfs — then REBOOT before next run.
+      This playbook rebuilds initramfs — REBOOT before expecting NVIDIA to be usable.
   when: "'nouveau' in lsmod_check.stdout"
+  tags: [hardware, nvidia]
 
-# ─── Step 1b: nvidia-drm fbdev (Wayland KMS, required >= driver 545) ──────────
-- name: Set nvidia-drm fbdev=1 for Wayland framebuffer support
-  copy:
+# ─── Step 1b: nvidia-drm Wayland KMS options ──────────────────────
+# fbdev=1  — required for proper framebuffer on NVIDIA driver >= 545
+# modeset=1 — required for Wayland KMS (was incorrectly assumed to be
+#             set by supergfxd.conf; it isn't).
+- name: Set nvidia-drm modeset=1 and fbdev=1 for Wayland KMS
+  become: true
+  ansible.builtin.copy:
     dest: /etc/modprobe.d/rabble-nvidia-wayland.conf
     content: |
       # RaBbLE-OS: NVIDIA Wayland / KMS options
-      # fbdev=1 required for proper framebuffer on newer NVIDIA drivers (>= 545)
-      # modeset=1 is set separately by supergfxd.conf
-      options nvidia-drm fbdev=1
+      # modeset=1 required for Wayland KMS (required by Hyprland)
+      # fbdev=1   required for proper framebuffer on driver >= 545
+      options nvidia-drm modeset=1 fbdev=1
+    mode: '0644'
   notify: regenerate initramfs
+  tags: [hardware, nvidia]
 
 # ─── Step 1c: SDDM greeter GPU pin ───────────────────────────────
 # NVIDIA (card0) has no CRTCs in hybrid mode — sway finds no outputs and crashes.
@@ -71,13 +85,54 @@
       CompositorCommand=env WLR_DRM_DEVICES=/dev/dri/card1 /usr/libexec/sddm-compositor-sway
 
 # ─── Step 2: NVIDIA Driver Installation ──────────────────────────
+# dnf state: present is idempotent. No `when: nouveau loaded` gate —
+# that caused silent skips on every re-run after the first successful
+# blacklist + reboot (mend-I/proart-nvidia bug fix 2026-04-22).
 - name: Install akmod-nvidia (auto-rebuilds on kernel updates)
-  dnf:
+  become: true
+  ansible.builtin.dnf:
     name:
-      - akmod-nvidia              # Kernel module (auto-rebuilds with kmod)
-      - xorg-x11-drv-nvidia       # Xorg driver (still needed even on Wayland)
-      - xorg-x11-drv-nvidia-cuda  # CUDA support
+      - akmod-nvidia                   # Kernel module (auto-rebuilds with kmod)
+      - xorg-x11-drv-nvidia            # Xorg driver (still needed even on Wayland)
+      - xorg-x11-drv-nvidia-cuda       # CUDA support
       - xorg-x11-drv-nvidia-cuda-libs
-      - libva-nvidia-driver  # The current Fedora 43 naming convention for Vid Accel
+      - libva-nvidia-driver            # Fedora 43 VA-API naming
       - libva-utils
     state: present
+  tags: [hardware, nvidia]
+
+# ─── Step 3: NVIDIA power-management services ─────────────────────
+# Required for s2idle suspend/resume to preserve GPU state.
+# Without these, resume from suspend commonly freezes the display or
+# leaves the NVIDIA context in a bad state.
+- name: Enable NVIDIA power-management services (suspend / hibernate / resume)
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+  loop:
+    - nvidia-suspend.service
+    - nvidia-hibernate.service
+    - nvidia-resume.service
+    - nvidia-powerd.service
+  failed_when: false  # nvidia-powerd may be absent on some driver versions
+  tags: [hardware, nvidia, power]
+
+# ─── Step 4 (OPTIONAL): Defer NVIDIA from initramfs ───────────────
+# Uncomment only if experiencing Plymouth black-flash during boot.
+# Tradeoff: NVIDIA loads at graphical.target rather than early-boot;
+# `nvidia-smi` unavailable until after login. See KnownIssues.md.
+#
+# - name: Defer NVIDIA modules from initramfs (Plymouth black-flash fix)
+#   become: true
+#   ansible.builtin.copy:
+#     dest: /etc/modprobe.d/rabble-nvidia-defer.conf
+#     content: |
+#       # RaBbLE-OS: defer NVIDIA until graphical.target to avoid Plymouth flash
+#       blacklist nvidia
+#       blacklist nvidia_drm
+#       blacklist nvidia_modeset
+#       blacklist nvidia_uvm
+#     mode: '0644'
+#   notify: regenerate initramfs
+#   tags: [hardware, nvidia, plymouth-defer]
