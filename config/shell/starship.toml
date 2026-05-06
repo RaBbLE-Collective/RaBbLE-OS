@@ -1,0 +1,121 @@
+# dotfiles/shell/starship.toml
+# =============================================================================
+# RaBbLE — Starship prompt (used in bash; fallback if p10k unavailable in zsh)
+# https://starship.rs/config/
+# =============================================================================
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+format = """
+$directory\
+$git_branch\
+$git_status\
+$python\
+$nodejs\
+$golang\
+$rust\
+$docker_context\
+$line_break\
+$character"""
+
+right_format = """
+$cmd_duration\
+$jobs\
+$status"""
+
+add_newline = true
+command_timeout = 800
+
+# ── Prompt character ──────────────────────────────────────────────────────────
+[character]
+success_symbol = "[❯](bold #7c6fe0)"
+error_symbol   = "[❯](bold #e05c6f)"
+vimcmd_symbol  = "[❮](bold #4ecdc4)"
+
+# ── Directory ─────────────────────────────────────────────────────────────────
+[directory]
+style              = "bold #7c6fe0"
+read_only          = " 󰌾"
+read_only_style    = "#e05c6f"
+truncation_length  = 4
+truncate_to_repo   = true
+format             = "[$path]($style)[$read_only]($read_only_style) "
+
+[directory.substitutions]
+"~"          = "~"
+"~/git"      = " git"
+"~/Documents"= " docs"
+"~/Downloads"= " down"
+"~/Pictures" = " pics"
+"~/Music"    = " music"
+
+# ── Git ───────────────────────────────────────────────────────────────────────
+[git_branch]
+symbol    = " "
+style     = "#4ecdc4"
+format    = "[on](dimmed #6b6880) [$symbol$branch(:$remote_branch)]($style) "
+truncation_length = 28
+truncation_symbol = "…"
+
+[git_status]
+style     = "#f7a8d4"
+format    = "([$all_status$ahead_behind]($style) )"
+conflicted= "⚡"
+ahead     = "⇡${count}"
+behind    = "⇣${count}"
+diverged  = "⇕⇡${ahead_count}⇣${behind_count}"
+up_to_date= ""
+untracked = "?"
+stashed   = "󰆓"
+modified  = "!"
+staged    = "+"
+renamed   = "»"
+deleted   = "✘"
+
+# ── Languages ─────────────────────────────────────────────────────────────────
+[python]
+symbol          = " "
+style           = "#4ecdc4"
+format          = "[${symbol}${pyenv_prefix}(${version} )(\\($virtualenv\\) )]($style)"
+python_binary   = ["python3", "python"]
+detect_extensions = ["py"]
+
+[nodejs]
+symbol  = " "
+style   = "#4ecdc4"
+format  = "[$symbol($version )]($style)"
+
+[golang]
+symbol  = " "
+style   = "#4ecdc4"
+format  = "[$symbol($version )]($style)"
+
+[rust]
+symbol  = " "
+style   = "#f7a8d4"
+format  = "[$symbol($version )]($style)"
+
+[docker_context]
+symbol  = " "
+style   = "#7c6fe0"
+format  = "[$symbol$context]($style) "
+only_with_files = true
+
+# ── Right prompt ──────────────────────────────────────────────────────────────
+[cmd_duration]
+min_time          = 3_000
+style             = "dimmed #6b6880"
+format            = "[ $duration]($style)"
+show_milliseconds = false
+
+[jobs]
+style   = "#f7a8d4"
+symbol  = " "
+format  = "[$symbol$number]($style) "
+
+[status]
+style           = "#e05c6f"
+symbol          = "✗ "
+success_symbol  = ""
+format          = "[$symbol$common_meaning$signal_name$maybe_int]($style)"
+disabled        = false
