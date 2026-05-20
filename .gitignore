@@ -26,3 +26,6 @@ __pycache__/
 .idea/
 *.swp
 *~
+
+#ISOs
+ISO/*

@@ -1,0 +1,35 @@
+---
+# virtualization/tasks/service.yml — libvirt service and user group setup
+
+- name: virtualization | enable and start libvirtd
+  ansible.builtin.systemd:
+    name: libvirtd
+    enabled: true
+    state: started
+  tags: [virtualization, service]
+
+- name: virtualization | start default NAT network
+  ansible.builtin.command:
+    cmd: virsh net-autostart default
+  changed_when: false
+  ignore_errors: true
+  tags: [virtualization, service]
+
+- name: virtualization | add user to libvirt group
+  ansible.builtin.user:
+    name: "{{ ansible_user_id }}"
+    groups: libvirt
+    append: true
+  tags: [virtualization, service]
+
+- name: virtualization | add user to kvm group
+  ansible.builtin.user:
+    name: "{{ ansible_user_id }}"
+    groups: kvm
+    append: true
+  tags: [virtualization, service]
+
+- name: virtualization | notify user to re-login for group membership
+  ansible.builtin.debug:
+    msg: "Group membership updated. Log out and back in (or run: newgrp libvirt) for virsh/virt-manager to work without sudo."
+  tags: [virtualization, service]

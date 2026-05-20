@@ -1,0 +1,31 @@
+---
+# virtualization/tasks/packages.yml — KVM host packages
+
+- name: virtualization | install QEMU/KVM core
+  ansible.builtin.dnf:
+    name:
+      - qemu-kvm              # KVM-accelerated QEMU
+      - qemu-img              # disk image utilities
+      - libvirt               # virtualization API and daemon
+      - libvirt-client        # virsh CLI
+      - libvirt-daemon-kvm    # KVM driver for libvirt
+    state: present
+  tags: [virtualization, packages]
+
+- name: virtualization | install management GUI and tools
+  ansible.builtin.dnf:
+    name:
+      - virt-manager          # graphical VM manager
+      - virt-install          # CLI VM provisioner
+      - virt-viewer           # SPICE/VNC display client
+    state: present
+  tags: [virtualization, packages]
+
+- name: virtualization | install UEFI firmware and virgl support
+  ansible.builtin.dnf:
+    name:
+      - edk2-ovmf             # UEFI firmware for x86_64 VMs
+      - mesa-libGL            # virgl 3D acceleration (host-side)
+      - mesa-dri-drivers      # DRI drivers for virgl rendering
+    state: present
+  tags: [virtualization, packages]

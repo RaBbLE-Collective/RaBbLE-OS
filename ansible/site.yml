@@ -14,6 +14,7 @@
 #   --tags snapper               → Btrfs snapshots (cross-cutting)
 #   --tags runtime               → GPU/NPU runtimes (cross-cutting)
 #   --tags monitoring            → System observability stack (cross-cutting)
+#   --tags virtualization        → QEMU/KVM host stack (cross-cutting, dev machines)
 #   --tags desktop               → Layer 3: Hyprland + shell stack
 #   --tags hyprland              → Layer 3: Hyprland only
 #   --tags apps                  → Layer 4: applications
@@ -83,6 +84,20 @@
   tags: [monitoring]
   roles:
     - role: monitoring
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Virtualization — Cross-cutting
+# KVM host stack for RaBbLE-OS development VMs.
+# Only needed on developer machines — skip with: --skip-tags virtualization
+# Pairs with RaBbLE-OS-vmctl.sh for VM lifecycle management.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Virtualization — QEMU/KVM host stack"
+  hosts: all
+  become: true
+  tags: [virtualization]
+  roles:
+    - role: virtualization
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Layer 2 — Boot Chain

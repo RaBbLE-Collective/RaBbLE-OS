@@ -1,0 +1,15 @@
+---
+# =============================================================================
+# Virtualization Role — QEMU/KVM/libvirt host stack
+# =============================================================================
+# Turns this machine into a KVM hypervisor for RaBbLE-OS development VMs.
+# VM management is handled by RaBbLE-OS-vmctl.sh — Ansible only installs the host stack.
+# =============================================================================
+
+- name: Install virtualization packages
+  ansible.builtin.import_tasks: packages.yml
+  tags: [virtualization, packages]
+
+- name: Enable and configure libvirt services
+  ansible.builtin.import_tasks: service.yml
+  tags: [virtualization, service]

@@ -18,6 +18,7 @@ Every layer — boot chain, compositor, shell, palette — is the entity made ph
 | fix/suspend-resume | Cooking | `fix/suspend-resume` branch |
 | fix/boot-chain | Cooking | `fix/boot-chain` branch |
 | fix/xdna2-npu | Dormant | `fix/xdna2-npu` branch |
+| VM dev workflow — virtualization role + vmctl | In progress | `RaBbLE/episode-I` branch |
 | Grimoire consolidation → RaBbLE-Grimoire | Pending | `grimoire/` |
 
 ## Key Entry Points
