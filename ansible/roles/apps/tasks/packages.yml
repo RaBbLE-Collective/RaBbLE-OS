@@ -5,8 +5,7 @@
   ansible.builtin.dnf:
     name:
       - dolphin                    # KDE file manager — runs without full Plasma
-      - kio                        # KDE I/O framework (dolphin dep)
-      - kio-extras                 # Additional KIO protocols (smb, fish, etc.)
+      - kf5-kio-gui                # KDE I/O framework GUI (dolphin dep)
       - kdegraphics-thumbnailers   # Image/PDF thumbnails in dolphin
     state: present
   tags: [apps, packages, filemanager]
@@ -24,5 +23,6 @@
     name:
       - pavucontrol                # PipeWire/PulseAudio volume control GUI
       - nm-connection-editor       # NetworkManager GUI connection editor
+      - gparted                    # Partition manager GUI
     state: present
   tags: [apps, packages, utils]
