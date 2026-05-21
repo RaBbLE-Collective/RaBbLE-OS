@@ -1,0 +1,882 @@
+---
+# ansible/packages/manifest.yml
+# =============================================================================
+# RaBbLE-OS — Package Manifest
+# Single source of truth for all packages across Ansible and Kickstart.
+#
+# Fields:
+#   name:     exact dnf/rpm/flatpak package name
+#   category: dot-notation mirroring the Ansible role tree
+#   reason:   required — the decision record, kept with the package forever
+#   source:   fedora | rpmfusion-free | rpmfusion-nonfree | copr:<name> | repo:<name> | flatpak
+#   platform: all | asus_proart_p16 | generic_x64
+#   layer:    installation tier (see LAYERS below)
+#   ks:       true = include in Kickstart %packages block
+#
+# LAYERS — applied in order:
+#   ks-bootstrap   minimum for KS %post to clone repo and run Ansible
+#   core           always-on system essentials, no DE dependency
+#   boot           boot chain: grub config, plymouth, sddm
+#   audio          pipewire stack
+#   fonts          typography — must land before any DE component renders
+#   wayland        protocol support layer below the compositor
+#   compositor     Hyprland and its ecosystem
+#   desktop        shell components: bar, notifications, launcher, terminal
+#   apps           user-facing applications
+#   hardware       machine-specific drivers and tools (filtered by platform)
+#   layer/*        optional feature groups, installed per profile/tag
+#
+# Non-DNF installs (git clones, scripts, manual downloads):
+#   powerlevel10k  — git clone, handled in desktop/shell/zsh/tasks/packages.yml
+#   Bibata cursor  — manual download; HYPRCURSOR_THEME=Bibata-Modern-Classic in env.conf
+#   VSCode repo    — RPM repo added in layer/dev role before dnf install
+# =============================================================================
+
+packages:
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # KS BOOTSTRAP
+  # Minimum packages for Kickstart %post to clone the repo and run Ansible.
+  # These go into the %packages block unconditionally.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: git
+    category: ks-bootstrap
+    reason: Clone RaBbLE-OS repo in %post before Ansible runs
+    source: fedora
+    platform: all
+    layer: ks-bootstrap
+    ks: true
+
+  - name: ansible
+    category: ks-bootstrap
+    reason: Run RaBbLE-OS-Bootstrap.sh in KS %post
+    source: fedora
+    platform: all
+    layer: ks-bootstrap
+    ks: true
+
+  - name: python3
+    category: ks-bootstrap
+    reason: Ansible runtime dependency
+    source: fedora
+    platform: all
+    layer: ks-bootstrap
+    ks: true
+
+  - name: curl
+    category: ks-bootstrap
+    reason: HTTP fetch — bootstrap scripts, COPR enablement, spell dependencies
+    source: fedora
+    platform: all
+    layer: ks-bootstrap
+    ks: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CORE
+  # Always-on system packages. No DE dependency. Installed first by Ansible.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: NetworkManager
+    category: core.network
+    reason: Network management — required from first boot before any DE layer
+    source: fedora
+    platform: all
+    layer: core
+    ks: true
+
+  - name: NetworkManager-wifi
+    category: core.network
+    reason: WiFi support for NetworkManager
+    source: fedora
+    platform: all
+    layer: core
+    ks: true
+
+  - name: wget
+    category: core.utils
+    reason: Alternate HTTP fetch — some scripts prefer wget over curl
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: rsync
+    category: core.utils
+    reason: File sync — used by dotctl, backup spells, Grimoire sync
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: unzip
+    category: core.utils
+    reason: Archive extraction — font installs, general tooling
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: p7zip
+    category: core.utils
+    reason: 7z archive support
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: jq
+    category: core.utils
+    reason: JSON processing — sCoRE integration, shell scripts, manifest tooling
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: polkit
+    category: core.security
+    reason: Privilege escalation framework — required for any pkexec/GUI elevation workflow
+    source: fedora
+    platform: all
+    layer: core
+    ks: true
+
+  - name: fwupd
+    category: core.firmware
+    reason: Firmware update daemon — LVFS support for BIOS/hardware patches
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: xdg-user-dirs
+    category: core.xdg
+    reason: Creates standard user dirs (Downloads, Documents, etc.) on first login
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: xdg-utils
+    category: core.xdg
+    reason: xdg-open and xdg-mime — MIME type associations and default app dispatch
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: neovim
+    category: core.editor
+    reason: Primary editor — EDITOR=nvim and VISUAL=nvim set in env.conf
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: btop
+    category: core.monitoring
+    reason: System resource monitor — daily driver for process, CPU, GPU, memory view
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: fastfetch
+    category: core.identity
+    reason: System info display — RaBbLE-OS identity shown on terminal open
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: bash-completion
+    category: core.shell
+    reason: Tab completion for bash — needed even when zsh is default shell
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  # ── Shell — ZSH ───────────────────────────────────────────────────────────
+
+  - name: zsh
+    category: core.shell.zsh
+    reason: Primary shell — set as default for all users, all config in config/shell/zsh/
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: zsh-syntax-highlighting
+    category: core.shell.zsh
+    reason: Real-time command syntax highlighting in zsh
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: zsh-autosuggestions
+    category: core.shell.zsh
+    reason: Fish-style history-based command suggestions
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  # powerlevel10k: installed via git clone — not a Fedora package
+  # See: ansible/roles/desktop/shell/zsh/tasks/packages.yml
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BOOT CHAIN
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: sddm
+    category: boot.session_manager
+    reason: Display manager / greeter — Wayland-native, Qt-based, Hyprland-compatible
+    source: fedora
+    platform: all
+    layer: boot
+    ks: false
+
+  - name: plymouth
+    category: boot.plymouth
+    reason: Boot animation framework — branded boot screen, RaBbLE theme TBD
+    source: fedora
+    platform: all
+    layer: boot
+    ks: false
+
+  - name: plymouth-plugin-script
+    category: boot.plymouth
+    reason: Script plugin — required for any custom Plymouth theme beyond built-ins
+    source: fedora
+    platform: all
+    layer: boot
+    ks: false
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUDIO — PipeWire stack
+  # Full replacement for PulseAudio and JACK.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: pipewire
+    category: audio
+    reason: Modern audio/video routing framework — replaces PulseAudio and JACK
+    source: fedora
+    platform: all
+    layer: audio
+    ks: false
+
+  - name: wireplumber
+    category: audio
+    reason: PipeWire session manager — required for audio routing policy and device management
+    source: fedora
+    platform: all
+    layer: audio
+    ks: false
+
+  - name: pipewire-pulse
+    category: audio
+    reason: PulseAudio compatibility — most apps talk PA protocol; this bridges them to PipeWire
+    source: fedora
+    platform: all
+    layer: audio
+    ks: false
+
+  - name: pipewire-alsa
+    category: audio
+    reason: ALSA compatibility — older apps and games that bypass PA and talk ALSA directly
+    source: fedora
+    platform: all
+    layer: audio
+    ks: false
+
+  - name: pipewire-jack
+    category: audio
+    reason: JACK compatibility — low-latency audio production workflows
+    source: fedora
+    platform: all
+    layer: audio
+    ks: false
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FONTS
+  # Install before any DE component renders — waybar and kitty glyph rendering
+  # depend on JetBrains Mono and Font Awesome being present.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: jetbrains-mono-fonts-all
+    category: fonts
+    reason: Primary monospace font — referenced in waybar style.css and kitty.conf
+    source: fedora
+    platform: all
+    layer: fonts
+    ks: false
+
+  - name: fontawesome-6-free-fonts
+    category: fonts
+    reason: Icon font — waybar module icons (battery, network, clock, cpu, etc.)
+    source: fedora
+    platform: all
+    layer: fonts
+    ks: false
+
+  - name: fontawesome-6-brands-fonts
+    category: fonts
+    reason: Brand icon font — waybar and fuzzel brand glyphs
+    source: fedora
+    platform: all
+    layer: fonts
+    ks: false
+
+  - name: google-noto-sans-fonts
+    category: fonts
+    reason: Fallback sans-serif — GTK apps and system UI where monospace doesn't apply
+    source: fedora
+    platform: all
+    layer: fonts
+    ks: false
+
+  - name: google-noto-emoji-fonts
+    category: fonts
+    reason: Emoji rendering — rofimoji emoji picker requires full emoji font coverage
+    source: fedora
+    platform: all
+    layer: fonts
+    ks: false
+
+  # Bibata cursor: manual download — not available in Fedora repos
+  # HYPRCURSOR_THEME=Bibata-Modern-Classic set in env.conf
+  # Install target: ~/.local/share/icons/Bibata-Modern-Classic
+  # Source: https://github.com/ful1e5/Bibata_Cursor/releases
+  # Ansible: handled via uri + unarchive task in compositor role
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WAYLAND SUPPORT LAYER
+  # Protocol support and portals — everything below the compositor level.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: wl-clipboard
+    category: wayland
+    reason: Clipboard read/write primitives — wl-copy/wl-paste used by screenshot keybind
+    source: fedora
+    platform: all
+    layer: wayland
+    ks: false
+
+  - name: cliphist
+    category: wayland
+    reason: Clipboard history manager — fuzzel clipboard picker bound to Super+Shift+C
+    source: fedora
+    platform: all
+    layer: wayland
+    ks: false
+
+  - name: xdg-desktop-portal-gtk
+    category: wayland.portals
+    reason: GTK portal backend — file picker dialogs for GTK and Electron apps
+    source: fedora
+    platform: all
+    layer: wayland
+    ks: false
+
+  - name: kanshi
+    category: wayland.display
+    reason: Display profile manager — auto-switches monitor config on connect/disconnect
+    source: fedora
+    platform: all
+    layer: wayland
+    ks: false
+
+  - name: wlr-randr
+    category: wayland.display
+    reason: Monitor configuration CLI — manual display management and HDMI hotplug scripts
+    source: fedora
+    platform: all
+    layer: wayland
+    ks: false
+
+  - name: socat
+    category: wayland.ipc
+    reason: IPC socket relay — used by Hyprland HDMI hotplug event scripts
+    source: fedora
+    platform: all
+    layer: wayland
+    ks: false
+
+  - name: qt6-qtwayland
+    category: wayland.qt
+    reason: Wayland backend for Qt6 apps — Dolphin and other KDE apps run native Wayland
+    source: fedora
+    platform: all
+    layer: wayland
+    ks: false
+
+  - name: qt5-qtwayland
+    category: wayland.qt
+    reason: Wayland backend for Qt5 apps — legacy Qt5 apps stay Wayland-native
+    source: fedora
+    platform: all
+    layer: wayland
+    ks: false
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMPOSITOR — Hyprland
+  # Source: COPR lionheartp/Hyprland — provides v0.54+ (Fedora repos ship older)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: hyprland
+    category: compositor
+    reason: Wayland compositor — the entity's window manager, tiling engine, and session host
+    source: "copr:lionheartp/Hyprland"
+    platform: all
+    layer: compositor
+    ks: false
+
+  - name: hyprland-devel
+    category: compositor
+    reason: Plugin support via hyprpm — required to install or build any Hyprland plugins
+    source: "copr:lionheartp/Hyprland"
+    platform: all
+    layer: compositor
+    ks: false
+
+  - name: xdg-desktop-portal-hyprland
+    category: compositor.portals
+    reason: Hyprland XDG portal — screensharing and file picker routing for the Hyprland session
+    source: "copr:lionheartp/Hyprland"
+    platform: all
+    layer: compositor
+    ks: false
+
+  - name: hyprland-guiutils
+    category: compositor
+    reason: Hyprland GUI utilities — includes hyprctl GUI helpers
+    source: "copr:lionheartp/Hyprland"
+    platform: all
+    layer: compositor
+    ks: false
+
+  - name: hyprpaper
+    category: compositor.wallpaper
+    reason: Wallpaper daemon — configured via hyprpaper.conf, started in autostart.conf
+    source: "copr:lionheartp/Hyprland"
+    platform: all
+    layer: compositor
+    ks: false
+
+  - name: hypridle
+    category: compositor.idle
+    reason: Idle daemon — triggers hyprlock and display power-off on inactivity
+    source: "copr:lionheartp/Hyprland"
+    platform: all
+    layer: compositor
+    ks: false
+
+  - name: hyprlock
+    category: compositor.lock
+    reason: Screen locker — activated by hypridle before-sleep and Super+L keybind
+    source: "copr:lionheartp/Hyprland"
+    platform: all
+    layer: compositor
+    ks: false
+
+  - name: hyprcursor
+    category: compositor.cursor
+    reason: Cursor management — loads Bibata-Modern-Classic, resolves Wayland cursor scaling
+    source: "copr:lionheartp/Hyprland"
+    platform: all
+    layer: compositor
+    ks: false
+
+  - name: hyprpicker
+    category: compositor.tools
+    reason: Color picker — picks screen color under cursor, outputs hex to clipboard
+    source: "copr:lionheartp/Hyprland"
+    platform: all
+    layer: compositor
+    ks: false
+
+  - name: hyprpolkitagent
+    category: compositor.security
+    reason: Hyprland-native polkit authentication agent — handles pkexec GUI dialogs
+    source: "copr:lionheartp/Hyprland"
+    platform: all
+    layer: compositor
+    ks: false
+    # FIXME: autostart.conf currently calls polkit-gnome binary path which does not exist.
+    # Update autostart.conf line to: exec-once = systemctl --user start hyprpolkitagent
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DESKTOP SHELL
+  # Bar, notifications, launcher, terminal, OSD, media control.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: waybar
+    category: desktop.bar
+    reason: Status bar — workspace indicator, system stats, tray. Waybar bridges to Quickshell in Ep1.
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: mako
+    category: desktop.notifications
+    reason: Wayland notification daemon — minimal, themeable, config in config/mako/
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: fuzzel
+    category: desktop.launcher
+    reason: App launcher — fast Wayland-native launcher, bound to Super+Space
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: rofimoji
+    category: desktop.launcher
+    reason: Emoji picker — uses fuzzel as selection backend
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: kitty
+    category: desktop.terminal
+    reason: Primary terminal emulator — GPU-accelerated, config in config/kitty/, TERMINAL=kitty in env
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: grim
+    category: desktop.screenshot
+    reason: Screenshot capture tool — used by Super+S keybind and screenshot.sh script
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: slurp
+    category: desktop.screenshot
+    reason: Screen region selector — used with grim for region/window screenshots
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: swayosd
+    category: desktop.osd
+    reason: On-screen display for volume and brightness feedback — swayosd-server in autostart
+    source: "copr:erikreider/swayosd"
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: network-manager-applet
+    category: desktop.network
+    reason: NetworkManager systray applet — nm-applet started in autostart, wifi menu on click
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: playerctl
+    category: desktop.media
+    reason: MPRIS media controller — pause on lock/idle; future RaBbLE observation hook for activity
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: brightnessctl
+    category: desktop.hardware
+    reason: Backlight control — used by kb-brightness.sh and swayosd brightness scripts
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: v4l-utils
+    category: desktop.hardware
+    reason: Webcam control — v4l2-ctl for webcam toggle scripts
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  - name: pavucontrol
+    category: desktop.audio
+    reason: PipeWire/PulseAudio volume control GUI — visual mixer for audio device routing
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # APPS
+  # User-facing applications. Minimal — only what's needed day-one.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: dolphin
+    category: apps.files
+    reason: File manager — KDE/Qt, runs without full Plasma, Wayland-native, Super+E keybind
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: kf5-kio-gui
+    category: apps.files
+    reason: KDE I/O framework GUI — Dolphin dependency for remote/protocol browsing
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: kdegraphics-thumbnailers
+    category: apps.files
+    reason: Image/PDF thumbnails in Dolphin — visual file browsing
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: firefox
+    category: apps.browser
+    reason: Primary browser — BROWSER=firefox in env.conf, Super+B keybind
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: mpv
+    category: apps.media
+    reason: Primary video player — minimal, scriptable, Wayland-native
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: celluloid
+    category: apps.media
+    reason: GTK frontend for mpv — GUI wrapper for less CLI-inclined media workflows
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: nm-connection-editor
+    category: apps.network
+    reason: NetworkManager GUI editor — VPN, static IP, advanced network config
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: gnome-disk-utility
+    category: apps.storage
+    reason: Disk management GUI — polkit-compatible on Wayland with hyprpolkitagent
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+    # NOTE: GParted has a known Wayland/bubblewrap segfault on Fedora 43 + Hyprland.
+    # gnome-disk-utility works correctly once hyprpolkitagent is running.
+    # See: RaBbLE-OS-KnownIssues.md
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # HARDWARE — ASUS ProArt P16
+  # Platform: asus_proart_p16 only — filtered by Ansible inventory group.
+  # Requires RPM Fusion repos enabled before NVIDIA packages can install.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: akmod-nvidia
+    category: hardware.nvidia
+    reason: NVIDIA kernel module — auto-rebuilds on kernel updates, RTX 4060 Max-Q
+    source: rpmfusion-nonfree
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: xorg-x11-drv-nvidia
+    category: hardware.nvidia
+    reason: NVIDIA Xorg driver — required even on Wayland for DRM/KMS initialization paths
+    source: rpmfusion-nonfree
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: xorg-x11-drv-nvidia-cuda
+    category: hardware.nvidia
+    reason: CUDA support — LLM inference and GPU compute workloads on RTX 4060
+    source: rpmfusion-nonfree
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: xorg-x11-drv-nvidia-cuda-libs
+    category: hardware.nvidia
+    reason: CUDA libraries — required by any CUDA-enabled application
+    source: rpmfusion-nonfree
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: libva-nvidia-driver
+    category: hardware.nvidia
+    reason: VA-API acceleration via NVIDIA — hardware video decode/encode (LIBVA_DRIVER_NAME=nvidia)
+    source: rpmfusion-nonfree
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: libva-utils
+    category: hardware.nvidia
+    reason: VA-API diagnostic tools — vainfo to verify hardware acceleration is active
+    source: rpmfusion-nonfree
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: supergfxctl
+    category: hardware.asus.gpu
+    reason: ASUS GPU mode switching daemon — manages Hybrid/Integrated/VFIO modes
+    source: fedora
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: switcheroo-control
+    category: hardware.asus.gpu
+    reason: Per-app GPU selection — DRI_PRIME routing for PRIME offload workflows
+    source: fedora
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: asusctl
+    category: hardware.asus
+    reason: ASUS hardware control — fan profiles, keyboard backlight, charge limit, AuraSync
+    source: "copr:lukenukem/asus-linux"
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: asusd
+    category: hardware.asus
+    reason: ASUS daemon — background service for asusctl, handles ASUS-specific hardware events
+    source: "copr:lukenukem/asus-linux"
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: tuned
+    category: hardware.power
+    reason: Power profile manager — active stack is tuned_only per group_vars; balanced profile default
+    source: fedora
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: tuned-gtk
+    category: hardware.power
+    reason: Tuned GUI — visual profile switcher for on-the-fly power management
+    source: fedora
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OPTIONAL LAYERS
+  # Install via Ansible tags: --tags layer/bluetooth, layer/nightmode, etc.
+  # These are feature groups that extend the base experience.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  # ── layer/bluetooth ───────────────────────────────────────────────────────
+
+  - name: bluez
+    category: layer.bluetooth
+    reason: Bluetooth protocol stack — kernel-level bluetooth hardware support
+    source: fedora
+    platform: all
+    layer: layer/bluetooth
+    ks: false
+
+  - name: bluez-tools
+    category: layer.bluetooth
+    reason: Bluetooth CLI utilities — diagnostic and scripting tools
+    source: fedora
+    platform: all
+    layer: layer/bluetooth
+    ks: false
+
+  - name: blueman
+    category: layer.bluetooth
+    reason: Bluetooth manager GUI — device pairing, tray applet, blueman-manager
+    source: fedora
+    platform: all
+    layer: layer/bluetooth
+    ks: false
+
+  # ── layer/nightmode ───────────────────────────────────────────────────────
+
+  - name: gammastep
+    category: layer.nightmode
+    reason: Night light — reduces blue light on a schedule, Wayland-native Redshift fork
+    source: fedora
+    platform: all
+    layer: layer/nightmode
+    ks: false
+
+  # ── layer/flatpak ─────────────────────────────────────────────────────────
+
+  - name: flatpak
+    category: layer.flatpak
+    reason: Flatpak runtime — Spotify, Discord, OBS and other sandboxed app delivery
+    source: fedora
+    platform: all
+    layer: layer/flatpak
+    ks: false
+
+  # Flathub remote: configured via Ansible task after flatpak install
+  # flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+  # ── layer/dev ─────────────────────────────────────────────────────────────
+
+  - name: code
+    category: layer.dev
+    reason: VSCode — primary IDE, Electron app, ELECTRON_OZONE_PLATFORM_HINT=auto in env.conf
+    source: "repo:vscode"
+    platform: all
+    layer: layer/dev
+    ks: false
+    # VSCode repo: https://packages.microsoft.com/yumrepos/vscode
+    # Added via RPM key + repo file task in layer/dev role before dnf install
+
+  - name: gh
+    category: layer.dev
+    reason: GitHub CLI — PR/issue/release management from terminal
+    source: fedora
+    platform: all
+    layer: layer/dev
+    ks: false
+
+  - name: podman
+    category: layer.dev
+    reason: Container runtime — rootless containers, Docker-compatible CLI
+    source: fedora
+    platform: all
+    layer: layer/dev
+    ks: false
+
+  - name: podman-compose
+    category: layer.dev
+    reason: Docker Compose compatibility for Podman — multi-container dev workflows
+    source: fedora
+    platform: all
+    layer: layer/dev
+    ks: false
