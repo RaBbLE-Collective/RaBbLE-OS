@@ -1,6 +1,0 @@
----
-# hardware/x64/asus_proart_p16/tasks/power/supergfxd.yml — STUB
-- name: "asus_proart_p16/power/supergfxd — stub"
-  ansible.builtin.debug:
-    msg: "spark ~ hardware/asus_proart_p16/power/supergfxd >> stub, no-op // %DORMANT%"
-  tags: [hardware, power]

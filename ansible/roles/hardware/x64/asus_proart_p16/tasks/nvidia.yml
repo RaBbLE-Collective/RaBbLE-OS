@@ -81,4 +81,3 @@
       - libva-nvidia-driver  # The current Fedora 43 naming convention for Vid Accel
       - libva-utils
     state: present
-  when: "'nouveau' in lsmod_check.stdout"

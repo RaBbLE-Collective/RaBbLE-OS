@@ -23,6 +23,6 @@
     name:
       - pavucontrol                # PipeWire/PulseAudio volume control GUI
       - nm-connection-editor       # NetworkManager GUI connection editor
-      - gparted                    # Partition manager GUI
+      - gnome-disk-utility         # Disk management GUI — Wayland-compatible
     state: present
   tags: [apps, packages, utils]
