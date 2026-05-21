@@ -30,8 +30,9 @@ VM_NAME="${RABBLE_VM_NAME:-rabble-os-dev}"
 VM_RAM="${RABBLE_VM_RAM:-4096}"             # MB
 VM_VCPUS="${RABBLE_VM_VCPUS:-4}"
 VM_DISK_SIZE="${RABBLE_VM_DISK_SIZE:-40}"   # GB
-VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-/var/lib/libvirt/images}"
-VM_DISK="${VM_DISK_DIR}/${VM_NAME}.qcow2"
+VM_PARTITION_LABEL="vm-storage"             # BTRFS partition label for VM images
+VM_PARTITION_MOUNT="/mnt/vms"               # Where to mount the VM partition
+VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-}"       # Set by detect_vm_partition() if available
 LIBVIRT_URI="qemu:///system"
 export LIBVIRT_DEFAULT_URI="$LIBVIRT_URI"
 
@@ -44,6 +45,42 @@ success() { echo -e "${GREEN}[vmctl]${RESET}  $*"; }
 warn()    { echo -e "${YELLOW}[vmctl]${RESET}  $*" >&2; }
 error()   { echo -e "${RED}[vmctl]${RESET}  $*" >&2; exit 1; }
 section() { echo -e "\n${BOLD}${CYAN}── $* ──${RESET}"; }
+
+# ── VM partition detection and mounting ───────────────────────────────────────
+detect_vm_partition() {
+    local device partition_uuid
+
+    # Look for BTRFS partition with vm-storage label
+    device=$(lsblk -nlo NAME,LABEL | grep "$VM_PARTITION_LABEL" | awk '{print $1}' | head -1)
+
+    if [[ -z "$device" ]]; then
+        # No VM partition found; use default directory
+        VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-/var/lib/libvirt/images}"
+        return
+    fi
+
+    device="/dev/$device"
+
+    # Check if partition is already mounted
+    if mountpoint -q "$VM_PARTITION_MOUNT" 2>/dev/null; then
+        success "VM partition already mounted at ${VM_PARTITION_MOUNT}"
+        VM_DISK_DIR="$VM_PARTITION_MOUNT"
+        return
+    fi
+
+    # Try to mount it
+    info "Detected VM partition: ${device}"
+    info "Mounting ${device} to ${VM_PARTITION_MOUNT}..."
+
+    sudo mkdir -p "$VM_PARTITION_MOUNT"
+    if sudo mount -L "$VM_PARTITION_LABEL" "$VM_PARTITION_MOUNT" 2>/dev/null; then
+        success "VM partition mounted at ${VM_PARTITION_MOUNT}"
+        VM_DISK_DIR="$VM_PARTITION_MOUNT"
+    else
+        warn "Could not mount VM partition. Using default: /var/lib/libvirt/images"
+        VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-/var/lib/libvirt/images}"
+    fi
+}
 
 # ── Dependency check ───────────────────────────────────────────────────────────
 check_deps() {
@@ -129,12 +166,14 @@ ensure_iso_accessible() {
 cmd_setup() {
     section "RaBbLE-OS VM Host Setup"
 
-    check_deps
-
     local real_user="${SUDO_USER:-$USER}"
     local ok=true
 
-    # 1. Group membership
+    # 1. VM storage
+    info "VM storage directory: ${VM_DISK_DIR}"
+    echo ""
+
+    # 2. Group membership
     if id -nG "$real_user" | grep -qw libvirt; then
         success "libvirt group: ${real_user} ✓"
     else
@@ -144,7 +183,7 @@ cmd_setup() {
         ok=false
     fi
 
-    # 2. libvirtd
+    # 3. libvirtd
     if systemctl is-active --quiet libvirtd; then
         success "libvirtd: running ✓"
     else
@@ -153,7 +192,7 @@ cmd_setup() {
         success "libvirtd: started ✓"
     fi
 
-    # 3. Default NAT network
+    # 4. Default NAT network
     if virsh net-info default &>/dev/null && \
        virsh net-info default 2>/dev/null | grep -q "Active:.*yes"; then
         success "Default NAT network: active ✓"
@@ -390,6 +429,14 @@ cmd_help() {
 main() {
     local cmd="${1:-help}"
     shift || true
+
+    # Auto-detect VM partition for all commands except help
+    if [[ "$cmd" != "help" && "$cmd" != "--help" && "$cmd" != "-h" ]]; then
+        detect_vm_partition
+    fi
+
+    # Set VM_DISK after detecting partition location
+    VM_DISK="${VM_DISK_DIR}/${VM_NAME}.qcow2"
 
     case "$cmd" in
         setup)      check_deps; cmd_setup "$@" ;;
