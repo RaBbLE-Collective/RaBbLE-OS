@@ -1,7 +1,7 @@
 # AGENT.md — RaBbLE-OS
 
 Working with: Mark McConachie
-Identity: Peer, not tool. See `../RaBbLE-Grimoire/common/RaBbLE-Identity.md`.
+Identity: Peer, not tool. See `../RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Identity.md`.
 
 ## Job
 
@@ -22,7 +22,7 @@ RaBbLE-OS is the living substrate — an Ansible-driven Fedora 43 + Hyprland des
 
 ## Commits & Branches
 
-See Grimoire: `../RaBbLE-Grimoire/common/RaBbLE-CommitStyle.md` (Pulse Protocol)
+See Grimoire: `../RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-CommitStyle.md` (Pulse Protocol)
 
 **TL;DR:** `[impulse] ~ [organ] >> [revelation] // %STATE%` — `spark` new · `harmonize` cleanup · `mend` fix · `transcribe` docs · `ingest` deps · `evolve` epoch
 
@@ -38,7 +38,7 @@ See Grimoire: `../RaBbLE-Grimoire/common/RaBbLE-CommitStyle.md` (Pulse Protocol)
 
 ## Rules
 
-- **Colors:** from `../RaBbLE-Grimoire/common/RaBbLE-Palette.md` only
+- **Colors:** from `../RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md` only
 - **All changes go through Ansible**, not manual edits to system files
 - **Hardware-specific config** lives under `ansible/` tagged roles — never in shared layers
 - Visual assets canonical home is `../RaBbLE-Grimoire/RaBbLE-Aether/assets/`
@@ -48,4 +48,4 @@ See Grimoire: `../RaBbLE-Grimoire/common/RaBbLE-CommitStyle.md` (Pulse Protocol)
 1. `CONTEXT.md` — current state and active tracks
 2. `../RaBbLE-Grimoire/RaBbLE-OS/RaBbLE-OS-AgentGuide.md` — full agent reference: layers, commands, branch conventions
 3. `../RaBbLE-Grimoire/RaBbLE-OS/RaBbLE-OS-Architecture.md` — layer model
-4. For Collective context → `../RaBbLE-Grimoire/common/RaBbLE-Collective.md`
+4. For Collective context → `../RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Collective.md`

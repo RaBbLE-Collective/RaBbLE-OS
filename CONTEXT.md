@@ -37,7 +37,7 @@ bash RaBbLE-OS-Bootstrap.sh      # run Ansible (assumes deps present)
 3. `grimoire/RaBbLE-OS/RaBbLE-OS-Architecture.md` — layer model
 4. `grimoire/RaBbLE-OS/RaBbLE-OS-Roadmap.md` — episode map, assembly plan, checklist
 5. `grimoire/RaBbLE-OS/RaBbLE-OS-KnownIssues.md` — current blockers
-6. For Collective context → `grimoire/common/RaBbLE-Collective.md`
+6. For Collective context → `grimoire/RaBbLE-Agent/RaBbLE-Collective.md`
 
 ## Epoch Detail
 
