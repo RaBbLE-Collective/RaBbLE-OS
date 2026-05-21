@@ -7,6 +7,7 @@
 # Use this to test RaBbLE-OS bootstraps without touching the daily driver.
 #
 # Usage:
+#   ./RaBbLE-OS-vmctl.sh partition-setup <device> — format and mount a BTRFS partition for VMs
 #   ./RaBbLE-OS-vmctl.sh setup                 — prepare the host (run once)
 #   ./RaBbLE-OS-vmctl.sh cast <iso-path>       — create the VM from a Fedora ISO
 #   ./RaBbLE-OS-vmctl.sh status                — show VM status
@@ -420,6 +421,91 @@ cmd_destroy() {
     success "VM '${VM_NAME}' destroyed."
 }
 
+# ── partition-setup ───────────────────────────────────────────────────────────
+cmd_partition_setup() {
+    local device="${1:-}"
+    [[ -z "$device" ]] && error "Usage: $0 partition-setup <device>\nExample: $0 partition-setup /dev/nvme0n1p6"
+
+    # Normalize device path
+    [[ ! "$device" =~ ^/dev/ ]] && device="/dev/$device"
+    [[ ! -b "$device" ]] && error "Device not found: $device"
+
+    section "BTRFS VM Partition Setup"
+    warn "⚠ WARNING: This will ERASE all data on ${device}"
+    echo ""
+
+    # Show what's on the device
+    echo "Current state of ${device}:"
+    lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS "$device" || true
+    echo ""
+
+    # Get partition info
+    local size uuid label
+    size=$(lsblk -ndo SIZE "$device" 2>/dev/null || echo "unknown")
+    uuid=$(lsblk -ndo UUID "$device" 2>/dev/null || echo "")
+
+    # Prompt for label
+    read -rp "Label for this VM partition (default: RaBbLE-VM): " label
+    label="${label:-RaBbLE-VM}"
+
+    echo ""
+    warn "About to format:"
+    warn "  Device:      ${device}"
+    warn "  Size:        ${size}"
+    warn "  Label:       ${label}"
+    warn "  Filesystem:  BTRFS"
+    echo ""
+    warn "⚠ This is a POINT OF NO RETURN. All data on ${device} will be destroyed."
+    echo ""
+
+    # Triple confirmation
+    read -rp "Type the device name (e.g. nvme0n1p6) to confirm: " confirm_device
+    if [[ "$confirm_device" != "${device##*/}" ]]; then
+        warn "Device confirmation failed."
+        exit 1
+    fi
+
+    read -rp "Type 'yes' to proceed with formatting: " confirm_yes
+    if [[ "$confirm_yes" != "yes" ]]; then
+        info "Format cancelled."
+        exit 0
+    fi
+
+    # Format the partition
+    echo ""
+    info "Formatting ${device} as BTRFS..."
+    if ! sudo mkfs.btrfs -L "$label" -f "$device" 2>&1 | tee /tmp/mkfs.log; then
+        error "Format failed. Check /tmp/mkfs.log for details."
+    fi
+
+    echo ""
+    success "Partition formatted successfully."
+
+    # Try to mount it
+    echo ""
+    info "Attempting to mount at ${VM_PARTITION_MOUNT}..."
+
+    sudo mkdir -p "$VM_PARTITION_MOUNT"
+    if sudo mount -L "$label" "$VM_PARTITION_MOUNT" 2>/dev/null; then
+        success "Mounted at ${VM_PARTITION_MOUNT}"
+
+        # Add to fstab if not already there
+        if ! grep -q "LABEL=${label}" /etc/fstab; then
+            info "Adding to /etc/fstab..."
+            echo "/dev/disk/by-label/${label}  ${VM_PARTITION_MOUNT}  btrfs  defaults,compress=zstd  0 0" | sudo tee -a /etc/fstab > /dev/null
+            success "Added to /etc/fstab"
+        else
+            info "Already in /etc/fstab"
+        fi
+
+        echo ""
+        success "VM partition ready at ${VM_PARTITION_MOUNT}"
+        info "Run '$0 setup' to configure the host, then '$0 cast <iso>' to create a VM."
+    else
+        error "Could not mount ${device}. Try manually: sudo mount -L ${label} ${VM_PARTITION_MOUNT}"
+    fi
+}
+
 # ── help ───────────────────────────────────────────────────────────────────────
 cmd_help() {
     sed -n '/^# Usage:/,/^# Prerequisites:/p' "$0" | sed 's/^# \{0,2\}//'
@@ -430,8 +516,8 @@ main() {
     local cmd="${1:-help}"
     shift || true
 
-    # Auto-detect VM partition for all commands except help
-    if [[ "$cmd" != "help" && "$cmd" != "--help" && "$cmd" != "-h" ]]; then
+    # Auto-detect VM partition for all commands except help and partition-setup
+    if [[ "$cmd" != "help" && "$cmd" != "--help" && "$cmd" != "-h" && "$cmd" != "partition-setup" ]]; then
         detect_vm_partition
     fi
 
@@ -439,6 +525,7 @@ main() {
     VM_DISK="${VM_DISK_DIR}/${VM_NAME}.qcow2"
 
     case "$cmd" in
+        partition-setup) cmd_partition_setup "$@" ;;
         setup)      check_deps; cmd_setup "$@" ;;
         cast)       check_deps; cmd_cast "$@" ;;
         status)     cmd_status "$@" ;;
