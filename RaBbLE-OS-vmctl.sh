@@ -31,7 +31,7 @@ VM_NAME="${RABBLE_VM_NAME:-rabble-os-dev}"
 VM_RAM="${RABBLE_VM_RAM:-4096}"             # MB
 VM_VCPUS="${RABBLE_VM_VCPUS:-4}"
 VM_DISK_SIZE="${RABBLE_VM_DISK_SIZE:-40}"   # GB
-VM_PARTITION_LABEL="vm-storage"             # BTRFS partition label for VM images
+VM_PARTITION_LABEL="RaBbLE-VM"              # BTRFS partition label for VM images (fixed)
 VM_PARTITION_MOUNT="/mnt/vms"               # Where to mount the VM partition
 VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-}"       # Set by detect_vm_partition() if available
 LIBVIRT_URI="qemu:///system"
@@ -440,20 +440,16 @@ cmd_partition_setup() {
     echo ""
 
     # Get partition info
-    local size uuid label
+    local size
     size=$(lsblk -ndo SIZE "$device" 2>/dev/null || echo "unknown")
-    uuid=$(lsblk -ndo UUID "$device" 2>/dev/null || echo "")
-
-    # Prompt for label
-    read -rp "Label for this VM partition (default: RaBbLE-VM): " label
-    label="${label:-RaBbLE-VM}"
 
     echo ""
     warn "About to format:"
     warn "  Device:      ${device}"
     warn "  Size:        ${size}"
-    warn "  Label:       ${label}"
+    warn "  Label:       ${VM_PARTITION_LABEL} (fixed for auto-detection)"
     warn "  Filesystem:  BTRFS"
+    warn "  Mount point: ${VM_PARTITION_MOUNT}"
     echo ""
     warn "⚠ This is a POINT OF NO RETURN. All data on ${device} will be destroyed."
     echo ""
@@ -474,7 +470,7 @@ cmd_partition_setup() {
     # Format the partition
     echo ""
     info "Formatting ${device} as BTRFS..."
-    if ! sudo mkfs.btrfs -L "$label" -f "$device" 2>&1 | tee /tmp/mkfs.log; then
+    if ! sudo mkfs.btrfs -L "$VM_PARTITION_LABEL" -f "$device" 2>&1 | tee /tmp/mkfs.log; then
         error "Format failed. Check /tmp/mkfs.log for details."
     fi
 
@@ -486,13 +482,13 @@ cmd_partition_setup() {
     info "Attempting to mount at ${VM_PARTITION_MOUNT}..."
 
     sudo mkdir -p "$VM_PARTITION_MOUNT"
-    if sudo mount -L "$label" "$VM_PARTITION_MOUNT" 2>/dev/null; then
+    if sudo mount -L "$VM_PARTITION_LABEL" "$VM_PARTITION_MOUNT" 2>/dev/null; then
         success "Mounted at ${VM_PARTITION_MOUNT}"
 
         # Add to fstab if not already there
-        if ! grep -q "LABEL=${label}" /etc/fstab; then
+        if ! grep -q "LABEL=${VM_PARTITION_LABEL}" /etc/fstab; then
             info "Adding to /etc/fstab..."
-            echo "/dev/disk/by-label/${label}  ${VM_PARTITION_MOUNT}  btrfs  defaults,compress=zstd  0 0" | sudo tee -a /etc/fstab > /dev/null
+            echo "/dev/disk/by-label/${VM_PARTITION_LABEL}  ${VM_PARTITION_MOUNT}  btrfs  defaults,compress=zstd  0 0" | sudo tee -a /etc/fstab > /dev/null
             success "Added to /etc/fstab"
         else
             info "Already in /etc/fstab"
@@ -502,7 +498,7 @@ cmd_partition_setup() {
         success "VM partition ready at ${VM_PARTITION_MOUNT}"
         info "Run '$0 setup' to configure the host, then '$0 cast <iso>' to create a VM."
     else
-        error "Could not mount ${device}. Try manually: sudo mount -L ${label} ${VM_PARTITION_MOUNT}"
+        error "Could not mount ${device}. Try manually: sudo mount -L ${VM_PARTITION_LABEL} ${VM_PARTITION_MOUNT}"
     fi
 }
 
