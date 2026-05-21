@@ -36,10 +36,42 @@ See Grimoire: `../RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-CommitStyle.md` (Pulse Pro
 
 **AS:** The substrate. Reliable, declarative, reproducible. No surprises — configuration is the character. When in doubt, ask: "What system state should we observe for behavioral learning?"
 
+## Config Flow — ALWAYS Repo → System
+
+> **Never edit `~/.config/` or any system file directly.**
+> The repo is the source of truth. The system is a deployed copy.
+
+```
+Edit repo:   config/hypr/conf.d/windowrules.conf
+Deploy:      ./RaBbLE-OS-dotctl.sh apply hypr
+Reload:      ./RaBbLE-OS-dotctl.sh reload hypr   (or hyprctl reload)
+```
+
+If you catch yourself editing a live system file, stop. Make the change in `config/` instead, then deploy.
+
+If a live file has drifted (e.g. someone edited it directly), pull it back first:
+```
+./RaBbLE-OS-dotctl.sh diff hypr      # see what drifted
+./RaBbLE-OS-dotctl.sh pull hypr      # capture live → repo, then review + commit
+```
+
+Dotctl commands:
+| Command | What it does |
+|---|---|
+| `apply [bundle\|all]` | Copy repo config → `~/.config/` |
+| `pull BUNDLE` | Copy live `~/.config/` → repo (recovery only) |
+| `status [bundle\|all]` | Show in-sync / drifted / missing per file |
+| `diff [bundle\|all]` | Line diff: repo vs deployed |
+| `reload [bundle\|all]` | Reload the running service |
+| `list` | List all known bundles |
+
+Known bundles: `hypr` · `waybar` · `quickshell` · `kitty` · `fuzzel` · `zsh` · `bash` · `mako` · `wallpapers` · `claude`
+
 ## Rules
 
 - **Colors:** from `../RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md` only
-- **All changes go through Ansible**, not manual edits to system files
+- **All config changes go through `config/` + dotctl**, never direct edits to system files
+- **All system changes go through Ansible**, not manual package installs or system edits
 - **Hardware-specific config** lives under `ansible/` tagged roles — never in shared layers
 - Visual assets canonical home is `../RaBbLE-Grimoire/RaBbLE-Aether/assets/`
 
