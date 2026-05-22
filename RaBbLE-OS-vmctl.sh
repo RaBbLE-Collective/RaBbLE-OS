@@ -75,6 +75,73 @@ check_deps() {
 vm_exists()  { virsh dominfo "$VM_NAME" &>/dev/null; }
 vm_running() { virsh domstate "$VM_NAME" 2>/dev/null | grep -q "running"; }
 
+# ── Wait for VM to be registered and optionally running ──────────────────────
+wait_for_vm() {
+    local timeout="${1:-60}"
+    local require_running="${2:-false}"
+    local elapsed=0
+
+    info "Waiting for VM to be registered..."
+    while (( elapsed < timeout )); do
+        if vm_exists; then
+            success "VM registered: $VM_NAME"
+
+            if [[ "$require_running" == "true" ]]; then
+                info "Waiting for VM to start..."
+                while (( elapsed < timeout )); do
+                    if vm_running; then
+                        success "VM is running"
+                        return 0
+                    fi
+                    sleep 2
+                    (( elapsed += 2 ))
+                done
+                error "VM did not start within ${timeout}s"
+            fi
+            return 0
+        fi
+        sleep 2
+        (( elapsed += 2 ))
+    done
+
+    error "VM not registered within ${timeout}s"
+}
+
+# ── Connect to VM display with retries ───────────────────────────────────────
+connect_to_vm() {
+    local max_attempts=5
+    local attempt=1
+
+    info "Connecting to SPICE display..."
+
+    while (( attempt <= max_attempts )); do
+        if ! vm_exists; then
+            warn "VM not found, retrying... (${attempt}/${max_attempts})"
+            sleep 2
+            (( attempt++ ))
+            continue
+        fi
+
+        local real_user="${SUDO_USER:-$USER}"
+        if WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" \
+           DISPLAY="${DISPLAY:-}" \
+           XDG_RUNTIME_DIR="/run/user/$(id -u "$real_user")" \
+           sudo -u "$real_user" virt-viewer --connect qemu:///system "$VM_NAME" 2>/dev/null &
+        then
+            success "SPICE display opened in background"
+            return 0
+        fi
+
+        warn "Failed to open display, retrying... (${attempt}/${max_attempts})"
+        (( attempt++ ))
+        sleep 2
+    done
+
+    warn "Could not open SPICE display after ${max_attempts} attempts"
+    info "Connect manually: virt-viewer --connect qemu:///system ${VM_NAME}"
+    return 1
+}
+
 # ── Graphics auto-detect ───────────────────────────────────────────────────────
 # virgl 3D needs: non-root, active display session, DRI render node.
 # Falls back to software rendering (llvmpipe) silently otherwise.
@@ -302,13 +369,9 @@ cmd_cast() {
 
     echo ""
     success "VM '${VM_NAME}' created."
-    info "Opening SPICE display..."
-    local real_user="${SUDO_USER:-$USER}"
-    sudo -u "$real_user" \
-        WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" \
-        DISPLAY="${DISPLAY:-}" \
-        XDG_RUNTIME_DIR="/run/user/$(id -u "$real_user")" \
-        virt-viewer --connect qemu:///system "$VM_NAME" &
+    wait_for_vm 120 true
+    connect_to_vm
+
     info "After the Fedora install completes inside the VM:"
     info "  1. Take a clean snapshot: $0 snapshot clean-install"
     info "  2. Run the RaBbLE-OS install: $0 connect → bash RaBbLE-OS-Install.sh"
@@ -464,15 +527,12 @@ cmd_cast_ks() {
 
     echo ""
     success "VM '${VM_NAME}' created with KS automation."
-    info "Opening SPICE display..."
-    local real_user="${SUDO_USER:-$USER}"
-    sudo -u "$real_user" \
-        WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" \
-        DISPLAY="${DISPLAY:-}" \
-        XDG_RUNTIME_DIR="/run/user/$(id -u "$real_user")" \
-        virt-viewer --connect qemu:///system "$VM_NAME" &
+    wait_for_vm 120 true
+    connect_to_vm
+
     info "Installation is automated. HTTP server will stay active during install."
-    info "When install completes and SDDM appears, kill the HTTP server: kill $http_pid"
+    info "HTTP server PID: ${http_pid}"
+    info "When install completes and SDDM appears, kill it: kill ${http_pid}"
 }
 
 # ── status ─────────────────────────────────────────────────────────────────────
