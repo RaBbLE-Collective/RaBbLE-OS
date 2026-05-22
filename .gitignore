@@ -1,9 +1,10 @@
 # Scratchpad
 BaBbLE/
 
-# AI tooling — local only
+# AI tooling — local only, created by sync-symlinks spell
 CLAUDE.md
-Codex.md
+CODEX.md
+GEMINI.md
 .claude/*
 .codex
 
@@ -29,3 +30,4 @@ __pycache__/
 
 #ISOs
 ISO/*
+Codex.md
