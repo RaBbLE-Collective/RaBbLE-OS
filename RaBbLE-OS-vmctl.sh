@@ -10,7 +10,8 @@
 #   ./RaBbLE-OS-vmctl.sh partition-setup <device> — format and mount a BTRFS partition for VMs
 #   ./RaBbLE-OS-vmctl.sh setup                 — prepare the host (run once)
 #   ./RaBbLE-OS-vmctl.sh cast <iso-path>       — create the VM from a Fedora ISO (interactive install)
-#   ./RaBbLE-OS-vmctl.sh cast-ks <iso-path>    — create the VM with automated KS install
+#   ./RaBbLE-OS-vmctl.sh cast-ks <iso-path>    — create the VM with automated KS install (qcow2 default)
+#   ./RaBbLE-OS-vmctl.sh cast-ks --raw-disk <device> <iso-path> — cast-ks using raw partition device
 #   ./RaBbLE-OS-vmctl.sh status                — show VM status
 #   ./RaBbLE-OS-vmctl.sh start                 — start the VM
 #   ./RaBbLE-OS-vmctl.sh stop                  — graceful shutdown
@@ -52,28 +53,11 @@ warn()    { echo -e "${YELLOW}[vmctl]${RESET}  $*" >&2; }
 error()   { echo -e "${RED}[vmctl]${RESET}  $*" >&2; exit 1; }
 section() { echo -e "\n${BOLD}${CYAN}── $* ──${RESET}"; }
 
-# ── VM partition detection ────────────────────────────────────────────────────
-detect_vm_partition() {
-    local device
-
-    # Look for BTRFS partition with RaBbLE-VM label
-    device=$(lsblk -nlo NAME,LABEL | grep "$VM_PARTITION_LABEL" | awk '{print $1}' | head -1)
-
-    if [[ -z "$device" ]] || [[ -n "$FORCE_QCOW2" ]]; then
-        # No VM partition found or forced to qcow2; use default directory for qcow2
-        VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-/var/lib/libvirt/images}"
-        VM_USE_PARTITION=false
-        [[ -n "$FORCE_QCOW2" ]] && info "Forcing qcow2 mode (RABBLE_VM_FORCE_QCOW2=1)"
-        return
-    fi
-
-    device="/dev/$device"
-    VM_PARTITION_DEVICE="$device"
-    VM_USE_PARTITION=true
-
-    success "Detected VM partition: ${device} (RaBbLE-VM)"
-    info "Will use partition device directly for VM boot/install"
-    info "To use qcow2 instead, run: RABBLE_VM_FORCE_QCOW2=1 $0 cast-ks ..."
+# ── VM disk mode initialization ───────────────────────────────────────────────
+init_vm_disk_mode() {
+    # Default to qcow2 unless --raw-disk is specified
+    VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-/var/lib/libvirt/images}"
+    VM_USE_PARTITION=false
 }
 
 # ── Dependency check ───────────────────────────────────────────────────────────
@@ -210,8 +194,34 @@ cmd_setup() {
 
 # ── cast ── create VM from ISO ─────────────────────────────────────────────────
 cmd_cast() {
-    local iso="${1:-}"
-    [[ -z "$iso" ]] && error "Usage: $0 cast <path-to-fedora-sway-spin.iso>"
+    local iso=""
+    local raw_disk=""
+
+    # Parse options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --raw-disk)
+                raw_disk="$2"
+                shift 2
+                [[ ! -b "$raw_disk" ]] && error "Invalid block device: ${raw_disk}"
+                VM_PARTITION_DEVICE="$raw_disk"
+                VM_USE_PARTITION=true
+                ;;
+            --help)
+                echo "Usage: $0 cast [--raw-disk <device>] <path-to-fedora-netinst.iso>"
+                echo ""
+                echo "Options:"
+                echo "  --raw-disk <device>  Use raw partition device instead of qcow2"
+                exit 0
+                ;;
+            *)
+                iso="$1"
+                shift
+                ;;
+        esac
+    done
+
+    [[ -z "$iso" ]] && error "Usage: $0 cast [--raw-disk <device>] <path-to-fedora-netinst.iso>"
     [[ ! -f "$iso" ]] && error "ISO not found: $iso"
 
     if vm_exists; then
@@ -246,7 +256,25 @@ cmd_cast() {
 
     local disk_arg
     if [[ "$VM_USE_PARTITION" == "true" ]]; then
-        info "Disk:     ${VM_PARTITION_DEVICE} (partition)"
+        section "Raw disk safeguards: ${VM_PARTITION_DEVICE}"
+
+        # Check if partition is mounted
+        local mount_point
+        mount_point=$(findmnt -n -o TARGET "$VM_PARTITION_DEVICE" 2>/dev/null || true)
+        if [[ -n "$mount_point" ]]; then
+            warn "Device is currently mounted at: ${mount_point}"
+            read -rp "  Unmount ${mount_point} before proceeding? [y/N]: " confirm
+            [[ "${confirm,,}" != "y" ]] && { info "Cancelled."; exit 0; }
+
+            info "Unmounting ${mount_point}..."
+            if sudo umount "$mount_point"; then
+                success "Unmounted ${mount_point}"
+            else
+                error "Failed to unmount ${mount_point}"
+            fi
+        fi
+
+        info "Disk:     ${VM_PARTITION_DEVICE} (raw partition)"
         disk_arg="path=${VM_PARTITION_DEVICE},bus=virtio"
     else
         info "Disk:     ${VM_DISK_SIZE} GB → ${VM_DISK} (qcow2)"
@@ -288,8 +316,38 @@ cmd_cast() {
 
 # ── cast-ks ── automated kickstart install ────────────────────────────────────────
 cmd_cast_ks() {
-    local iso="${1:-}"
-    [[ -z "$iso" ]] && error "Usage: $0 cast-ks <path-to-fedora-netinst.iso>"
+    local iso=""
+    local raw_disk=""
+
+    # Parse options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --raw-disk)
+                raw_disk="$2"
+                shift 2
+                [[ ! -b "$raw_disk" ]] && error "Invalid block device: ${raw_disk}"
+                VM_PARTITION_DEVICE="$raw_disk"
+                VM_USE_PARTITION=true
+                ;;
+            --help)
+                echo "Usage: $0 cast-ks [--raw-disk <device>] <path-to-fedora-netinst.iso>"
+                echo ""
+                echo "Options:"
+                echo "  --raw-disk <device>  Use raw partition device instead of qcow2 (e.g., /dev/nvme0n1p6)"
+                echo ""
+                echo "Examples:"
+                echo "  $0 cast-ks ISO/Fedora-Everything-netinst.iso"
+                echo "  $0 cast-ks --raw-disk /dev/nvme0n1p6 ISO/Fedora-Everything-netinst.iso"
+                exit 0
+                ;;
+            *)
+                iso="$1"
+                shift
+                ;;
+        esac
+    done
+
+    [[ -z "$iso" ]] && error "Usage: $0 cast-ks [--raw-disk <device>] <path-to-fedora-netinst.iso>"
     [[ ! -f "$iso" ]] && error "ISO not found: $iso"
     [[ ! -f "RaBbLE-OS.ks" ]] && error "RaBbLE-OS.ks not found in current directory"
 
@@ -643,9 +701,9 @@ main() {
     local cmd="${1:-help}"
     shift || true
 
-    # Auto-detect VM partition for all commands except help and partition-setup
+    # Initialize disk mode (default: qcow2)
     if [[ "$cmd" != "help" && "$cmd" != "--help" && "$cmd" != "-h" && "$cmd" != "partition-setup" ]]; then
-        detect_vm_partition
+        init_vm_disk_mode
     fi
 
     # Set VM_DISK after detecting partition location
