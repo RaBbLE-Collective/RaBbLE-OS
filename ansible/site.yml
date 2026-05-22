@@ -139,6 +139,19 @@
     - role: snapper
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Fonts — Typography stack
+# Must land after boot and before any desktop component renders.
+# Waybar and Kitty glyph rendering depend on JetBrains Mono + Font Awesome.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Fonts — Typography stack"
+  hosts: all
+  become: true
+  tags: [desktop, fonts]
+  roles:
+    - role: desktop/fonts
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Layer 3 — Desktop
 # Hyprland compositor, shell stack, terminal, dotfiles.
 # Runs as user (become: false) — dotfiles live in $HOME.

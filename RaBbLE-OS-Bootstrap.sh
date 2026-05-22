@@ -29,6 +29,28 @@ INVENTORY="${ANSIBLE_DIR}/inventory/hosts.yml"
 LOG_DIR="${SCRIPT_DIR}/logs"
 LOG_FILE="${LOG_DIR}/bootstrap-$(date +%Y%m%d-%H%M%S).log"
 RABBLE_OS_VERSION="0.0.1"
+UNATTENDED=false
+
+# ── Argument parsing ───────────────────────────────────────────────────────────
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --unattended)
+                UNATTENDED=true
+                shift
+                ;;
+            --inventory)
+                [[ -n "${2:-}" ]] || error "--inventory requires a path argument."
+                INVENTORY="$2"
+                shift 2
+                ;;
+            *)
+                warn "Unknown argument: $1 (ignored)"
+                shift
+                ;;
+        esac
+    done
+}
 
 # ── Pre-flight checks ──────────────────────────────────────────────────────────
 preflight() {
@@ -43,6 +65,16 @@ preflight() {
     [[ -f "$INVENTORY" ]]  || error "Inventory not found: ${INVENTORY}"
 
     mkdir -p "$LOG_DIR"
+
+    if [[ "$UNATTENDED" == "true" ]]; then
+        sudo -n true 2>/dev/null || error "Unattended mode requires passwordless sudo. Check /etc/sudoers.d/."
+        info "Mode     : unattended (non-interactive)"
+    else
+        sudo -v || error "sudo access required. Add your user to the sudoers file."
+        ( while true; do sudo -v; sleep 50; done ) &
+        SUDO_KEEPALIVE_PID=$!
+        trap 'kill "$SUDO_KEEPALIVE_PID" 2>/dev/null' EXIT
+    fi
 
     success "All pre-flight checks passed."
     info "Ansible : $(ansible --version | head -1)"
@@ -73,10 +105,14 @@ run_playbook() {
     local extra_vars="rabble_os_version=${RABBLE_OS_VERSION} rabble_user=${USER} rabble_home=${HOME}"
 
     # Run ansible, tee to log and terminal
+    local become_flag="--ask-become-pass"
+    [[ "$UNATTENDED" == "true" ]] && become_flag=""
+
+    # shellcheck disable=SC2086
     ansible-playbook \
         -i "$INVENTORY" \
         "$PLAYBOOK" \
-        --ask-become-pass \
+        $become_flag \
         --tags "$tags" \
         -e "$extra_vars" \
         -v \
@@ -136,10 +172,12 @@ EOF
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 main() {
+    parse_args "$@"
+
     clear
     echo -e "${BOLD}${CYAN}"
     echo "  RaBbLE-OS Bootstrap — Transmogrification Engine"
-    echo "  Fedora Sway ──→ RaBbLE-OS v${RABBLE_OS_VERSION}"
+    echo "  Fedora ──→ RaBbLE-OS v${RABBLE_OS_VERSION}"
     echo -e "${RESET}"
 
     preflight

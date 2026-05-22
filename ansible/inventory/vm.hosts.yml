@@ -1,0 +1,24 @@
+# ansible/inventory/vm.hosts.yml
+# =============================================================================
+# RaBbLE-OS — Generic VM / generic_x64 inventory
+# Use this instead of hosts.yml when running on a VM or generic x64 machine
+# that is NOT the ASUS ProArt P16.
+#
+# Usage:
+#   ./RaBbLE-OS-Bootstrap.sh --inventory ansible/inventory/vm.hosts.yml
+#   RABBLE_TAGS=base,boot ./RaBbLE-OS-Bootstrap.sh --inventory ansible/inventory/vm.hosts.yml
+# =============================================================================
+all:
+  children:
+    x64:
+      children:
+        generic_x64:
+          hosts:
+            localhost:
+              ansible_connection: local
+              ansible_user: "{{ lookup('env', 'USER') }}"
+              ansible_python_interpreter: /usr/bin/python3
+        asus_proart_p16:
+          hosts: {}
+  vars:
+    rabble_repo_root: "{{ playbook_dir | dirname }}"

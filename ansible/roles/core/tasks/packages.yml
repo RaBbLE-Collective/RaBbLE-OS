@@ -1,7 +1,40 @@
 ---
-# core/tasks/packages.yml — STUB
-# ingest ~ core >> no packages yet // %DORMANT%
-- name: core packages — stub
-  ansible.builtin.debug:
-    msg: "spark ~ core >> packages stub, no-op // %DORMANT%"
+# core/tasks/packages.yml
+- name: Install core system packages
+  ansible.builtin.dnf:
+    name:
+      # ks-bootstrap (idempotent if already installed via KS)
+      - git
+      - ansible
+      - python3
+      - curl
+      # network
+      - NetworkManager
+      - NetworkManager-wifi
+      # utils
+      - wget
+      - rsync
+      - unzip
+      - p7zip
+      - jq
+      # security
+      - polkit
+      # firmware
+      - fwupd
+      # xdg
+      - xdg-user-dirs
+      - xdg-utils
+      # editor
+      - neovim
+      # monitoring
+      - btop
+      # identity
+      - fastfetch
+      # shell
+      - bash-completion
+      - zsh
+      - zsh-syntax-highlighting
+      - zsh-autosuggestions
+    state: present
+  become: true
   tags: [base, packages]

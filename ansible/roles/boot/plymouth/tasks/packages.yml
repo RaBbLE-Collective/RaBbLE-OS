@@ -1,6 +1,10 @@
 ---
-# boot/plymouth/tasks/packages.yml — STUB
-- name: plymouth packages — stub
-  ansible.builtin.debug:
-    msg: "spark ~ boot/plymouth >> packages stub, no-op // %DORMANT%"
+# boot/plymouth/tasks/packages.yml
+- name: Install Plymouth boot animation packages
+  ansible.builtin.dnf:
+    name:
+      - plymouth
+      - plymouth-plugin-script
+    state: present
+  become: true
   tags: [boot, plymouth, packages]

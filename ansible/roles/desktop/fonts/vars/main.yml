@@ -1,0 +1,8 @@
+---
+# desktop/fonts/vars/main.yml
+fonts_packages:
+  - jetbrains-mono-fonts-all
+  - fontawesome-6-free-fonts
+  - fontawesome-6-brands-fonts
+  - google-noto-sans-fonts
+  - google-noto-emoji-fonts

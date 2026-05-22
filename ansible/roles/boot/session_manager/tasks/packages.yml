@@ -1,6 +1,25 @@
 ---
-# boot/session_manager/tasks/packages.yml — STUB
-- name: sddm packages — stub
-  ansible.builtin.debug:
-    msg: "spark ~ boot/session_manager >> packages stub, no-op // %DORMANT%"
+# boot/session_manager/tasks/packages.yml
+- name: Install SDDM display manager
+  ansible.builtin.dnf:
+    name: sddm
+    state: present
+  become: true
+  tags: [boot, sddm, packages]
+
+- name: Enable SDDM service
+  ansible.builtin.systemd:
+    name: sddm
+    enabled: true
+    daemon_reload: true
+  become: true
+  tags: [boot, sddm, packages]
+
+- name: Set graphical.target as systemd default
+  ansible.builtin.file:
+    src: /usr/lib/systemd/system/graphical.target
+    dest: /etc/systemd/system/default.target
+    state: link
+    force: true
+  become: true
   tags: [boot, sddm, packages]
