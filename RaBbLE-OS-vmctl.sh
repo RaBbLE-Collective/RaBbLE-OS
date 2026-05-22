@@ -9,7 +9,8 @@
 # Usage:
 #   ./RaBbLE-OS-vmctl.sh partition-setup <device> — format and mount a BTRFS partition for VMs
 #   ./RaBbLE-OS-vmctl.sh setup                 — prepare the host (run once)
-#   ./RaBbLE-OS-vmctl.sh cast <iso-path>       — create the VM from a Fedora ISO
+#   ./RaBbLE-OS-vmctl.sh cast <iso-path>       — create the VM from a Fedora ISO (interactive install)
+#   ./RaBbLE-OS-vmctl.sh cast-ks <iso-path>    — create the VM with automated KS install
 #   ./RaBbLE-OS-vmctl.sh status                — show VM status
 #   ./RaBbLE-OS-vmctl.sh start                 — start the VM
 #   ./RaBbLE-OS-vmctl.sh stop                  — graceful shutdown
@@ -21,8 +22,9 @@
 #   ./RaBbLE-OS-vmctl.sh help                  — show this message
 #
 # Prerequisites:
-#   Run the Ansible virtualization role first:
-#   ansible-playbook -i ansible/inventory/hosts.yml ansible/site.yml -K --tags virtualization
+#   1. Recommended: 32GB BTRFS partition for VMs (e.g., partition-setup /dev/sdX)
+#   2. Run the Ansible virtualization role first:
+#      ansible-playbook -i ansible/inventory/hosts.yml ansible/site.yml -K --tags virtualization
 # ==============================================================================
 set -euo pipefail
 
@@ -30,10 +32,13 @@ set -euo pipefail
 VM_NAME="${RABBLE_VM_NAME:-rabble-os-dev}"
 VM_RAM="${RABBLE_VM_RAM:-4096}"             # MB
 VM_VCPUS="${RABBLE_VM_VCPUS:-4}"
-VM_DISK_SIZE="${RABBLE_VM_DISK_SIZE:-40}"   # GB
-VM_PARTITION_LABEL="RaBbLE-VM"              # BTRFS partition label for VM images (fixed)
-VM_PARTITION_MOUNT="/mnt/vms"               # Where to mount the VM partition
+VM_DISK_SIZE="${RABBLE_VM_DISK_SIZE:-20}"   # GB (for qcow2 mode only)
+VM_PARTITION_LABEL="RaBbLE-VM"              # BTRFS partition label for VM direct boot
+VM_PARTITION_MOUNT="/mnt/vms"               # Where to mount the VM partition (qcow2 mode)
 VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-}"       # Set by detect_vm_partition() if available
+VM_PARTITION_DEVICE=""                      # Set by detect_vm_partition() if partition exists
+VM_USE_PARTITION=false                      # Use partition directly (true) or qcow2 (false)
+FORCE_QCOW2="${RABBLE_VM_FORCE_QCOW2:-}"    # Set to 1 to force qcow2 even if partition exists
 LIBVIRT_URI="qemu:///system"
 export LIBVIRT_DEFAULT_URI="$LIBVIRT_URI"
 
@@ -47,40 +52,28 @@ warn()    { echo -e "${YELLOW}[vmctl]${RESET}  $*" >&2; }
 error()   { echo -e "${RED}[vmctl]${RESET}  $*" >&2; exit 1; }
 section() { echo -e "\n${BOLD}${CYAN}── $* ──${RESET}"; }
 
-# ── VM partition detection and mounting ───────────────────────────────────────
+# ── VM partition detection ────────────────────────────────────────────────────
 detect_vm_partition() {
-    local device partition_uuid
+    local device
 
-    # Look for BTRFS partition with vm-storage label
+    # Look for BTRFS partition with RaBbLE-VM label
     device=$(lsblk -nlo NAME,LABEL | grep "$VM_PARTITION_LABEL" | awk '{print $1}' | head -1)
 
-    if [[ -z "$device" ]]; then
-        # No VM partition found; use default directory
+    if [[ -z "$device" ]] || [[ -n "$FORCE_QCOW2" ]]; then
+        # No VM partition found or forced to qcow2; use default directory for qcow2
         VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-/var/lib/libvirt/images}"
+        VM_USE_PARTITION=false
+        [[ -n "$FORCE_QCOW2" ]] && info "Forcing qcow2 mode (RABBLE_VM_FORCE_QCOW2=1)"
         return
     fi
 
     device="/dev/$device"
+    VM_PARTITION_DEVICE="$device"
+    VM_USE_PARTITION=true
 
-    # Check if partition is already mounted
-    if mountpoint -q "$VM_PARTITION_MOUNT" 2>/dev/null; then
-        success "VM partition already mounted at ${VM_PARTITION_MOUNT}"
-        VM_DISK_DIR="$VM_PARTITION_MOUNT"
-        return
-    fi
-
-    # Try to mount it
-    info "Detected VM partition: ${device}"
-    info "Mounting ${device} to ${VM_PARTITION_MOUNT}..."
-
-    sudo mkdir -p "$VM_PARTITION_MOUNT"
-    if sudo mount -L "$VM_PARTITION_LABEL" "$VM_PARTITION_MOUNT" 2>/dev/null; then
-        success "VM partition mounted at ${VM_PARTITION_MOUNT}"
-        VM_DISK_DIR="$VM_PARTITION_MOUNT"
-    else
-        warn "Could not mount VM partition. Using default: /var/lib/libvirt/images"
-        VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-/var/lib/libvirt/images}"
-    fi
+    success "Detected VM partition: ${device} (RaBbLE-VM)"
+    info "Will use partition device directly for VM boot/install"
+    info "To use qcow2 instead, run: RABBLE_VM_FORCE_QCOW2=1 $0 cast-ks ..."
 }
 
 # ── Dependency check ───────────────────────────────────────────────────────────
@@ -247,13 +240,20 @@ cmd_cast() {
     section "Creating RaBbLE-OS dev VM: ${VM_NAME}"
     info "RAM:      ${VM_RAM} MB"
     info "vCPUs:    ${VM_VCPUS}"
-    info "Disk:     ${VM_DISK_SIZE} GB → ${VM_DISK}"
     info "ISO:      ${iso}"
     info "Variant:  ${os_variant}"
     info "Graphics: ${graphics} / video: ${video}"
-    echo ""
 
-    mkdir -p "$VM_DISK_DIR"
+    local disk_arg
+    if [[ "$VM_USE_PARTITION" == "true" ]]; then
+        info "Disk:     ${VM_PARTITION_DEVICE} (partition)"
+        disk_arg="path=${VM_PARTITION_DEVICE},bus=virtio"
+    else
+        info "Disk:     ${VM_DISK_SIZE} GB → ${VM_DISK} (qcow2)"
+        mkdir -p "$VM_DISK_DIR"
+        disk_arg="path=${VM_DISK},size=${VM_DISK_SIZE},format=qcow2,bus=virtio"
+    fi
+    echo ""
 
     virt-install \
         --name         "$VM_NAME" \
@@ -261,7 +261,7 @@ cmd_cast() {
         --vcpus        "$VM_VCPUS" \
         --cpu          host-passthrough \
         --os-variant   "$os_variant" \
-        --disk         "path=${VM_DISK},size=${VM_DISK_SIZE},format=qcow2,bus=virtio" \
+        --disk         "$disk_arg" \
         --cdrom        "$iso" \
         --boot         uefi \
         --network      "network=default,model=virtio" \
@@ -284,6 +284,137 @@ cmd_cast() {
     info "After the Fedora install completes inside the VM:"
     info "  1. Take a clean snapshot: $0 snapshot clean-install"
     info "  2. Run the RaBbLE-OS install: $0 connect → bash RaBbLE-OS-Install.sh"
+}
+
+# ── cast-ks ── automated kickstart install ────────────────────────────────────────
+cmd_cast_ks() {
+    local iso="${1:-}"
+    [[ -z "$iso" ]] && error "Usage: $0 cast-ks <path-to-fedora-netinst.iso>"
+    [[ ! -f "$iso" ]] && error "ISO not found: $iso"
+    [[ ! -f "RaBbLE-OS.ks" ]] && error "RaBbLE-OS.ks not found in current directory"
+
+    if vm_exists; then
+        warn "VM '${VM_NAME}' already exists — cleaning up before recast..."
+        vm_running && virsh destroy "$VM_NAME" 2>/dev/null || true
+        virsh undefine "$VM_NAME" --snapshots-metadata --nvram 2>/dev/null || true
+        [[ -f "$VM_DISK" ]] && rm -f "$VM_DISK"
+        success "Cleaned up previous VM."
+    fi
+
+    local os_variant
+    os_variant="$(osinfo-query os 2>/dev/null \
+        | grep -oP 'fedora\d+' \
+        | grep -v 'fedora4\b' \
+        | sort -t'a' -k2 -V \
+        | tail -1)" || os_variant="fedora43"
+    [[ -z "$os_variant" ]] && os_variant="fedora43"
+
+    local graphics video
+    graphics="$(detect_graphics)"
+    video="$(detect_video "$graphics")"
+
+    ensure_iso_accessible "$iso"
+
+    section "Automated KS Install: ${VM_NAME}"
+    info "ISO:      ${iso}"
+    info "KS file:  RaBbLE-OS.ks"
+    info "Variant:  ${os_variant}"
+    info "Graphics: ${graphics} / video: ${video}"
+    echo ""
+
+    # Get host IP that the VM can reach
+    local host_ip
+    host_ip=$(ip route get 8.8.8.8 | grep -oP '(?<=src )[\d.]+' | head -1)
+    if [[ -z "$host_ip" ]]; then
+        # Fallback: use the virbr0 bridge host IP
+        host_ip="192.168.122.1"
+        info "Using bridge host IP: ${host_ip}"
+    else
+        info "Using host IP: ${host_ip}"
+    fi
+
+    # Start HTTP server in background to serve KS file
+    info "Starting HTTP server on port 8888 to serve KS file..."
+    local ks_dir
+    ks_dir="$(pwd)"
+    python3 -m http.server 8888 --directory "$ks_dir" > /tmp/rabble-ks-http.log 2>&1 &
+    local http_pid=$!
+    info "HTTP server PID: ${http_pid}"
+    sleep 1
+
+    # Prepare disk configuration
+    local disk_arg
+    if [[ "$VM_USE_PARTITION" == "true" ]]; then
+        section "Using partition: ${VM_PARTITION_DEVICE}"
+
+        # Check if partition is mounted
+        local mount_point
+        mount_point=$(findmnt -n -o TARGET "$VM_PARTITION_DEVICE" 2>/dev/null || true)
+        if [[ -n "$mount_point" ]]; then
+            warn "Partition is currently mounted at: ${mount_point}"
+            read -rp "  Unmount ${mount_point} before formatting? [y/N]: " confirm
+            [[ "${confirm,,}" != "y" ]] && { info "Cancelled."; kill $http_pid 2>/dev/null || true; exit 0; }
+
+            info "Unmounting ${mount_point}..."
+            if sudo umount "$mount_point"; then
+                success "Unmounted ${mount_point}"
+            else
+                error "Failed to unmount ${mount_point}"
+            fi
+        fi
+
+        warn "This will format ${VM_PARTITION_DEVICE} and overwrite all data on it."
+        echo ""
+        read -rp "  Format and use ${VM_PARTITION_DEVICE} for this VM? [y/N]: " confirm
+        [[ "${confirm,,}" != "y" ]] && { info "Cancelled."; kill $http_pid 2>/dev/null || true; exit 0; }
+
+        info "Formatting partition as ext4..."
+        if sudo mkfs.ext4 -F "$VM_PARTITION_DEVICE"; then
+            success "Partition formatted successfully"
+        else
+            error "Failed to format ${VM_PARTITION_DEVICE}"
+        fi
+        disk_arg="path=${VM_PARTITION_DEVICE},bus=virtio"
+    else
+        mkdir -p "$VM_DISK_DIR"
+        disk_arg="path=${VM_DISK},size=${VM_DISK_SIZE},format=qcow2,bus=virtio"
+        section "Using qcow2: ${VM_DISK}"
+    fi
+
+    section "Creating VM with virt-install..."
+    virt-install \
+        --name         "$VM_NAME" \
+        --ram          "$VM_RAM" \
+        --vcpus        "$VM_VCPUS" \
+        --cpu          host-passthrough \
+        --os-variant   "$os_variant" \
+        --disk         "$disk_arg" \
+        --location     "$iso" \
+        --boot         uefi \
+        --network      "network=default,model=virtio" \
+        --graphics     "$graphics" \
+        --video        "$video" \
+        --channel      "spicevmc" \
+        --memballoon   virtio \
+        --noautoconsole \
+        --extra-args   "inst.ks=http://${host_ip}:8888/RaBbLE-OS.ks console=tty0 console=ttyS0,115200n8" \
+        --wait         -1 || {
+        warn "virt-install failed. Killing HTTP server..."
+        kill $http_pid 2>/dev/null || true
+        return 1
+    }
+
+    echo ""
+    success "VM '${VM_NAME}' created with KS automation."
+    info "Opening SPICE display..."
+    local real_user="${SUDO_USER:-$USER}"
+    sudo -u "$real_user" \
+        WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" \
+        DISPLAY="${DISPLAY:-}" \
+        XDG_RUNTIME_DIR="/run/user/$(id -u "$real_user")" \
+        virt-viewer --connect qemu:///system "$VM_NAME" &
+    info "Installation is automated. HTTP server will stay active during install."
+    info "When install completes and SDDM appears, kill the HTTP server: kill $http_pid"
 }
 
 # ── status ─────────────────────────────────────────────────────────────────────
@@ -524,6 +655,7 @@ main() {
         partition-setup) cmd_partition_setup "$@" ;;
         setup)      check_deps; cmd_setup "$@" ;;
         cast)       check_deps; cmd_cast "$@" ;;
+        cast-ks)    check_deps; cmd_cast_ks "$@" ;;
         status)     cmd_status "$@" ;;
         start)      cmd_start "$@" ;;
         stop)       cmd_stop "$@" ;;
