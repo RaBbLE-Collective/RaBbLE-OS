@@ -443,16 +443,9 @@ cmd_cast_ks() {
     info "Graphics: ${graphics} / video: ${video}"
     echo ""
 
-    # Get host IP that the VM can reach
-    local host_ip
-    host_ip=$(ip route get 8.8.8.8 | grep -oP '(?<=src )[\d.]+' | head -1)
-    if [[ -z "$host_ip" ]]; then
-        # Fallback: use the virbr0 bridge host IP
-        host_ip="192.168.122.1"
-        info "Using bridge host IP: ${host_ip}"
-    else
-        info "Using host IP: ${host_ip}"
-    fi
+    # Use libvirt bridge host IP (always reachable from VM on NAT network)
+    local host_ip="192.168.122.1"
+    info "Using libvirt bridge host IP: ${host_ip}"
 
     # Start HTTP server in background to serve KS file
     info "Starting HTTP server on port 8888 to serve KS file..."
