@@ -102,6 +102,8 @@ chmod 440 /etc/sudoers.d/10-rabble-setup
 
 RABBLE_ROOT="/home/rabble/RaBbLE"
 GH_BASE="https://github.com/markm1206"
+COLLECTIVE_BRANCH="dev"
+GRIMOIRE_BRANCH="dev"
 OS_BRANCH="RaBbLE-OS-New-Horizons"
 
 clone_as_rabble() {
@@ -114,13 +116,13 @@ clone_as_rabble() {
 }
 
 # Step 1: Collective (the root working directory)
-clone_as_rabble "${GH_BASE}/RaBbLE-Collective.git" "$RABBLE_ROOT" || {
+clone_as_rabble "${GH_BASE}/RaBbLE-Collective.git" "$RABBLE_ROOT" "$COLLECTIVE_BRANCH" || {
     echo "[RaBbLE-OS KS] WARNING: Collective clone failed"
     exit 0
 }
 
 # Step 2: Grimoire (knowledge layer — agent docs, palette, registry)
-clone_as_rabble "${GH_BASE}/RaBbLE-Grimoire.git" "${RABBLE_ROOT}/RaBbLE-Grimoire" || {
+clone_as_rabble "${GH_BASE}/RaBbLE-Grimoire.git" "${RABBLE_ROOT}/RaBbLE-Grimoire" "$GRIMOIRE_BRANCH" || {
     echo "[RaBbLE-OS KS] WARNING: Grimoire clone failed"
     exit 0
 }

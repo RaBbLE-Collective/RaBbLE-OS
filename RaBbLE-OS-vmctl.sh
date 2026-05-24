@@ -98,9 +98,14 @@ reject_raw_disk_if_vm_partition() {
 
 # ── VM disk mode initialization ───────────────────────────────────────────────
 init_vm_disk_mode() {
-    # Default to qcow2 unless --raw-disk is specified
-    VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-/var/lib/libvirt/images}"
     VM_USE_PARTITION=false
+    if [[ -n "${RABBLE_VM_DISK_DIR:-}" ]]; then
+        VM_DISK_DIR="$RABBLE_VM_DISK_DIR"
+    elif mountpoint -q "$VM_PARTITION_MOUNT" 2>/dev/null; then
+        VM_DISK_DIR="$VM_PARTITION_MOUNT"
+    else
+        VM_DISK_DIR="/var/lib/libvirt/images"
+    fi
 }
 
 # ── Dependency check ───────────────────────────────────────────────────────────
@@ -157,6 +162,14 @@ connect_to_vm() {
 
     info "Connecting to SPICE display..."
 
+    # Resolve the real user and their display environment
+    local real_user="${SUDO_USER:-$USER}"
+    local real_uid
+    real_uid=$(id -u "$real_user" 2>/dev/null || id -u)
+    local wayland="${WAYLAND_DISPLAY:-}"
+    local display="${DISPLAY:-}"
+    local xdg_runtime="/run/user/${real_uid}"
+
     while (( attempt <= max_attempts )); do
         if ! vm_exists; then
             warn "VM not found, retrying... (${attempt}/${max_attempts})"
@@ -165,24 +178,28 @@ connect_to_vm() {
             continue
         fi
 
-        if id -nG 2>/dev/null | grep -qw libvirt; then
-            if virt-viewer --connect qemu:///system "$VM_NAME" 2>/dev/null & then
-                success "SPICE display opened in background"
-                return 0
-            fi
+        local viewer_pid
+        if [[ $EUID -eq 0 && -n "$SUDO_USER" ]]; then
+            # Running as sudo — launch virt-viewer as the real user with their display
+            WAYLAND_DISPLAY="$wayland" \
+            DISPLAY="$display" \
+            XDG_RUNTIME_DIR="$xdg_runtime" \
+            sudo -u "$real_user" \
+                virt-viewer --connect qemu:///system "$VM_NAME" &>/dev/null &
+            viewer_pid=$!
         else
-            local real_user="${SUDO_USER:-$USER}"
-            if WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" \
-               DISPLAY="${DISPLAY:-}" \
-               XDG_RUNTIME_DIR="/run/user/$(id -u "$real_user")" \
-               sudo -u "$real_user" virt-viewer --connect qemu:///system "$VM_NAME" 2>/dev/null &
-            then
-                success "SPICE display opened in background"
-                return 0
-            fi
+            virt-viewer --connect qemu:///system "$VM_NAME" &>/dev/null &
+            viewer_pid=$!
         fi
 
-        warn "Failed to open display, retrying... (${attempt}/${max_attempts})"
+        # Give virt-viewer a moment to start or fail
+        sleep 2
+        if kill -0 "$viewer_pid" 2>/dev/null; then
+            success "SPICE display opened (pid ${viewer_pid})"
+            return 0
+        fi
+
+        warn "virt-viewer exited immediately, retrying... (${attempt}/${max_attempts})"
         (( attempt++ ))
         sleep 2
     done
@@ -194,6 +211,7 @@ connect_to_vm() {
         info "SPICE URI:      ${spice_uri}"
         info "Try:            virt-viewer '${spice_uri}'"
     fi
+    info "Or run:         $0 connect"
     info "Serial console: virsh console ${VM_NAME}"
     return 1
 }
