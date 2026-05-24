@@ -521,8 +521,15 @@ cmd_cast_ks() {
     info "Graphics: ${graphics} / video: ${video}"
     echo ""
 
-    local ks_path
-    ks_path="$(realpath RaBbLE-OS.ks)"
+    # Generate password hash and inject into a temp copy of the KS
+    local ks_password="${RABBLE_PASSWORD:-rabble}"
+    local ks_hash
+    ks_hash="$(openssl passwd -6 "$ks_password")"
+
+    local ks_tmp="/tmp/RaBbLE-OS.ks"
+    sed "s|__RABBLE_PASSWORD_HASH__|${ks_hash}|g" RaBbLE-OS.ks > "$ks_tmp"
+    local ks_path="$ks_tmp"
+    trap 'rm -f "$ks_tmp"' EXIT
 
     # Prepare disk configuration
     local disk_arg

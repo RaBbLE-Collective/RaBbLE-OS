@@ -30,10 +30,9 @@
 #   show its graphical partitioner interactively.
 #
 # PASSWORD:
-#   Default password: rabble (stored as SHA-512 hash)
-#   Change before bare-metal use:
-#     openssl passwd -6 'yourpassword'
-#   Then replace the --password=<hash> value
+#   The placeholder __RABBLE_PASSWORD_HASH__ is replaced at cast time by vmctl.
+#   vmctl uses 'rabble' as the default VM password (override with RABBLE_PASSWORD env var).
+#   For bare metal: set RABBLE_PASSWORD before casting, or edit the generated KS.
 # ==============================================================================
 
 # ── Locale & keyboard ──────────────────────────────────────────────────────────
@@ -53,9 +52,9 @@ url --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-44&arc
 # Lock root — all access via sudo
 rootpw --lock
 
-# Main user. Hash generated with: openssl passwd -6 'rabble'
-# For bare metal: regenerate with your own password.
-user --name=rabble --groups=wheel --gecos="RaBbLE" --password=$6$H5DGYUXxGKSNrrmu$Yiy8FyaNdlTgfs0VyMojCEXwdAP9sgYcGNmuxIE6HZ2wY021L6YmZZzXf9Wg4K0YPoY.7PipaDKhGkRklSxVg. --iscrypted
+# Main user. Password hash injected at cast time by vmctl.
+# Placeholder __RABBLE_PASSWORD_HASH__ is replaced with: openssl passwd -6 '<password>'
+user --name=rabble --groups=wheel --gecos="RaBbLE" --password=__RABBLE_PASSWORD_HASH__ --iscrypted
 
 # ── Bootloader ────────────────────────────────────────────────────────────────
 bootloader --location=mbr --append="quiet rhgb console=tty0 console=ttyS0,115200n8"
