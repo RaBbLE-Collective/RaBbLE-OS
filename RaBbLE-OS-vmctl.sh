@@ -6,21 +6,24 @@
 # Creates and manages a Fedora KVM VM so Hyprland/Sway can run inside it.
 # Use this to test RaBbLE-OS bootstraps without touching the daily driver.
 #
-# Usage:
-#   ./RaBbLE-OS-vmctl.sh partition-setup <device> — format and mount a BTRFS partition for VMs
-#   ./RaBbLE-OS-vmctl.sh setup                 — prepare the host (run once)
-#   ./RaBbLE-OS-vmctl.sh cast <iso-path>       — create the VM from a Fedora ISO (interactive install)
-#   ./RaBbLE-OS-vmctl.sh cast-ks <iso-path>    — create the VM with automated KS install (qcow2 default)
-#   ./RaBbLE-OS-vmctl.sh cast-ks --raw-disk <device> <iso-path> — cast-ks using raw partition device
-#   ./RaBbLE-OS-vmctl.sh status                — show VM status
-#   ./RaBbLE-OS-vmctl.sh start                 — start the VM
-#   ./RaBbLE-OS-vmctl.sh stop                  — graceful shutdown
-#   ./RaBbLE-OS-vmctl.sh connect               — open SPICE display (virt-viewer)
-#   ./RaBbLE-OS-vmctl.sh snapshot <name>       — create a named snapshot
-#   ./RaBbLE-OS-vmctl.sh restore  <name>       — restore to a named snapshot
-#   ./RaBbLE-OS-vmctl.sh snapshots             — list all snapshots
-#   ./RaBbLE-OS-vmctl.sh destroy               — delete the VM (prompts for confirmation)
-#   ./RaBbLE-OS-vmctl.sh help                  — show this message
+# Usage: ./RaBbLE-OS-vmctl.sh [--quiet] <command> [args]
+#   (no command)                              — show status if VM exists, else help
+#   partition-setup <device>                  — format BTRFS VM partition
+#   setup                                     — one-time host preparation
+#   cast <iso>                                — interactive Anaconda install
+#   cast-ks [--raw-disk <dev>] <iso>          — automated Kickstart install
+#   recast [--raw-disk <dev>] <iso>           — destroy + cast-ks in one step
+#   status                                    — VM dashboard (state, IP, disk, uptime)
+#   start                                     — start the VM
+#   stop [--force] [--timeout N]              — graceful shutdown with timeout
+#   connect                                   — open SPICE display
+#   ssh [cmd]                                 — SSH into VM as root
+#   logs [unit]                               — tail journalctl (default: rabble-os-setup)
+#   snapshot <name>                           — create a named snapshot
+#   restore <name>                            — revert to a snapshot
+#   snapshots                                 — list all snapshots
+#   destroy                                   — delete VM + disk (confirms)
+#   help                                      — show categorized help
 #
 # Prerequisites:
 #   1. Recommended: 32GB BTRFS partition for VMs (e.g., partition-setup /dev/sdX)
@@ -40,18 +43,28 @@ VM_DISK_DIR="${RABBLE_VM_DISK_DIR:-}"       # Set by detect_vm_partition() if av
 VM_PARTITION_DEVICE=""                      # Set by detect_vm_partition() if partition exists
 VM_USE_PARTITION=false                      # Use partition directly (true) or qcow2 (false)
 FORCE_QCOW2="${RABBLE_VM_FORCE_QCOW2:-}"    # Set to 1 to force qcow2 even if partition exists
+QUIET="${RABBLE_VM_QUIET:-}"
 LIBVIRT_URI="qemu:///system"
 export LIBVIRT_DEFAULT_URI="$LIBVIRT_URI"
 
 # ── Colour palette ─────────────────────────────────────────────────────────────
 RED='\033[0;31m';  GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-CYAN='\033[0;36m'; BOLD='\033[1m';     RESET='\033[0m'
+CYAN='\033[0;36m'; BOLD='\033[1m';     DIM='\033[2m'; RESET='\033[0m'
 
-info()    { echo -e "${CYAN}[vmctl]${RESET}  $*"; }
-success() { echo -e "${GREEN}[vmctl]${RESET}  $*"; }
+info()    { [[ -n "$QUIET" ]] && return; echo -e "${CYAN}[vmctl]${RESET}  $*"; }
+success() { [[ -n "$QUIET" ]] && return; echo -e "${GREEN}[vmctl]${RESET}  $*"; }
 warn()    { echo -e "${YELLOW}[vmctl]${RESET}  $*" >&2; }
 error()   { echo -e "${RED}[vmctl]${RESET}  $*" >&2; exit 1; }
-section() { echo -e "\n${BOLD}${CYAN}── $* ──${RESET}"; }
+section() { [[ -n "$QUIET" ]] && return; echo -e "\n${BOLD}${CYAN}── $* ──${RESET}"; }
+
+# ── VM IP helper ──────────────────────────────────────────────────────────────
+vm_ip() {
+    local mac
+    mac=$(virsh domiflist "$VM_NAME" 2>/dev/null | awk '/virtio/{print $5}')
+    [[ -z "$mac" ]] && return 1
+    virsh net-dhcp-leases default 2>/dev/null \
+        | awk -v m="$mac" '$3==m {gsub(/\/.*/, "", $5); print $5; exit}'
+}
 
 # ── VM disk mode initialization ───────────────────────────────────────────────
 init_vm_disk_mode() {
@@ -122,14 +135,21 @@ connect_to_vm() {
             continue
         fi
 
-        local real_user="${SUDO_USER:-$USER}"
-        if WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" \
-           DISPLAY="${DISPLAY:-}" \
-           XDG_RUNTIME_DIR="/run/user/$(id -u "$real_user")" \
-           sudo -u "$real_user" virt-viewer --connect qemu:///system "$VM_NAME" 2>/dev/null &
-        then
-            success "SPICE display opened in background"
-            return 0
+        if id -nG 2>/dev/null | grep -qw libvirt; then
+            if virt-viewer --connect qemu:///system "$VM_NAME" 2>/dev/null & then
+                success "SPICE display opened in background"
+                return 0
+            fi
+        else
+            local real_user="${SUDO_USER:-$USER}"
+            if WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" \
+               DISPLAY="${DISPLAY:-}" \
+               XDG_RUNTIME_DIR="/run/user/$(id -u "$real_user")" \
+               sudo -u "$real_user" virt-viewer --connect qemu:///system "$VM_NAME" 2>/dev/null &
+            then
+                success "SPICE display opened in background"
+                return 0
+            fi
         fi
 
         warn "Failed to open display, retrying... (${attempt}/${max_attempts})"
@@ -138,7 +158,13 @@ connect_to_vm() {
     done
 
     warn "Could not open SPICE display after ${max_attempts} attempts"
-    info "Connect manually: virt-viewer --connect qemu:///system ${VM_NAME}"
+    local spice_uri
+    spice_uri=$(virsh domdisplay "$VM_NAME" 2>/dev/null || true)
+    if [[ -n "$spice_uri" ]]; then
+        info "SPICE URI:      ${spice_uri}"
+        info "Try:            virt-viewer '${spice_uri}'"
+    fi
+    info "Serial console: virsh console ${VM_NAME}"
     return 1
 }
 
@@ -517,13 +543,80 @@ cmd_status() {
         exit 0
     fi
 
+    local state
+    state=$(virsh domstate "$VM_NAME" 2>/dev/null | head -1)
+
+    local state_color="$YELLOW"
+    case "$state" in
+        running)  state_color="$GREEN" ;;
+        shut*)    state_color="$DIM"   ;;
+        paused)   state_color="$YELLOW" ;;
+        crashed)  state_color="$RED"   ;;
+    esac
+
     section "VM Status: ${VM_NAME}"
-    virsh dominfo "$VM_NAME"
-    echo ""
+    echo -e "  State:      ${state_color}${state}${RESET}"
+
+    if [[ "$state" == "running" ]]; then
+        local ip
+        ip=$(vm_ip)
+        if [[ -n "$ip" ]]; then
+            echo -e "  IP:         ${CYAN}${ip}${RESET}"
+        else
+            echo -e "  IP:         ${DIM}(waiting for DHCP)${RESET}"
+        fi
+
+        local pid
+        pid=$(virsh dominfo "$VM_NAME" 2>/dev/null | awk '/^Id:/{print $2}')
+        if [[ -n "$pid" && "$pid" != "-" ]]; then
+            local qemu_pid
+            qemu_pid=$(pgrep -f "qemu.*${VM_NAME}" 2>/dev/null | head -1)
+            if [[ -n "$qemu_pid" ]]; then
+                local uptime_sec
+                uptime_sec=$(ps -o etimes= -p "$qemu_pid" 2>/dev/null | tr -d ' ')
+                if [[ -n "$uptime_sec" ]]; then
+                    local h=$((uptime_sec / 3600)) m=$(((uptime_sec % 3600) / 60)) s=$((uptime_sec % 60))
+                    printf "  Uptime:     %dh %dm %ds\n" "$h" "$m" "$s"
+                fi
+            fi
+        fi
+    fi
+
+    local dominfo
+    dominfo=$(virsh dominfo "$VM_NAME" 2>/dev/null)
+    local ram
+    ram=$(echo "$dominfo" | awk '/^Max memory:/{printf "%.0f", $3/1024}')
+    local vcpus
+    vcpus=$(echo "$dominfo" | awk '/^CPU\(s\):/{print $2}')
+    echo "  RAM:        ${ram} MB"
+    echo "  vCPUs:      ${vcpus}"
+
+    local disk_path
+    disk_path=$(virsh domblklist "$VM_NAME" 2>/dev/null | awk 'NR>2 && $2 && $2!="-" {print $2; exit}' || true)
+    if [[ -n "$disk_path" && -f "$disk_path" ]]; then
+        local disk_size
+        disk_size=$(du -h "$disk_path" 2>/dev/null | cut -f1)
+        local disk_alloc
+        disk_alloc=$(qemu-img info "$disk_path" 2>/dev/null | awk '/virtual size/{print $3, $4}' || true)
+        echo "  Disk:       ${disk_size} used (${disk_alloc:-unknown} virtual)"
+    elif [[ -n "$disk_path" && -b "$disk_path" ]]; then
+        local blk_size
+        blk_size=$(lsblk -ndo SIZE "$disk_path" 2>/dev/null || true)
+        echo "  Disk:       ${disk_path} (${blk_size:-unknown} raw)"
+    fi
 
     local snapshot_count
     snapshot_count=$(virsh snapshot-list "$VM_NAME" --count 2>/dev/null || echo 0)
-    info "Snapshots: ${snapshot_count}"
+    echo "  Snapshots:  ${snapshot_count}"
+
+    if [[ "$state" == "running" ]]; then
+        local spice_port
+        spice_port=$(virsh domdisplay "$VM_NAME" 2>/dev/null | grep -oP ':\K\d+')
+        if [[ -n "$spice_port" ]]; then
+            echo -e "  SPICE:      ${DIM}spice://localhost:${spice_port}${RESET}"
+        fi
+    fi
+    echo ""
 }
 
 # ── start ──────────────────────────────────────────────────────────────────────
@@ -551,9 +644,44 @@ cmd_stop() {
         return
     fi
 
-    info "Sending graceful shutdown to '${VM_NAME}'..."
+    local force=false
+    local timeout=60
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --force|-f)  force=true; shift ;;
+            --timeout|-t) timeout="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    if [[ "$force" == "true" ]]; then
+        warn "Force-stopping VM '${VM_NAME}'..."
+        virsh destroy "$VM_NAME"
+        success "VM force-stopped."
+        return
+    fi
+
+    info "Sending graceful shutdown to '${VM_NAME}' (timeout: ${timeout}s)..."
     virsh shutdown "$VM_NAME"
-    success "Shutdown signal sent. The VM will stop when the guest OS completes shutdown."
+
+    local elapsed=0
+    while (( elapsed < timeout )); do
+        if ! vm_running; then
+            success "VM shut down cleanly."
+            return
+        fi
+        sleep 2
+        (( elapsed += 2 ))
+    done
+
+    warn "VM did not shut down within ${timeout}s."
+    read -rp "  Force stop? [y/N]: " confirm
+    if [[ "${confirm,,}" == "y" ]]; then
+        virsh destroy "$VM_NAME"
+        success "VM force-stopped."
+    else
+        info "VM is still shutting down in the background."
+    fi
 }
 
 # ── connect ─────────────────────────────────────────────────────────────────────
@@ -723,15 +851,110 @@ cmd_partition_setup() {
     fi
 }
 
+# ── ssh ───────────────────────────────────────────────────────────────────────
+cmd_ssh() {
+    check_deps
+    vm_exists || error "VM '${VM_NAME}' not found."
+    vm_running || error "VM '${VM_NAME}' is not running."
+
+    local ip
+    ip=$(vm_ip)
+    [[ -z "$ip" ]] && error "No IP address yet — VM may still be booting. Try: virsh console ${VM_NAME}"
+
+    info "SSH to ${VM_NAME} at ${ip}..."
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "root@${ip}" "$@"
+}
+
+# ── logs ──────────────────────────────────────────────────────────────────────
+cmd_logs() {
+    check_deps
+    vm_exists || error "VM '${VM_NAME}' not found."
+    vm_running || error "VM '${VM_NAME}' is not running."
+
+    local ip
+    ip=$(vm_ip)
+    [[ -z "$ip" ]] && error "No IP address yet — VM may still be booting. Try: virsh console ${VM_NAME}"
+
+    local unit="${1:-rabble-os-setup}"
+    info "Tailing ${unit} on ${VM_NAME} (${ip})..."
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        "root@${ip}" "journalctl -u ${unit} -f --no-pager"
+}
+
+# ── recast ────────────────────────────────────────────────────────────────────
+cmd_recast() {
+    check_deps
+
+    if vm_exists; then
+        warn "Destroying existing VM '${VM_NAME}' before recast..."
+        vm_running && virsh destroy "$VM_NAME" 2>/dev/null || true
+        virsh undefine "$VM_NAME" --snapshots-metadata --nvram 2>/dev/null || true
+        [[ -f "$VM_DISK" ]] && rm -f "$VM_DISK"
+        success "Previous VM cleaned up."
+    fi
+
+    cmd_cast_ks "$@"
+}
+
 # ── help ───────────────────────────────────────────────────────────────────────
 cmd_help() {
-    sed -n '/^# Usage:/,/^# Prerequisites:/p' "$0" | sed 's/^# \{0,2\}//'
+    echo -e "${BOLD}${CYAN}RaBbLE-OS vmctl${RESET} — VM lifecycle spell"
+    echo ""
+    echo -e "${BOLD}Setup${RESET}"
+    echo "  partition-setup <dev>       Format BTRFS VM partition"
+    echo "  setup                       One-time host preparation"
+    echo ""
+    echo -e "${BOLD}Create & Destroy${RESET}"
+    echo "  cast <iso>                  Interactive Anaconda install"
+    echo "  cast-ks <iso>               Automated Kickstart install"
+    echo "  recast <iso>                Destroy + cast-ks in one step"
+    echo "  destroy                     Delete VM and disk (confirms)"
+    echo ""
+    echo -e "${BOLD}Lifecycle${RESET}"
+    echo "  status                      VM dashboard (state, IP, disk, uptime)"
+    echo "  start                       Start the VM"
+    echo "  stop [--force] [--timeout]  Graceful shutdown (waits, then offers force)"
+    echo "  connect                     Open SPICE display"
+    echo "  ssh [cmd]                   SSH into the VM as root"
+    echo "  logs [unit]                 Tail journalctl (default: rabble-os-setup)"
+    echo ""
+    echo -e "${BOLD}Snapshots${RESET}"
+    echo "  snapshot <name>             Create a named snapshot"
+    echo "  restore <name>              Revert to a snapshot"
+    echo "  snapshots                   List all snapshots"
+    echo ""
+    echo -e "${BOLD}Options${RESET}"
+    echo "  --quiet                     Suppress info/success output"
+    echo "  --raw-disk <dev>            Use raw partition for cast/cast-ks"
+    echo ""
+    echo -e "${DIM}Environment: RABBLE_VM_NAME, RABBLE_VM_RAM, RABBLE_VM_VCPUS, RABBLE_VM_DISK_SIZE${RESET}"
 }
 
 # ── Main dispatch ──────────────────────────────────────────────────────────────
 main() {
-    local cmd="${1:-help}"
+    local args=()
+    for arg in "$@"; do
+        case "$arg" in
+            --quiet|-q) QUIET=1 ;;
+            *) args+=("$arg") ;;
+        esac
+    done
+    set -- "${args[@]+"${args[@]}"}"
+
+    local cmd="${1:-}"
     shift || true
+
+    # No command: show status if VM exists, otherwise help
+    if [[ -z "$cmd" ]]; then
+        init_vm_disk_mode
+        VM_DISK="${VM_DISK_DIR}/${VM_NAME}.qcow2"
+        if vm_exists 2>/dev/null; then
+            cmd_status "$@"
+        else
+            cmd_help
+        fi
+        return
+    fi
 
     # Initialize disk mode (default: qcow2)
     if [[ "$cmd" != "help" && "$cmd" != "--help" && "$cmd" != "-h" && "$cmd" != "partition-setup" ]]; then
@@ -746,10 +969,13 @@ main() {
         setup)      check_deps; cmd_setup "$@" ;;
         cast)       check_deps; cmd_cast "$@" ;;
         cast-ks)    check_deps; cmd_cast_ks "$@" ;;
+        recast)     check_deps; cmd_recast "$@" ;;
         status)     cmd_status "$@" ;;
         start)      cmd_start "$@" ;;
         stop)       cmd_stop "$@" ;;
         connect)    cmd_connect "$@" ;;
+        ssh)        cmd_ssh "$@" ;;
+        logs)       cmd_logs "$@" ;;
         snapshot)   cmd_snapshot "$@" ;;
         restore)    cmd_restore "$@" ;;
         snapshots)  cmd_snapshots "$@" ;;
