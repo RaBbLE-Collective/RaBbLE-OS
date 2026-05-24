@@ -34,11 +34,13 @@ _vmctl_completions() {
     fi
 }
 
+complete -F _vmctl_completions vmctl
 complete -F _vmctl_completions RaBbLE-OS-vmctl.sh
 complete -F _vmctl_completions ./RaBbLE-OS-vmctl.sh
 
 if [[ -n "$ZSH_VERSION" ]]; then
     autoload -U +X bashcompinit 2>/dev/null && bashcompinit
+    complete -F _vmctl_completions vmctl
     complete -F _vmctl_completions RaBbLE-OS-vmctl.sh
     complete -F _vmctl_completions ./RaBbLE-OS-vmctl.sh
 fi

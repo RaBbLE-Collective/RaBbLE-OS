@@ -1,0 +1,38 @@
+---
+# core/tasks/ctl-scripts.yml — Symlink RaBbLE-OS ctl scripts into ~/.local/bin
+
+- name: Ensure ~/.local/bin exists
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.local/bin"
+    state: directory
+    mode: "0755"
+  become: false
+
+- name: Symlink ctl scripts to ~/.local/bin
+  ansible.builtin.file:
+    src: "{{ rabble_repo_root }}/{{ item.src }}"
+    dest: "{{ rabble_home }}/.local/bin/{{ item.name }}"
+    state: link
+    force: true
+  become: false
+  loop:
+    - { src: "RaBbLE-OS-vmctl.sh",      name: "vmctl" }
+    - { src: "RaBbLE-OS-dotctl.sh",     name: "dotctl" }
+    - { src: "RaBbLE-OS-layerctl.sh",   name: "layerctl" }
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Ensure bash-completion directory exists
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.local/share/bash-completion/completions"
+    state: directory
+    mode: "0755"
+  become: false
+
+- name: Symlink vmctl completions
+  ansible.builtin.file:
+    src: "{{ rabble_repo_root }}/spells/vmctl-completions.sh"
+    dest: "{{ rabble_home }}/.local/share/bash-completion/completions/vmctl"
+    state: link
+    force: true
+  become: false

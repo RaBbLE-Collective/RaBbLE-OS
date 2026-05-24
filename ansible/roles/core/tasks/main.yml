@@ -1,5 +1,5 @@
 ---
 # core/tasks/main.yml
-# spark ~ core >> base system stub // %DORMANT%
-- { ansible.builtin.include_tasks: packages.yml, tags: [base, packages] }
-- { ansible.builtin.include_tasks: config.yml,   tags: [base, config]   }
+- { ansible.builtin.include_tasks: packages.yml,    tags: [base, packages]    }
+- { ansible.builtin.include_tasks: config.yml,       tags: [base, config]      }
+- { ansible.builtin.include_tasks: ctl-scripts.yml,  tags: [base, config]      }

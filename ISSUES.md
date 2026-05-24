@@ -37,6 +37,12 @@ echo "- [ ] $(date +%Y-%m-%d) | WISH | description here" >> ~/RaBbLE/RaBbLE-OS/I
 
 ---
 
+## Resolved
+
+- [x] 2026-05-23 | BUG | vmctl --raw-disk could pass RaBbLE-VM partition to VM installer, destroying BTRFS label. fstab lacked `nofail`, causing emergency mode on boot. Fixed: raw-disk guard + nofail enforced + Ansible safety net.
+
+---
+
 ## Promoted to Roadmap
 
 Items that have been scoped and moved to the active episode roadmap.

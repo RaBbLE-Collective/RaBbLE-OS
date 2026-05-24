@@ -13,3 +13,7 @@
 - name: Enable and configure libvirt services
   ansible.builtin.import_tasks: service.yml
   tags: [virtualization, service]
+
+- name: Ensure VM partition fstab safety
+  ansible.builtin.import_tasks: fstab-safety.yml
+  tags: [virtualization, config]

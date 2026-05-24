@@ -66,6 +66,36 @@ vm_ip() {
         | awk -v m="$mac" '$3==m {gsub(/\/.*/, "", $5); print $5; exit}'
 }
 
+# ── Partition safety ──────────────────────────────────────────────────────────
+# The RaBbLE-VM BTRFS partition is host storage — it must NEVER be handed to a
+# VM installer as a raw disk. Doing so lets clearpart/autopart destroy its
+# filesystem and label, which can make the daily-driver system unbootable.
+
+is_rabble_vm_partition() {
+    local dev="$1"
+    [[ ! -b "$dev" ]] && return 1
+    local label
+    label=$(lsblk -ndo LABEL "$dev" 2>/dev/null || true)
+    [[ "$label" == "$VM_PARTITION_LABEL" ]] && return 0
+    local resolved
+    resolved=$(realpath "$dev" 2>/dev/null || echo "$dev")
+    local vm_dev
+    vm_dev=$(realpath "/dev/disk/by-label/${VM_PARTITION_LABEL}" 2>/dev/null || true)
+    [[ -n "$vm_dev" && "$resolved" == "$vm_dev" ]] && return 0
+    return 1
+}
+
+reject_raw_disk_if_vm_partition() {
+    local dev="$1"
+    if is_rabble_vm_partition "$dev"; then
+        error "BLOCKED: ${dev} is the RaBbLE-VM host partition.\n" \
+              "  The VM installer would destroy its BTRFS label and filesystem,\n" \
+              "  which can make the daily-driver unbootable.\n\n" \
+              "  Use qcow2 mode instead (omit --raw-disk) — the VM disk image\n" \
+              "  will be stored ON the RaBbLE-VM partition at ${VM_PARTITION_MOUNT}/."
+    fi
+}
+
 # ── VM disk mode initialization ───────────────────────────────────────────────
 init_vm_disk_mode() {
     # Default to qcow2 unless --raw-disk is specified
@@ -297,6 +327,7 @@ cmd_cast() {
                 raw_disk="$2"
                 shift 2
                 [[ ! -b "$raw_disk" ]] && error "Invalid block device: ${raw_disk}"
+                reject_raw_disk_if_vm_partition "$raw_disk"
                 VM_PARTITION_DEVICE="$raw_disk"
                 VM_USE_PARTITION=true
                 ;;
@@ -415,6 +446,7 @@ cmd_cast_ks() {
                 raw_disk="$2"
                 shift 2
                 [[ ! -b "$raw_disk" ]] && error "Invalid block device: ${raw_disk}"
+                reject_raw_disk_if_vm_partition "$raw_disk"
                 VM_PARTITION_DEVICE="$raw_disk"
                 VM_USE_PARTITION=true
                 ;;
@@ -768,6 +800,14 @@ cmd_destroy() {
     fi
 
     success "VM '${VM_NAME}' destroyed."
+
+    # Check RaBbLE-VM partition health after destroy
+    local vm_dev
+    vm_dev=$(realpath "/dev/disk/by-label/${VM_PARTITION_LABEL}" 2>/dev/null || true)
+    if [[ -z "$vm_dev" ]]; then
+        warn "RaBbLE-VM partition label not found — it may need to be restored."
+        warn "Run: $0 partition-setup <device>"
+    fi
 }
 
 # ── partition-setup ───────────────────────────────────────────────────────────
@@ -837,7 +877,7 @@ cmd_partition_setup() {
         # Add to fstab if not already there
         if ! grep -q "LABEL=${VM_PARTITION_LABEL}" /etc/fstab; then
             info "Adding to /etc/fstab..."
-            echo "/dev/disk/by-label/${VM_PARTITION_LABEL}  ${VM_PARTITION_MOUNT}  btrfs  defaults,compress=zstd  0 0" | sudo tee -a /etc/fstab > /dev/null
+            echo "/dev/disk/by-label/${VM_PARTITION_LABEL}  ${VM_PARTITION_MOUNT}  btrfs  nofail,x-systemd.device-timeout=5s,defaults,compress=zstd  0 0" | sudo tee -a /etc/fstab > /dev/null
             success "Added to /etc/fstab"
         else
             info "Already in /etc/fstab"
