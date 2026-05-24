@@ -443,18 +443,8 @@ cmd_cast_ks() {
     info "Graphics: ${graphics} / video: ${video}"
     echo ""
 
-    # Use libvirt bridge host IP (always reachable from VM on NAT network)
-    local host_ip="192.168.122.1"
-    info "Using libvirt bridge host IP: ${host_ip}"
-
-    # Start HTTP server in background to serve KS file
-    info "Starting HTTP server on port 8888 to serve KS file..."
-    local ks_dir
-    ks_dir="$(pwd)"
-    python3 -m http.server 8888 --directory "$ks_dir" > /tmp/rabble-ks-http.log 2>&1 &
-    local http_pid=$!
-    info "HTTP server PID: ${http_pid}"
-    sleep 1
+    local ks_path
+    ks_path="$(realpath RaBbLE-OS.ks)"
 
     # Prepare disk configuration
     local disk_arg
@@ -466,8 +456,8 @@ cmd_cast_ks() {
         mount_point=$(findmnt -n -o TARGET "$VM_PARTITION_DEVICE" 2>/dev/null || true)
         if [[ -n "$mount_point" ]]; then
             warn "Partition is currently mounted at: ${mount_point}"
-            read -rp "  Unmount ${mount_point} before formatting? [y/N]: " confirm
-            [[ "${confirm,,}" != "y" ]] && { info "Cancelled."; kill $http_pid 2>/dev/null || true; exit 0; }
+            read -rp "  Unmount ${mount_point} before proceeding? [y/N]: " confirm
+            [[ "${confirm,,}" != "y" ]] && { info "Cancelled."; exit 0; }
 
             info "Unmounting ${mount_point}..."
             if sudo umount "$mount_point"; then
@@ -477,17 +467,11 @@ cmd_cast_ks() {
             fi
         fi
 
-        warn "This will format ${VM_PARTITION_DEVICE} and overwrite all data on it."
+        warn "KS will clearpart + autopart this device. All data will be lost."
         echo ""
-        read -rp "  Format and use ${VM_PARTITION_DEVICE} for this VM? [y/N]: " confirm
-        [[ "${confirm,,}" != "y" ]] && { info "Cancelled."; kill $http_pid 2>/dev/null || true; exit 0; }
+        read -rp "  Use ${VM_PARTITION_DEVICE} for this VM? [y/N]: " confirm
+        [[ "${confirm,,}" != "y" ]] && { info "Cancelled."; exit 0; }
 
-        info "Formatting partition as ext4..."
-        if sudo mkfs.ext4 -F "$VM_PARTITION_DEVICE"; then
-            success "Partition formatted successfully"
-        else
-            error "Failed to format ${VM_PARTITION_DEVICE}"
-        fi
         disk_arg="path=${VM_PARTITION_DEVICE},bus=virtio"
     else
         mkdir -p "$VM_DISK_DIR"
@@ -511,21 +495,18 @@ cmd_cast_ks() {
         --channel      "spicevmc" \
         --memballoon   virtio \
         --noautoconsole \
-        --extra-args   "inst.ks=http://${host_ip}:8888/RaBbLE-OS.ks console=tty0 console=ttyS0,115200n8" \
-        --wait         -1 || {
-        warn "virt-install failed. Killing HTTP server..."
-        kill $http_pid 2>/dev/null || true
-        return 1
-    }
+        --initrd-inject "$ks_path" \
+        --extra-args   "inst.ks=file:/RaBbLE-OS.ks console=tty0 console=ttyS0,115200n8" \
+        || return 1
 
     echo ""
-    success "VM '${VM_NAME}' created with KS automation."
-    wait_for_vm 120 true
+    success "VM '${VM_NAME}' created — KS install starting."
+    wait_for_vm 60 true
     connect_to_vm
 
-    info "Installation is automated. HTTP server will stay active during install."
-    info "HTTP server PID: ${http_pid}"
-    info "When install completes and SDDM appears, kill it: kill ${http_pid}"
+    info "KS install is running. VM will reboot automatically when done."
+    info "After reboot, firstboot service runs Bootstrap (Phase 1: base + boot)."
+    info "When SDDM appears, Phase 1 smoke test is done."
 }
 
 # ── status ─────────────────────────────────────────────────────────────────────
@@ -586,9 +567,7 @@ cmd_connect() {
         sleep 2
     fi
 
-    info "Opening SPICE display for '${VM_NAME}'..."
-    virt-viewer --connect qemu:///system "$VM_NAME" &
-    success "Display launched."
+    connect_to_vm
 }
 
 # ── snapshot ───────────────────────────────────────────────────────────────────

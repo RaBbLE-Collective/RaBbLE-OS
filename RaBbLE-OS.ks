@@ -5,15 +5,16 @@
 # USAGE:
 #   Boot Fedora 44 Everything netinstall ISO with inst.ks pointing here.
 #
-#   VM (virt-install):
+#   VM (automated — recommended):
+#     ./RaBbLE-OS-vmctl.sh cast-ks ISO/Fedora-Everything-netinst-x86_64-44-1.7.iso
+#
+#   VM (manual virt-install with initrd injection):
 #     virt-install \
 #       --name rabble-os-dev \
-#       --ram 4096 --vcpus 2 --disk size=40 \
-#       --cdrom /path/to/Fedora-Everything-netinst-x86_64-44-1.7.iso \
-#       --extra-args "inst.ks=file:///path/to/RaBbLE-OS.ks"
-#
-#   Or serve this file over HTTP and pass:
-#     inst.ks=http://<host>/RaBbLE-OS.ks
+#       --ram 4096 --vcpus 2 --disk size=20 \
+#       --location /path/to/Fedora-Everything-netinst-x86_64-44-1.7.iso \
+#       --initrd-inject RaBbLE-OS.ks \
+#       --extra-args "inst.ks=file:/RaBbLE-OS.ks"
 #
 # WHAT THIS DOES:
 #   1. Installs Fedora 44 minimal base
@@ -44,6 +45,10 @@ timezone America/Los_Angeles --utc
 network --bootproto=dhcp --device=link --activate --onboot=yes
 network --hostname=rabble-os
 
+# ── Installation source ──────────────────────────────────────────────────────
+# Netinstall ISO has no packages — fetch from Fedora mirrors
+url --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-44&arch=x86_64
+
 # ── Users ─────────────────────────────────────────────────────────────────────
 # Lock root — all access via sudo
 rootpw --lock
@@ -60,11 +65,14 @@ bootloader --location=mbr --append="quiet rhgb"
 clearpart --all --initlabel --disklabel=gpt
 autopart --type=btrfs
 
+# ── Reboot after install ─────────────────────────────────────────────────────
+reboot
+
 # ── Software selection ────────────────────────────────────────────────────────
 # Generated from manifest.yml (ks: true, platform: all, source: fedora)
 # Regenerate with: python3 spells/generate-kickstart.py
 %packages
-@^minimal-environment
+@core
 NetworkManager
 NetworkManager-wifi
 ansible
@@ -86,17 +94,43 @@ echo "[RaBbLE-OS KS] Starting post-install setup..."
 echo "rabble ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/10-rabble-setup
 chmod 440 /etc/sudoers.d/10-rabble-setup
 
-# ── Clone RaBbLE-OS repo ──────────────────────────────────────────────────────
-REPO_URL="https://github.com/markm1206/RaBbLE-OS.git"
-REPO_DIR="/home/rabble/RaBbLE-OS"
+# ── Clone Collective + Grimoire + RaBbLE-OS ──────────────────────────────────
+# Canonical structure: ~/RaBbLE/ (Collective root)
+#   ~/RaBbLE/RaBbLE-Grimoire/   (knowledge layer)
+#   ~/RaBbLE/RaBbLE-OS/         (this member)
+# Skips other members — install only what the OS needs.
 
-echo "[RaBbLE-OS KS] Cloning ${REPO_URL} → ${REPO_DIR}"
-sudo -u rabble git clone "${REPO_URL}" "${REPO_DIR}" || {
-    echo "[RaBbLE-OS KS] WARNING: git clone failed — check network in %post"
+RABBLE_ROOT="/home/rabble/RaBbLE"
+GH_BASE="https://github.com/markm1206"
+OS_BRANCH="RaBbLE-OS-New-Horizons"
+
+clone_as_rabble() {
+    local url="$1" dest="$2" branch="${3:-}"
+    local branch_flag=""
+    [[ -n "$branch" ]] && branch_flag="-b $branch"
+    echo "[RaBbLE-OS KS] Cloning ${url} → ${dest}"
+    # shellcheck disable=SC2086
+    sudo -u rabble git clone $branch_flag "$url" "$dest"
+}
+
+# Step 1: Collective (the root working directory)
+clone_as_rabble "${GH_BASE}/RaBbLE-Collective.git" "$RABBLE_ROOT" || {
+    echo "[RaBbLE-OS KS] WARNING: Collective clone failed"
+    exit 0
+}
+
+# Step 2: Grimoire (knowledge layer — agent docs, palette, registry)
+clone_as_rabble "${GH_BASE}/RaBbLE-Grimoire.git" "${RABBLE_ROOT}/RaBbLE-Grimoire" || {
+    echo "[RaBbLE-OS KS] WARNING: Grimoire clone failed"
+    exit 0
+}
+
+# Step 3: RaBbLE-OS (the member we need for Bootstrap)
+clone_as_rabble "${GH_BASE}/RaBbLE-OS.git" "${RABBLE_ROOT}/RaBbLE-OS" "$OS_BRANCH" || {
+    echo "[RaBbLE-OS KS] WARNING: RaBbLE-OS clone failed"
     echo "[RaBbLE-OS KS] After first boot, manually run:"
-    echo "  git clone ${REPO_URL} ~/RaBbLE-OS && cd ~/RaBbLE-OS"
-    echo "  RABBLE_TAGS=base,boot ./RaBbLE-OS-Bootstrap.sh --inventory ansible/inventory/vm.hosts.yml"
-    exit 0  # non-fatal — firstboot service will notice missing dir
+    echo "  cd ~/RaBbLE/RaBbLE-OS && RABBLE_TAGS=base,boot ./RaBbLE-OS-Bootstrap.sh --unattended --inventory ansible/inventory/vm.hosts.yml"
+    exit 0
 }
 
 # ── Firstboot setup service ───────────────────────────────────────────────────
@@ -108,19 +142,19 @@ cat > /etc/systemd/system/rabble-os-setup.service << 'SVCEOF'
 Description=RaBbLE-OS First-Boot Setup (Phase 1 — base + boot)
 After=network-online.target
 Wants=network-online.target
-ConditionPathExists=/home/rabble/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh
+ConditionPathExists=/home/rabble/RaBbLE/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh
 ConditionPathExists=!/var/lib/rabble-os/.setup-complete
 
 [Service]
 Type=oneshot
 User=rabble
-WorkingDirectory=/home/rabble/RaBbLE-OS
+WorkingDirectory=/home/rabble/RaBbLE/RaBbLE-OS
 Environment=RABBLE_TAGS=base,boot
-ExecStartPre=/bin/mkdir -p /var/lib/rabble-os
-ExecStart=/home/rabble/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh \
+ExecStartPre=+/bin/mkdir -p /var/lib/rabble-os
+ExecStart=/home/rabble/RaBbLE/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh \
     --unattended \
     --inventory ansible/inventory/vm.hosts.yml
-ExecStartPost=/bin/touch /var/lib/rabble-os/.setup-complete
+ExecStartPost=+/bin/touch /var/lib/rabble-os/.setup-complete
 RemainAfterExit=yes
 StandardOutput=journal+console
 StandardError=journal+console
@@ -133,9 +167,14 @@ systemctl enable rabble-os-setup.service
 
 echo "[RaBbLE-OS KS] Post-install complete."
 echo ""
+echo "  Structure:"
+echo "    ~/RaBbLE/                  (Collective root)"
+echo "    ~/RaBbLE/RaBbLE-Grimoire/  (knowledge layer)"
+echo "    ~/RaBbLE/RaBbLE-OS/        (OS member)"
+echo ""
 echo "  Next: reboot → firstboot service runs Bootstrap (Phase 1)"
 echo "  After SDDM appears, log in and run:"
-echo "    cd ~/RaBbLE-OS"
+echo "    cd ~/RaBbLE/RaBbLE-OS"
 echo "    RABBLE_TAGS=desktop,apps ./RaBbLE-OS-Bootstrap.sh \\"
 echo "        --inventory ansible/inventory/vm.hosts.yml"
 echo ""
