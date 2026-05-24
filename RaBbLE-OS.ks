@@ -20,9 +20,9 @@
 #   1. Installs Fedora 44 minimal base
 #   2. Sets up user 'rabble' with passwordless sudo
 #   3. Clones the RaBbLE-OS repo
-#   4. Enables a firstboot systemd service that runs Bootstrap (Phase 1)
-#   After first boot: SDDM greeter appears (Phase 1 done)
-#   After login: run Bootstrap with desktop,apps tags for full DE
+#   4. Enables a firstboot systemd service that runs Bootstrap
+#   After first boot: Ansible installs base + boot + desktop (Hyprland)
+#   Result: SDDM greeter with a working Hyprland session on first login
 #
 # PARTITIONING:
 #   Default: auto LVM on btrfs (good for VMs)
@@ -30,10 +30,10 @@
 #   show its graphical partitioner interactively.
 #
 # PASSWORD:
-#   Default plaintext password: rabble
+#   Default password: rabble (stored as SHA-512 hash)
 #   Change before bare-metal use:
 #     openssl passwd -6 'yourpassword'
-#   Then replace --password=__RABBLE_PASSWORD_HASH__ --iscrypted with --password=<hash>
+#   Then replace the --password=<hash> value
 # ==============================================================================
 
 # ── Locale & keyboard ──────────────────────────────────────────────────────────
@@ -53,9 +53,9 @@ url --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-44&arc
 # Lock root — all access via sudo
 rootpw --lock
 
-# Main user. For VMs: --plaintext is fine.
-# For bare metal: replace with --password=<openssl passwd -6 hash>
-user --name=rabble --groups=wheel --gecos="RaBbLE" --password=__RABBLE_PASSWORD_HASH__ --iscrypted
+# Main user. Hash generated with: openssl passwd -6 'rabble'
+# For bare metal: regenerate with your own password.
+user --name=rabble --groups=wheel --gecos="RaBbLE" --password=$6$H5DGYUXxGKSNrrmu$Yiy8FyaNdlTgfs0VyMojCEXwdAP9sgYcGNmuxIE6HZ2wY021L6YmZZzXf9Wg4K0YPoY.7PipaDKhGkRklSxVg. --iscrypted
 
 # ── Bootloader ────────────────────────────────────────────────────────────────
 bootloader --location=mbr --append="quiet rhgb console=tty0 console=ttyS0,115200n8"
@@ -131,17 +131,17 @@ clone_as_rabble "${GH_BASE}/RaBbLE-Grimoire.git" "${RABBLE_ROOT}/RaBbLE-Grimoire
 clone_as_rabble "${GH_BASE}/RaBbLE-OS.git" "${RABBLE_ROOT}/RaBbLE-OS" "$OS_BRANCH" || {
     echo "[RaBbLE-OS KS] WARNING: RaBbLE-OS clone failed"
     echo "[RaBbLE-OS KS] After first boot, manually run:"
-    echo "  cd ~/RaBbLE/RaBbLE-OS && RABBLE_TAGS=base,boot ./RaBbLE-OS-Bootstrap.sh --unattended --inventory ansible/inventory/vm.hosts.yml"
+    echo "  cd ~/RaBbLE/RaBbLE-OS && RABBLE_TAGS=base,boot,desktop ./RaBbLE-OS-Bootstrap.sh --unattended --inventory ansible/inventory/vm.hosts.yml"
     exit 0
 }
 
 # ── Firstboot setup service ───────────────────────────────────────────────────
-# Runs Bootstrap (Phase 1: base + boot → SDDM) on first boot after network is up.
+# Runs Bootstrap (base + boot + desktop) on first boot after network is up.
 # Monitor with: journalctl -u rabble-os-setup -f
-# After SDDM: log in and run the desktop layer manually (see below).
+# After completion: SDDM greeter appears with Hyprland session ready.
 cat > /etc/systemd/system/rabble-os-setup.service << 'SVCEOF'
 [Unit]
-Description=RaBbLE-OS First-Boot Setup (Phase 1 — base + boot)
+Description=RaBbLE-OS First-Boot Setup (base + boot + desktop)
 After=network-online.target
 Wants=network-online.target
 ConditionPathExists=/home/rabble/RaBbLE/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh
@@ -151,7 +151,7 @@ ConditionPathExists=!/var/lib/rabble-os/.setup-complete
 Type=oneshot
 User=rabble
 WorkingDirectory=/home/rabble/RaBbLE/RaBbLE-OS
-Environment=RABBLE_TAGS=base,boot
+Environment=RABBLE_TAGS=base,boot,desktop
 ExecStartPre=+/bin/mkdir -p /var/lib/rabble-os
 ExecStart=/bin/bash /home/rabble/RaBbLE/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh \
     --unattended \
@@ -178,10 +178,11 @@ echo "    ~/RaBbLE/                  (Collective root)"
 echo "    ~/RaBbLE/RaBbLE-Grimoire/  (knowledge layer)"
 echo "    ~/RaBbLE/RaBbLE-OS/        (OS member)"
 echo ""
-echo "  Next: reboot → firstboot service runs Bootstrap (Phase 1)"
-echo "  After SDDM appears, log in and run:"
+echo "  Next: reboot → firstboot service runs Bootstrap (base + boot + desktop)"
+echo "  After completion: SDDM greeter with Hyprland session ready."
+echo "  To install apps post-login:"
 echo "    cd ~/RaBbLE/RaBbLE-OS"
-echo "    RABBLE_TAGS=desktop,apps ./RaBbLE-OS-Bootstrap.sh \\"
+echo "    RABBLE_TAGS=apps ./RaBbLE-OS-Bootstrap.sh \\"
 echo "        --inventory ansible/inventory/vm.hosts.yml"
 echo ""
 
