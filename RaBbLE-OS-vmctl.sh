@@ -17,7 +17,8 @@
 #   start                                     — start the VM
 #   stop [--force] [--timeout N]              — graceful shutdown with timeout
 #   connect                                   — open SPICE display
-#   ssh [cmd]                                 — SSH into VM as root
+#   console                                   — serial console (TUI/CLI, no GUI needed)
+#   ssh [cmd]                                 — SSH into VM as rabble
 #   logs [unit]                               — tail journalctl (default: rabble-os-setup)
 #   snapshot <name>                           — create a named snapshot
 #   restore <name>                            — revert to a snapshot
@@ -438,6 +439,7 @@ cmd_cast() {
         --graphics     "$graphics" \
         --video        "$video" \
         --channel      "spicevmc" \
+        --serial       pty \
         --memballoon   virtio \
         --noautoconsole \
         --wait         -1
@@ -569,6 +571,7 @@ cmd_cast_ks() {
         --graphics     "$graphics" \
         --video        "$video" \
         --channel      "spicevmc" \
+        --serial       pty \
         --memballoon   virtio \
         --noautoconsole \
         --initrd-inject "$ks_path" \
@@ -909,6 +912,23 @@ cmd_partition_setup() {
     fi
 }
 
+# ── console ───────────────────────────────────────────────────────────────────
+cmd_console() {
+    check_deps
+    vm_exists || error "VM '${VM_NAME}' not found."
+
+    if ! vm_running; then
+        info "VM is not running. Starting it first..."
+        virsh start "$VM_NAME"
+        sleep 2
+    fi
+
+    info "Attaching serial console to '${VM_NAME}'..."
+    info "Escape sequence: Ctrl+]  (or Ctrl+5 on some terminals)"
+    echo ""
+    virsh console "$VM_NAME"
+}
+
 # ── ssh ───────────────────────────────────────────────────────────────────────
 cmd_ssh() {
     check_deps
@@ -917,10 +937,10 @@ cmd_ssh() {
 
     local ip
     ip=$(vm_ip)
-    [[ -z "$ip" ]] && error "No IP address yet — VM may still be booting. Try: virsh console ${VM_NAME}"
+    [[ -z "$ip" ]] && error "No IP address yet — VM may still be booting. Try: $0 console"
 
     info "SSH to ${VM_NAME} at ${ip}..."
-    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "root@${ip}" "$@"
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "rabble@${ip}" "$@"
 }
 
 # ── logs ──────────────────────────────────────────────────────────────────────
@@ -931,12 +951,12 @@ cmd_logs() {
 
     local ip
     ip=$(vm_ip)
-    [[ -z "$ip" ]] && error "No IP address yet — VM may still be booting. Try: virsh console ${VM_NAME}"
+    [[ -z "$ip" ]] && error "No IP address yet — VM may still be booting. Try: $0 console"
 
     local unit="${1:-rabble-os-setup}"
     info "Tailing ${unit} on ${VM_NAME} (${ip})..."
     ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-        "root@${ip}" "journalctl -u ${unit} -f --no-pager"
+        "rabble@${ip}" "sudo journalctl -u ${unit} -f --no-pager"
 }
 
 # ── recast ────────────────────────────────────────────────────────────────────
@@ -972,8 +992,9 @@ cmd_help() {
     echo "  status                      VM dashboard (state, IP, disk, uptime)"
     echo "  start                       Start the VM"
     echo "  stop [--force] [--timeout]  Graceful shutdown (waits, then offers force)"
-    echo "  connect                     Open SPICE display"
-    echo "  ssh [cmd]                   SSH into the VM as root"
+    echo "  connect                     Open SPICE display (needs GUI)"
+    echo "  console                     Serial console (TUI/CLI, no GUI needed)"
+    echo "  ssh [cmd]                   SSH into the VM as rabble"
     echo "  logs [unit]                 Tail journalctl (default: rabble-os-setup)"
     echo ""
     echo -e "${BOLD}Snapshots${RESET}"
@@ -1032,6 +1053,7 @@ main() {
         start)      cmd_start "$@" ;;
         stop)       cmd_stop "$@" ;;
         connect)    cmd_connect "$@" ;;
+        console)    cmd_console "$@" ;;
         ssh)        cmd_ssh "$@" ;;
         logs)       cmd_logs "$@" ;;
         snapshot)   cmd_snapshot "$@" ;;

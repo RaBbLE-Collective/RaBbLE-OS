@@ -58,7 +58,7 @@ rootpw --lock
 user --name=rabble --groups=wheel --gecos="RaBbLE" --password=__RABBLE_PASSWORD_HASH__ --iscrypted
 
 # ── Bootloader ────────────────────────────────────────────────────────────────
-bootloader --location=mbr --append="quiet rhgb"
+bootloader --location=mbr --append="quiet rhgb console=tty0 console=ttyS0,115200n8"
 
 # ── Partitioning ──────────────────────────────────────────────────────────────
 # VM: auto LVM/btrfs — remove these two lines for interactive Anaconda partitioning
@@ -153,7 +153,7 @@ User=rabble
 WorkingDirectory=/home/rabble/RaBbLE/RaBbLE-OS
 Environment=RABBLE_TAGS=base,boot
 ExecStartPre=+/bin/mkdir -p /var/lib/rabble-os
-ExecStart=/home/rabble/RaBbLE/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh \
+ExecStart=/bin/bash /home/rabble/RaBbLE/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh \
     --unattended \
     --inventory ansible/inventory/vm.hosts.yml
 ExecStartPost=+/bin/touch /var/lib/rabble-os/.setup-complete
@@ -166,6 +166,10 @@ WantedBy=multi-user.target
 SVCEOF
 
 systemctl enable rabble-os-setup.service
+
+# ── Serial console for TUI/CLI access ────────────────────────────────────────
+# Enables `vmctl console` (virsh console) without needing a GUI/SPICE session.
+systemctl enable serial-getty@ttyS0.service
 
 echo "[RaBbLE-OS KS] Post-install complete."
 echo ""
