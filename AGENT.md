@@ -45,6 +45,12 @@ See Grimoire: `../RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-CommitStyle.md` (Pulse Pro
 
 Active branch: `RaBbLE-OS-New-Horizons`
 
+**End-of-session breadcrumb** — tag this session's token spend by feature (feeds `session-tokens.sh --by-feature`, see `../RaBbLE-Grimoire/SPELLS.md`):
+```bash
+SID=$(basename "$(ls -t ~/.claude/projects/"$(pwd|tr / -)"/*.jsonl | head -1)" .jsonl)
+printf '%s\t%s\t%s\n' "$SID" "<feature-slug>" "<note>" >> ../RaBbLE-Grimoire/log/token-ledger.tsv
+```
+
 ## Rules
 
 - **Never edit `~/.config/` directly.** Edit `config/` → deploy via `dotctl`.
