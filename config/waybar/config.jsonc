@@ -229,6 +229,6 @@
         "return-type": "json",
         "interval": 30,
         "tooltip": true,
-        "on-click": "kitty --title 'Claude Usage' bash -c 'python3 ~/.config/waybar/scripts/llm-usage-detail.py; read'"
+        "on-click": "bash -c 'python3 ~/.config/waybar/scripts/llm-usage-detail.py | fuzzel --dmenu --prompt=\"\" --width=52 --lines=28 --no-fuzzy'"
     }
 }

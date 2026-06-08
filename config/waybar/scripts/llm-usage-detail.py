@@ -14,14 +14,16 @@ import sys
 
 CLAUDE_DIR = pathlib.Path.home() / ".claude" / "projects"
 
-CYAN    = "\033[38;2;0;245;255m"
-VIOLET  = "\033[38;2;191;95;255m"
-GREEN   = "\033[38;2;80;250;123m"
-YELLOW  = "\033[38;2;241;250;140m"
-MUTED   = "\033[38;2;107;64;128m"
-TEXT    = "\033[38;2;232;213;255m"
-MAGENTA = "\033[38;2;255;45;120m"
-RESET   = "\033[0m"
+# Strip ANSI when piped (e.g. into fuzzel --dmenu)
+_tty = sys.stdout.isatty()
+CYAN    = "\033[38;2;0;245;255m"    if _tty else ""
+VIOLET  = "\033[38;2;191;95;255m"   if _tty else ""
+GREEN   = "\033[38;2;80;250;123m"   if _tty else ""
+YELLOW  = "\033[38;2;241;250;140m"  if _tty else ""
+MUTED   = "\033[38;2;107;64;128m"   if _tty else ""
+TEXT    = "\033[38;2;232;213;255m"  if _tty else ""
+MAGENTA = "\033[38;2;255;45;120m"   if _tty else ""
+RESET   = "\033[0m"                  if _tty else ""
 
 
 def fmt_tokens(n: int) -> str:
