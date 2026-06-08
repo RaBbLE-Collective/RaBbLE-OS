@@ -90,6 +90,7 @@ BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako claud
 # Each value is a shell function name defined below.
 declare -A BUNDLE_POST_APPLY=(
   [claude]="_post_apply_claude"
+  [waybar]="_post_apply_waybar"
 )
 
 declare -A BUNDLE_RELOAD=(
@@ -129,6 +130,45 @@ _post_apply_claude() {
     mkdir -p "${HOME}/.claude"
     printf '{\n  "theme": "custom:rabble-theme"\n}\n' > "$settings"
     info "created ~/.claude/settings.json with theme key"
+  fi
+}
+
+# Wire score-claude-hook.sh into ~/.claude/settings.json so the sCoRE Usage
+# Tracker's "needs input" state (flashing magenta when a tool-permission
+# prompt is waiting on you) works without a manual setup step. Merges — never
+# clobbers — the Notification/PreToolUse/UserPromptSubmit hook arrays: each
+# event gets our entry appended only if it isn't already present, so any other
+# hooks you add by hand survive re-applies untouched.
+_post_apply_waybar() {
+  local settings="${HOME}/.claude/settings.json"
+  # Always the expanded absolute path — Claude Code normalizes "~/..." to it
+  # on first run, so matching against "~/..." here would never dedupe.
+  local cmd
+  cmd="$(realpath -m "${HOME}/.config/waybar/scripts/score-claude-hook.sh")"
+
+  if ! command -v jq &>/dev/null; then
+    warn "jq not found — skipping score-claude-hook.sh wiring in settings.json"
+    warn "Hook script lives at: ${cmd}"
+    return
+  fi
+
+  [[ -f "$settings" ]] || { mkdir -p "${HOME}/.claude"; echo '{}' > "$settings"; }
+
+  local tmp
+  tmp=$(mktemp)
+  if jq --arg cmd "$cmd" '
+      def ensure_hook(event):
+        .hooks[event] = ((.hooks[event] // [])
+          | if any(.[]?.hooks[]?.command == $cmd; .) then .
+            else . + [{"matcher": "", "hooks": [{"type": "command", "command": $cmd}]}]
+            end);
+      ensure_hook("Notification") | ensure_hook("PreToolUse") | ensure_hook("UserPromptSubmit")
+    ' "$settings" > "$tmp"; then
+    mv "$tmp" "$settings"
+    info "score-claude-hook.sh wired into ~/.claude/settings.json (Notification/PreToolUse/UserPromptSubmit)"
+  else
+    rm -f "$tmp"
+    warn "jq failed — score-claude-hook.sh not wired into settings.json"
   fi
 }
 

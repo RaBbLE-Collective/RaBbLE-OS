@@ -51,7 +51,7 @@ from pathlib import Path
 import browser_cookie3
 from curl_cffi import requests
 
-POLL_INTERVAL_S = 300  # 5 min — comfortably under score-status.sh's 1200s staleness cutoff
+POLL_INTERVAL_S = 90  # comfortably under score-status.sh's 1200s staleness cutoff
 CLAUDE_DOMAIN = "claude.ai"
 CLAUDE_DIR = Path.home() / ".claude" / "projects"
 CACHE_DIR = Path.home() / ".cache" / "rabble"

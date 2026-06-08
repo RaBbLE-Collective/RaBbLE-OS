@@ -275,15 +275,20 @@ window#waybar.empty {
     background:     rgba(0, 245, 255, 0.10);
 }
 
+/* busy: actively working — cool cyan/violet, fast flicker (~6Hz) layered
+   over the slow background pulse so the pill reads as "alive" without
+   reaching for the magenta that's now reserved for "needs you" */
 #custom-llm-claude.llm-busy {
-    color:          @pink;
-    background:     rgba(255, 45, 120, 0.18);
-    animation:      pulse-claude 2s ease-in-out infinite;
+    color:          @cyan;
+    background:     rgba(0, 245, 255, 0.14);
+    animation:      pulse-claude 2s ease-in-out infinite,
+                    flicker 0.16s step-start infinite;
 }
 
+/* ready-for-input: calm and inviting — cyan/green */
 #custom-llm-claude.llm-ready {
-    color:          @violet;
-    background:     rgba(191, 95, 255, 0.12);
+    color:          @green;
+    background:     rgba(80, 250, 123, 0.12);
 }
 
 #custom-llm-claude.llm-idle {
@@ -291,15 +296,23 @@ window#waybar.empty {
     background:     rgba(255, 45, 120, 0.06);
 }
 
+/* needs-input: a tool-permission prompt is waiting on you — flash hard */
+#custom-llm-claude.llm-needs-input {
+    color:          @magenta;
+    background:     rgba(255, 45, 120, 0.30);
+    animation:      flash-magenta 0.5s step-start infinite;
+}
+
 #custom-llm-codex.llm-busy {
-    color:          @green;
-    background:     rgba(80, 250, 123, 0.18);
-    animation:      pulse-codex 2s ease-in-out infinite;
+    color:          @cyan;
+    background:     rgba(0, 245, 255, 0.14);
+    animation:      pulse-codex 2s ease-in-out infinite,
+                    flicker 0.16s step-start infinite;
 }
 
 #custom-llm-codex.llm-ready {
-    color:          @cyan;
-    background:     rgba(0, 245, 255, 0.14);
+    color:          @green;
+    background:     rgba(80, 250, 123, 0.12);
 }
 
 #custom-llm-codex.llm-idle {
@@ -329,15 +342,29 @@ window#waybar.empty {
 }
 
 @keyframes pulse-claude {
-    0%   { background: rgba(255, 45, 120, 0.10); }
-    50%  { background: rgba(255, 45, 120, 0.24); }
-    100% { background: rgba(255, 45, 120, 0.10); }
+    0%   { background: rgba(0, 245, 255, 0.10); }
+    50%  { background: rgba(191, 95, 255, 0.22); }
+    100% { background: rgba(0, 245, 255, 0.10); }
 }
 
 @keyframes pulse-codex {
     0%   { background: rgba(0, 245, 255, 0.10); }
-    50%  { background: rgba(80, 250, 123, 0.24); }
+    50%  { background: rgba(80, 250, 123, 0.22); }
     100% { background: rgba(0, 245, 255, 0.10); }
+}
+
+/* fast opacity strobe (~6Hz) — the part of "active" that a slow background
+   pulse can't convey; layered on top of pulse-claude/pulse-codex above */
+@keyframes flicker {
+    50% { opacity: 0.6; }
+}
+
+/* hard, urgent flash for "needs your input right now" */
+@keyframes flash-magenta {
+    50% {
+        background: rgba(255, 45, 120, 0.55);
+        color:      @text;
+    }
 }
 
 

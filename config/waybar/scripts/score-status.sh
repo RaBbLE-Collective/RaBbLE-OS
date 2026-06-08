@@ -29,6 +29,7 @@ CODEX_DIR="$HOME/.codex/sessions"
 CACHE_DIR="$HOME/.cache/rabble"
 CACHE_FILE="$CACHE_DIR/llm-status.json"
 OBS_FILE="$CACHE_DIR/llm-usage-latest.json"
+CLAUDE_NEEDS_INPUT_MARKER="$CACHE_DIR/claude-needs-input"
 
 mkdir -p "$CACHE_DIR" 2>/dev/null || true
 
@@ -285,6 +286,18 @@ codex_is_running() {
     pgrep -x "codex" &>/dev/null
 }
 
+# Traveling-wave glyph for the "busy" mark — rises and falls like a pulse of
+# activity rather than a generic spinner. Waybar can only re-poll this script
+# every few seconds (no way to hit the 5-8Hz a true spin would need), so the
+# wave instead rolls smoothly across its frames over several polls — each
+# refresh nudges it one step further through the cycle.
+SPIN_FRAMES=(▁ ▂ ▄ ▆ █ ▆ ▄ ▂)
+spin_glyph() {
+    local offset="${1:-0}"
+    local idx=$(( ($(date +%s) + offset) % ${#SPIN_FRAMES[@]} ))
+    echo "${SPIN_FRAMES[$idx]}"
+}
+
 # ── Format helpers ────────────────────────────────────────────────────────────
 
 fmt_tokens() {
@@ -331,6 +344,15 @@ source_state() {
                     -newer "$CACHE_FILE" 2>/dev/null | grep -q .; then
                 state="busy"
                 state_label="busy"
+            fi
+            # Highest priority: a Claude Code hook (score-claude-hook.sh,
+            # wired into ~/.claude/settings.json) drops this marker the
+            # moment a tool-permission prompt appears, and clears it once
+            # you respond — the only reliable signal for "needs you right
+            # now" vs. just "thinking" (both look identical on disk).
+            if [[ -f "$CLAUDE_NEEDS_INPUT_MARKER" ]]; then
+                state="needs-input"
+                state_label="needs input"
             fi
             ;;
         codex)
@@ -413,11 +435,20 @@ main() {
         read -r claude_state claude_state_label <<< "$(source_state claude)"
 
         local claude_mark
-        case "$claude_state" in
-            busy)  claude_mark="◉" ;;
-            ready) claude_mark="▶" ;;
-            *)     claude_mark="✱" ;;
-        esac
+        if [[ "${RABBLE_GLYPH_PLACEHOLDER:-0}" == "1" ]]; then
+            # Heavy-tier daemon mode (score-status-daemon.sh): skip computing
+            # the actual glyph — score-glyph-stream.sh repaints it at high
+            # frequency on top of this cached JSON, far cheaper than re-running
+            # the full transcript parse just to advance an animation frame.
+            claude_mark="@GLYPH@"
+        else
+            case "$claude_state" in
+                needs-input) claude_mark="⚑" ;;
+                busy)        claude_mark="$(spin_glyph 0)" ;;
+                ready)       claude_mark="▶" ;;
+                *)           claude_mark="✱" ;;
+            esac
+        fi
 
         # Minimize to just the icon when no Claude harness is running — the
         # usage figures are only actionable while you're actively spending
@@ -525,11 +556,15 @@ PYEOF
         read -r codex_state codex_state_label <<< "$(source_state codex)"
 
         local codex_mark
-        case "$codex_state" in
-            busy)  codex_mark="◉" ;;
-            ready) codex_mark="▶" ;;
-            *)     codex_mark=">_" ;;
-        esac
+        if [[ "${RABBLE_GLYPH_PLACEHOLDER:-0}" == "1" ]]; then
+            codex_mark="@GLYPH@"
+        else
+            case "$codex_state" in
+                busy)  codex_mark="$(spin_glyph 2)" ;;
+                ready) codex_mark="▶" ;;
+                *)     codex_mark=">_" ;;
+            esac
+        fi
 
         # Minimize to just the icon when no Codex harness is running — same
         # reasoning as the Claude module: usage % only matters while you're
@@ -664,7 +699,7 @@ PYEOF
     # State markers using standard Unicode (no Nerd Font required)
     local state_mark
     case "$state" in
-        busy)  state_mark="◉" ;;
+        busy)  state_mark="$(spin_glyph 0)" ;;
         ready) state_mark="▶" ;;
         *)     state_mark="·" ;;
     esac

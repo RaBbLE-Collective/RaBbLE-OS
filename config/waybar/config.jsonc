@@ -222,20 +222,22 @@
 		}
     },
 
-    // ── LLM usage meters (Claude Code + Codex) ───────────────────────────────
-    // Polls Claude transcript estimates, latest claude.ai web readings, and
-    // Codex local rate-limit telemetry every 30 s. No API key needed.
+    // ── sCoRE Usage Tracker (Claude Code + Codex) ────────────────────────────
+    // Continuous-output modules (no "interval" — Waybar treats each stdout
+    // line as a fresh state). score-glyph-stream.sh is a cheap loop that
+    // repaints just the glyph at high frequency on top of a JSON cache that
+    // score-status-daemon.sh refreshes every few seconds with the heavy
+    // transcript-parsed token counts/tooltip. See score-status-daemon.sh's
+    // header for the two-tier rationale.
     "custom/llm-claude": {
-        "exec": "$HOME/.config/waybar/scripts/score-status.sh claude",
+        "exec": "$HOME/.config/waybar/scripts/score-glyph-stream.sh claude",
         "return-type": "json",
-        "interval": 30,
         "tooltip": true,
         "on-click": "kitty --class rabble-popup bash -c 'FORCE_COLOR=1 python3 ~/.config/waybar/scripts/score-usage-detail.py claude | less -R'"
     },
     "custom/llm-codex": {
-        "exec": "$HOME/.config/waybar/scripts/score-status.sh codex",
+        "exec": "$HOME/.config/waybar/scripts/score-glyph-stream.sh codex",
         "return-type": "json",
-        "interval": 30,
         "tooltip": true,
         "on-click": "kitty --class rabble-popup bash -c 'FORCE_COLOR=1 python3 ~/.config/waybar/scripts/score-usage-detail.py codex | less -R'"
     }
