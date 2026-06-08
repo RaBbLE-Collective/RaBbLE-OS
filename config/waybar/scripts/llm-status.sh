@@ -36,16 +36,24 @@ mkdir -p "$CACHE_DIR" 2>/dev/null || true
 
 count_tokens_since() {
     local seconds_ago="$1"
+    local cutoff_override="${2:-}"
 
     [[ -d "$CLAUDE_DIR" ]] || { echo "0 0"; return; }
 
-    python3 - "$CLAUDE_DIR" "$seconds_ago" <<'PYEOF'
+    python3 - "$CLAUDE_DIR" "$seconds_ago" "$cutoff_override" <<'PYEOF'
 import sys, os, json, time, pathlib, datetime
 
 proj_dir  = sys.argv[1]
 window_s  = int(sys.argv[2])
+cutoff_override = sys.argv[3]
 now       = time.time()
-cutoff_t  = now - window_s
+# Anthropic's 5h window resets at a fixed wall-clock boundary, not on a
+# rolling "last 18000s" basis — once it rolls over, only tokens spent since
+# THAT reset count toward the new window. When the API has told us the actual
+# reset time (resets_at - window_length), use that as the cutoff instead of
+# the rolling guess, so the bar doesn't double-count tokens from the prior
+# window that the meter has already forgotten about.
+cutoff_t  = float(cutoff_override) if cutoff_override else (now - window_s)
 
 total_in  = 0
 total_out = 0
@@ -115,8 +123,25 @@ try:
 except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
     sys.exit(0)
 
+# API observations carry Anthropic's own reset timestamp — far more accurate
+# than the local guess (oldest-transcript-ts + window length), which drifts
+# whenever the actual window has already rolled over.
+reset_epoch = ""
+raw_reset = row.get("resets_at")
+if raw_reset:
+    try:
+        import datetime
+        if isinstance(raw_reset, str):
+            reset_epoch = int(datetime.datetime.fromisoformat(
+                raw_reset.replace("Z", "+00:00")
+            ).timestamp())
+        else:
+            reset_epoch = int(raw_reset)
+    except Exception:
+        reset_epoch = ""
+
 if 0 <= pct <= 100 and now - ts <= max_age:
-    print(f"{pct:g} {int(now - ts)}")
+    print(f"{pct:g} {int(now - ts)} {reset_epoch}")
 PYEOF
 }
 
@@ -245,12 +270,19 @@ PYEOF
 
 # ── Agent state ───────────────────────────────────────────────────────────────
 
+# Exact-name match only (pgrep -x). The broad `pgrep -f "codex"` / "claude.*code"
+# fallbacks this used to fall through to self-match: every command this script
+# (and the harness wrapping it) runs gets shelled out through a snapshot-loader
+# whose command line contains "claude"/"codex" literally, so the fallback
+# always found a "process" — the bar never showed idle. The actual CLIs run as
+# plain `claude` / `codex` binaries, so exact-name matching is both correct
+# and immune to that self-match.
 claude_is_running() {
-    pgrep -x "claude" &>/dev/null || pgrep -f "claude.*code" &>/dev/null
+    pgrep -x "claude" &>/dev/null
 }
 
 codex_is_running() {
-    pgrep -x "codex" &>/dev/null || pgrep -f "codex" &>/dev/null
+    pgrep -x "codex" &>/dev/null
 }
 
 # ── Format helpers ────────────────────────────────────────────────────────────
@@ -324,8 +356,27 @@ main() {
 
     if [[ "$mode" == "claude" ]]; then
         local nl=$'\n'
+
+        # Look up the API-observed reset time FIRST — if Anthropic's 5h
+        # window has already rolled over, we want to count tokens only since
+        # that actual reset, not over a rolling "last 18000s" span (which
+        # would double-count spend the meter has already forgotten about).
+        local observed_5h observed_week observed_5h_age observed_week_age observed_5h_pct observed_week_pct observed_5h_reset observed_week_reset
+        observed_5h=$(latest_observed_pct 5h 1200 || true)
+        observed_week=$(latest_observed_pct week 1200 || true)
+        [[ -n "$observed_5h" ]]   && read -r observed_5h_pct   observed_5h_age   observed_5h_reset   <<< "$observed_5h"
+        [[ -n "$observed_week" ]] && read -r observed_week_pct observed_week_age observed_week_reset <<< "$observed_week"
+
+        local five_h_cutoff=""
+        if [[ -n "${observed_5h_reset:-}" ]]; then
+            five_h_cutoff=$(( observed_5h_reset - 18000 ))
+            # Window start is in the future until the API's snapshot catches
+            # up with a fresh reset — fall back to the rolling guess then.
+            (( five_h_cutoff > $(date +%s) )) && five_h_cutoff=""
+        fi
+
         local five_h_data weekly_data
-        five_h_data=$(count_tokens_since 18000)
+        five_h_data=$(count_tokens_since 18000 "$five_h_cutoff")
         weekly_data=$(count_tokens_since 604800)
 
         local five_h_in five_h_out reset_in_s weekly_in weekly_out
@@ -334,22 +385,25 @@ main() {
 
         local five_h_tok=$(( five_h_in + five_h_out ))
         local weekly_tok=$(( weekly_in + weekly_out ))
-        local five_h_est weekly_est five_h_disp weekly_disp reset_fmt observed_5h observed_week observed_5h_age observed_week_age observed_5h_pct observed_week_pct
+        local five_h_est weekly_est five_h_disp weekly_disp reset_fmt
         five_h_est=$(fmt_pct  "$five_h_tok" "$FIVE_H_LIMIT")
         weekly_est=$(fmt_pct  "$weekly_tok" "$WEEKLY_LIMIT")
         five_h_disp="$five_h_est"
         weekly_disp="$weekly_est"
-        observed_5h=$(latest_observed_pct 5h 1200 || true)
-        observed_week=$(latest_observed_pct week 1200 || true)
-        if [[ -n "$observed_5h" ]]; then
-            read -r observed_5h_pct observed_5h_age <<< "$observed_5h"
+        if [[ -n "${observed_5h_pct:-}" ]]; then
             five_h_disp="${observed_5h_pct}%"
         fi
-        if [[ -n "$observed_week" ]]; then
-            read -r observed_week_pct observed_week_age <<< "$observed_week"
+        if [[ -n "${observed_week_pct:-}" ]]; then
             weekly_disp="${observed_week_pct}%"
         fi
-        reset_fmt=$(fmt_reset  "$reset_in_s")
+        # Prefer Anthropic's own reset timestamp (from the API observation)
+        # over the local guess — the local one is derived from the oldest
+        # cached transcript and drifts once the real window has rolled over.
+        if [[ -n "${observed_5h_reset:-}" ]]; then
+            reset_fmt=$(fmt_abs_reset "$observed_5h_reset")
+        else
+            reset_fmt=$(fmt_reset  "$reset_in_s")
+        fi
 
         local five_h_in_disp five_h_out_disp
         five_h_in_disp=$(fmt_tokens "$five_h_in")
@@ -365,8 +419,17 @@ main() {
             *)     claude_mark="·" ;;
         esac
 
-        local claude_text="Claude ${claude_mark} ${five_h_disp}"
-        (( weekly_tok > 0 )) && claude_text+=" / ${weekly_disp}wk"
+        # Minimize to just the icon when no Claude harness is running — the
+        # usage figures are only actionable while you're actively spending
+        # against the quota; idle, they're just bar clutter. Full detail is
+        # always one click away via the tooltip/popup regardless of state.
+        local claude_text
+        if [[ "$claude_state" == "idle" ]]; then
+            claude_text="${claude_mark}"
+        else
+            claude_text="Claude ${claude_mark} ${five_h_disp}"
+            (( weekly_tok > 0 )) && claude_text+=" / ${weekly_disp}wk"
+        fi
 
         local tt1=$'════════════════════ Claude ═════════════════════'
         local tt2="Status    : ${claude_state_label}"
@@ -468,11 +531,20 @@ PYEOF
             *)     codex_mark="·" ;;
         esac
 
-        local codex_text="Codex ${codex_mark}"
-        if [[ -n "${codex_pct:-}" ]]; then
-            codex_text+=" ${codex_pct}%"
+        # Minimize to just the icon when no Codex harness is running — same
+        # reasoning as the Claude module: usage % only matters while you're
+        # actively burning quota, idle it's just noise. Tooltip/popup still
+        # carry full detail regardless of state.
+        local codex_text
+        if [[ "$codex_state" == "idle" ]]; then
+            codex_text="${codex_mark}"
         else
-            codex_text+=" n/a"
+            codex_text="Codex ${codex_mark}"
+            if [[ -n "${codex_pct:-}" ]]; then
+                codex_text+=" ${codex_pct}%"
+            else
+                codex_text+=" n/a"
+            fi
         fi
 
         local tt1=$'════════════════════ Codex ══════════════════════'
@@ -507,8 +579,23 @@ print(json.dumps({
         return
     fi
 
+    # Look up the API-observed reset time FIRST so the 5h token count can be
+    # scoped to the actual current window instead of a rolling 18000s span
+    # (which would double-count spend from a window that's already reset).
+    local observed_5h observed_week observed_5h_age observed_week_age observed_5h_pct observed_week_pct observed_5h_reset observed_week_reset
+    observed_5h=$(latest_observed_pct 5h 1200 || true)
+    observed_week=$(latest_observed_pct week 1200 || true)
+    [[ -n "$observed_5h" ]]   && read -r observed_5h_pct   observed_5h_age   observed_5h_reset   <<< "$observed_5h"
+    [[ -n "$observed_week" ]] && read -r observed_week_pct observed_week_age observed_week_reset <<< "$observed_week"
+
+    local five_h_cutoff=""
+    if [[ -n "${observed_5h_reset:-}" ]]; then
+        five_h_cutoff=$(( observed_5h_reset - 18000 ))
+        (( five_h_cutoff > $(date +%s) )) && five_h_cutoff=""
+    fi
+
     local five_h_data weekly_data
-    five_h_data=$(count_tokens_since 18000)
+    five_h_data=$(count_tokens_since 18000 "$five_h_cutoff")
     weekly_data=$(count_tokens_since 604800)
 
     local five_h_in five_h_out reset_in_s weekly_in weekly_out
@@ -537,22 +624,24 @@ print(json.dumps({
     fi
 
     # Bar text: state indicator + 5h usage + weekly usage
-    local five_h_est weekly_est five_h_disp weekly_disp reset_fmt observed_5h observed_week observed_5h_age observed_week_age observed_5h_pct observed_week_pct
+    local five_h_est weekly_est five_h_disp weekly_disp reset_fmt
     five_h_est=$(fmt_pct  "$five_h_tok" "$FIVE_H_LIMIT")
     weekly_est=$(fmt_pct  "$weekly_tok" "$WEEKLY_LIMIT")
     five_h_disp="$five_h_est"
     weekly_disp="$weekly_est"
-    observed_5h=$(latest_observed_pct 5h 1200 || true)
-    observed_week=$(latest_observed_pct week 1200 || true)
-    if [[ -n "$observed_5h" ]]; then
-        read -r observed_5h_pct observed_5h_age <<< "$observed_5h"
+    if [[ -n "${observed_5h_pct:-}" ]]; then
         five_h_disp="${observed_5h_pct}%"
     fi
-    if [[ -n "$observed_week" ]]; then
-        read -r observed_week_pct observed_week_age <<< "$observed_week"
+    if [[ -n "${observed_week_pct:-}" ]]; then
         weekly_disp="${observed_week_pct}%"
     fi
-    reset_fmt=$(fmt_reset  "$reset_in_s")
+    # Prefer Anthropic's own reset timestamp (from the API observation) over
+    # the local guess, which drifts once the real window has rolled over.
+    if [[ -n "${observed_5h_reset:-}" ]]; then
+        reset_fmt=$(fmt_abs_reset "$observed_5h_reset")
+    else
+        reset_fmt=$(fmt_reset  "$reset_in_s")
+    fi
 
     local codex_json codex_pct codex_reset codex_plan codex_5h_total codex_7d_total
     codex_json=$(codex_usage || true)
@@ -597,7 +686,7 @@ PYEOF
     weekly_in_disp=$(fmt_tokens "$weekly_in")
     weekly_out_disp=$(fmt_tokens "$weekly_out")
 
-    local tt1="LLM usage — ${state_label}"
+    local tt1="sCoRE Usage Tracker — ${state_label}"
 
     local tt2="5h window : ${five_h_raw} tokens (↓${five_h_in_disp} in / ↑${five_h_out_disp} out)"
     (( FIVE_H_LIMIT > 0 ))  && tt2+=" / $(fmt_tokens $FIVE_H_LIMIT) limit (est ${five_h_est})"

@@ -145,7 +145,22 @@ def latest_web_observations(now: float) -> dict:
         except (KeyError, TypeError, ValueError):
             continue
         if now - ts <= max_age:
-            out[label] = {"pct": pct, "age": now - ts, "web_used": bool(row.get("web_used"))}
+            entry = {"pct": pct, "age": now - ts, "web_used": bool(row.get("web_used"))}
+            # Anthropic's own reset timestamp (from the API poller) — far more
+            # accurate than guessing from the oldest cached transcript, which
+            # drifts the moment the real window has already rolled over.
+            raw_reset = row.get("resets_at")
+            if raw_reset:
+                try:
+                    if isinstance(raw_reset, str):
+                        entry["resets_at"] = datetime.datetime.fromisoformat(
+                            raw_reset.replace("Z", "+00:00")
+                        ).timestamp()
+                    else:
+                        entry["resets_at"] = float(raw_reset)
+                except Exception:
+                    pass
+            out[label] = entry
     return out
 
 
@@ -199,11 +214,14 @@ def parse_codex(now: float) -> dict | None:
     return {"latest": latest, "tokens": buckets}
 
 
-def window_reset(sessions: list[dict], window_s: float, now: float) -> str:
-    if not sessions:
-        return "—"
-    oldest = min(s["first_ts"] for s in sessions)
-    resets_at = oldest + window_s
+def window_reset(sessions: list[dict], window_s: float, now: float, reset_override: float | None = None) -> str:
+    if reset_override is not None:
+        resets_at = reset_override
+    else:
+        if not sessions:
+            return "—"
+        oldest = min(s["first_ts"] for s in sessions)
+        resets_at = oldest + window_s
     left = int(resets_at - now)
     if left <= 0:
         return "now"
@@ -212,9 +230,9 @@ def window_reset(sessions: list[dict], window_s: float, now: float) -> str:
     return f"{h}h {m:02d}m" if h else f"{m}m"
 
 
-def print_section(title: str, sessions: list[dict], window_s: float, now: float):
+def print_section(title: str, sessions: list[dict], window_s: float, now: float, reset_override: float | None = None):
     total = sum(s["total"] for s in sessions)
-    reset = window_reset(sessions, window_s, now)
+    reset = window_reset(sessions, window_s, now, reset_override)
 
     print(f"\n{VIOLET}{'─'*60}{RESET}")
     print(f"{VIOLET}{title}{RESET}  {TEXT}{fmt_tokens(total)} tokens{RESET}", end="")
@@ -297,13 +315,27 @@ def print_codex(now: float):
 def main():
     mode = (sys.argv[1] if len(sys.argv) > 1 else "claude").strip().lower()
     now = time.time()
-    five_h  = now - 18_000
+
+    # Anthropic's 5h window resets at a fixed wall-clock boundary, not on a
+    # rolling "last 18000s" basis. When the API poller has told us the actual
+    # reset time, scope the session list to that real window-start so this
+    # popup doesn't show tokens from a window the meter has already forgotten.
+    web_obs = latest_web_observations(now)
+    five_h_reset = (web_obs.get("5h") or {}).get("resets_at")
+    five_h_start = now - 18_000
+    if five_h_reset is not None:
+        candidate_start = five_h_reset - 18_000
+        if candidate_start <= now:
+            five_h_start = candidate_start
+        else:
+            five_h_reset = None  # snapshot hasn't caught up with a fresh reset yet
+
     one_day = now - 86_400
     seven_d = now - 604_800
 
-    print(f"\n{MAGENTA}  RaBbLE — LLM Usage{RESET}  {MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}{RESET}  {CYAN}q to close{RESET}")
+    print(f"\n{MAGENTA}  sCoRE Usage Tracker{RESET}  {MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}{RESET}  {CYAN}q to close{RESET}")
 
-    sessions_5h  = parse_sessions(five_h)
+    sessions_5h  = parse_sessions(five_h_start)
     sessions_24h = parse_sessions(one_day)
     sessions_7d  = parse_sessions(seven_d)
 
@@ -312,13 +344,13 @@ def main():
         print_codex(now)
         print_separator("Claude Code")
         print_web_observations(now)
-        print_section("5-hour window", sessions_5h,  18_000,   now)
+        print_section("5-hour window", sessions_5h,  18_000,   now, five_h_reset)
         print_section("Last 24 hours", sessions_24h, 86_400,   now)
         print_section("Last 7 days",   sessions_7d,  604_800,  now)
     else:
         print_separator("Claude Code")
         print_web_observations(now)
-        print_section("5-hour window", sessions_5h,  18_000,   now)
+        print_section("5-hour window", sessions_5h,  18_000,   now, five_h_reset)
         print_section("Last 24 hours", sessions_24h, 86_400,   now)
         print_section("Last 7 days",   sessions_7d,  604_800,  now)
         print_separator("Codex")
