@@ -14,8 +14,8 @@ import sys
 
 CLAUDE_DIR = pathlib.Path.home() / ".claude" / "projects"
 
-# Strip ANSI when piped (e.g. into fuzzel --dmenu)
-_tty = sys.stdout.isatty()
+# Strip ANSI when piped, unless FORCE_COLOR is set (e.g. piped into less -R)
+_tty = sys.stdout.isatty() or bool(os.environ.get("FORCE_COLOR"))
 CYAN    = "\033[38;2;0;245;255m"    if _tty else ""
 VIOLET  = "\033[38;2;191;95;255m"   if _tty else ""
 GREEN   = "\033[38;2;80;250;123m"   if _tty else ""
