@@ -5,10 +5,12 @@
 # and 7-day weekly cap by parsing ~/.claude/projects/**/*.jsonl transcripts.
 # No API key required — reads token counts from local session files.
 #
-# Waybar usage:
-#   "exec": "~/.config/waybar/scripts/llm-status.sh"
-#   "return-type": "json"
-#   "interval": 30
+# ── Configure your plan limits here ─────────────────────────────────────────
+# Set to 0 if unknown — the bar shows raw token count instead of percentage.
+# Tune these after hitting a rate limit: note your token count at that moment.
+FIVE_H_LIMIT=0       # tokens per 5-hour rolling window  (e.g. 2000000)
+WEEKLY_LIMIT=0       # tokens per 7-day rolling window   (e.g. 10000000)
+# ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
 
@@ -20,34 +22,26 @@ mkdir -p "$CACHE_DIR"
 
 # ── Token counting from JSONL transcripts ─────────────────────────────────────
 
-# Sum input+output tokens from all .jsonl files modified within the last $1 seconds.
-# Reads assistant message usage fields: {"usage":{"input_tokens":N,"output_tokens":N}}
 count_tokens_since() {
     local seconds_ago="$1"
-    local cutoff
-    cutoff=$(date -d "@$(( $(date +%s) - seconds_ago ))" +%Y-%m-%dT%H:%M:%S 2>/dev/null \
-          || date -v-${seconds_ago}S +%Y-%m-%dT%H:%M:%S 2>/dev/null)
 
     [[ -d "$CLAUDE_DIR" ]] || { echo "0 0"; return; }
 
-    python3 - "$CLAUDE_DIR" "$cutoff" "$seconds_ago" <<'PYEOF'
-import sys, os, json, time, pathlib
+    python3 - "$CLAUDE_DIR" "$seconds_ago" <<'PYEOF'
+import sys, os, json, time, pathlib, datetime
 
 proj_dir  = sys.argv[1]
-cutoff_s  = sys.argv[2]
-window_s  = int(sys.argv[3])
+window_s  = int(sys.argv[2])
 now       = time.time()
 cutoff_t  = now - window_s
 
 total_in  = 0
 total_out = 0
-oldest_ts = now   # oldest message timestamp inside the window
+oldest_ts = now
 
 for jl in pathlib.Path(proj_dir).rglob("*.jsonl"):
     try:
-        mtime = jl.stat().st_mtime
-        # Skip files not touched in the window (fast path)
-        if mtime < cutoff_t - 60:
+        if jl.stat().st_mtime < cutoff_t - 60:
             continue
         with open(jl) as f:
             for line in f:
@@ -59,25 +53,23 @@ for jl in pathlib.Path(proj_dir).rglob("*.jsonl"):
                 except json.JSONDecodeError:
                     continue
 
-                # Timestamp is stored as ISO string on most entries
                 ts_raw = entry.get("timestamp") or entry.get("ts") or ""
+                ts = jl.stat().st_mtime
                 if ts_raw:
                     try:
-                        import datetime
-                        ts = datetime.datetime.fromisoformat(ts_raw.replace("Z","+00:00")).timestamp()
+                        ts = datetime.datetime.fromisoformat(
+                            ts_raw.replace("Z", "+00:00")
+                        ).timestamp()
                     except Exception:
-                        ts = mtime
-                else:
-                    ts = mtime
+                        pass
 
                 if ts < cutoff_t:
                     continue
 
-                # Pull usage from assistant messages
-                msg = entry.get("message", {})
+                msg   = entry.get("message", {})
                 usage = msg.get("usage") or entry.get("usage") or {}
-                inp = usage.get("input_tokens", 0)
-                out = usage.get("output_tokens", 0)
+                inp   = usage.get("input_tokens", 0)
+                out   = usage.get("output_tokens", 0)
                 if inp or out:
                     total_in  += inp
                     total_out += out
@@ -86,23 +78,15 @@ for jl in pathlib.Path(proj_dir).rglob("*.jsonl"):
     except Exception:
         continue
 
-# When does the 5h window free up? = oldest_ts + window_s
 reset_in_s = max(0, int(oldest_ts + window_s - now)) if (total_in + total_out) > 0 else 0
 print(total_in + total_out, reset_in_s)
 PYEOF
 }
 
-# ── Agent activity detection ──────────────────────────────────────────────────
+# ── Agent state ───────────────────────────────────────────────────────────────
 
 claude_is_running() {
     pgrep -x "claude" &>/dev/null || pgrep -f "claude.*code" &>/dev/null
-}
-
-claude_is_busy() {
-    [[ -d "$CLAUDE_DIR" ]] || return 1
-    # A transcript touched in the last 90 seconds = active session
-    find "$CLAUDE_DIR" -name "*.jsonl" -newer "$CACHE_FILE" 2>/dev/null \
-        | head -1 | grep -q . 2>/dev/null
 }
 
 # ── Format helpers ────────────────────────────────────────────────────────────
@@ -115,71 +99,98 @@ fmt_tokens() {
     fi
 }
 
+fmt_pct() {
+    local used="$1" limit="$2"
+    (( limit > 0 )) && printf "%d%%" "$(( used * 100 / limit ))" || fmt_tokens "$used"
+}
+
 fmt_reset() {
     local s="$1"
     (( s <= 0 )) && { echo "now"; return; }
-    local h=$(( s / 3600 ))
-    local m=$(( (s % 3600) / 60 ))
+    local h=$(( s / 3600 )) m=$(( (s % 3600) / 60 ))
     (( h > 0 )) && echo "${h}h ${m}m" || echo "${m}m"
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 main() {
-    # 5-hour window = 18000 seconds; 7-day window = 604800 seconds
     local five_h_data weekly_data
     five_h_data=$(count_tokens_since 18000)
     weekly_data=$(count_tokens_since 604800)
 
-    local five_h_tok reset_in_s weekly_tok weekly_reset
+    local five_h_tok reset_in_s weekly_tok
     read -r five_h_tok reset_in_s <<< "$five_h_data"
     read -r weekly_tok _          <<< "$weekly_data"
 
-    # State
+    # Agent state
     local state="idle"
-    local state_icon="󰌪"   # sleep
+    local state_label="idle"
     if claude_is_running; then
         state="ready"
-        state_icon="󰅐"     # timer-sand
+        state_label="ready"
     fi
-    # Recent transcript activity = actively generating
     if [[ -f "$CACHE_FILE" ]] && find "$CLAUDE_DIR" -name "*.jsonl" \
             -newer "$CACHE_FILE" 2>/dev/null | grep -q .; then
         state="busy"
-        state_icon="󱐋"     # lightning-bolt
+        state_label="busy"
     fi
 
-    # Bar text
-    local five_h_fmt weekly_fmt reset_fmt
-    five_h_fmt=$(fmt_tokens "$five_h_tok")
-    weekly_fmt=$(fmt_tokens "$weekly_tok")
-    reset_fmt=$(fmt_reset   "$reset_in_s")
+    # Bar text: state indicator + 5h usage + weekly usage
+    local five_h_disp weekly_disp reset_fmt
+    five_h_disp=$(fmt_pct  "$five_h_tok" "$FIVE_H_LIMIT")
+    weekly_disp=$(fmt_pct  "$weekly_tok" "$WEEKLY_LIMIT")
+    reset_fmt=$(fmt_reset  "$reset_in_s")
 
-    local text="󰋦 ${state_icon} ${five_h_fmt}"
+    # State markers using standard Unicode (no Nerd Font required)
+    local state_mark
+    case "$state" in
+        busy)  state_mark="⚡" ;;
+        ready) state_mark="▶" ;;
+        *)     state_mark="·" ;;
+    esac
+
+    local text="C ${state_mark} ${five_h_disp}"
+    (( weekly_tok > 0 )) && text+=" / ${weekly_disp}wk"
 
     # Tooltip
-    local tooltip
-    tooltip="Claude Code — ${state}\n"
-    tooltip+="5h window : ${five_h_fmt} tokens"
-    if (( five_h_tok > 0 )); then
-        tooltip+="  (resets in ${reset_fmt})"
-    fi
-    tooltip+="\nWeek      : ${weekly_fmt} tokens"
+    local five_h_raw weekly_raw
+    five_h_raw=$(fmt_tokens "$five_h_tok")
+    weekly_raw=$(fmt_tokens "$weekly_tok")
 
-    local other_agents=""
-    pgrep -x "codex"  &>/dev/null && other_agents+=" codex"
-    pgrep -x "gemini" &>/dev/null && other_agents+=" gemini"
-    [[ -n "$other_agents" ]] && tooltip+="\nAlso running:${other_agents}"
+    local tt1="Claude Code — ${state_label}"
 
-    # CSS class for coloring
+    local tt2="5h window : ${five_h_raw} tokens"
+    (( FIVE_H_LIMIT > 0 ))  && tt2+=" / $(fmt_tokens $FIVE_H_LIMIT) limit (${five_h_disp})"
+    (( five_h_tok  > 0 ))   && tt2+="  [resets in ${reset_fmt}]"
+
+    local tt3="Week      : ${weekly_raw} tokens"
+    (( WEEKLY_LIMIT > 0 ))  && tt3+=" / $(fmt_tokens $WEEKLY_LIMIT) limit (${weekly_disp})"
+
+    local other=""
+    pgrep -x "codex"  &>/dev/null && other+=" codex"
+    pgrep -x "gemini" &>/dev/null && other+=" gemini"
+    local tt4="${other:+Also running:${other}}"
+
     local css_class="llm-${state}"
 
-    printf '{"text":"%s","tooltip":"%s","class":"%s"}\n' \
-        "$text" \
-        "$(echo -e "$tooltip" | sed 's/"/\\"/g')" \
-        "$css_class"
+    RABBLE_TEXT="$text" \
+    RABBLE_TT1="$tt1" \
+    RABBLE_TT2="$tt2" \
+    RABBLE_TT3="$tt3" \
+    RABBLE_TT4="$tt4" \
+    RABBLE_CLASS="$css_class" \
+    python3 -c "
+import json, os
+parts = [os.environ[k] for k in ('RABBLE_TT1','RABBLE_TT2','RABBLE_TT3')]
+tt4 = os.environ['RABBLE_TT4']
+if tt4: parts.append(tt4)
+print(json.dumps({
+    'text':    os.environ['RABBLE_TEXT'],
+    'tooltip': '\n'.join(parts),
+    'class':   os.environ['RABBLE_CLASS'],
+}, ensure_ascii=False))
+"
 
-    # Touch the cache file so "newer" check works next poll
     touch "$CACHE_FILE"
 }
 
