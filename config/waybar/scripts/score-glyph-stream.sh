@@ -47,6 +47,19 @@ while true; do
         # space python's json.dumps puts after the colon ("class": "...").
         class="${raw#*\"class\":*\"}"
         class="${class%%\"*}"
+        cached_class="$class"
+
+        # The marker is the live signal — the hook drops/clears it the instant
+        # a permission prompt appears or resolves. Checking it here (a single
+        # stat, no subprocess) means "needs input" reacts immediately instead
+        # of waiting up to HEAVY_INTERVAL_S for the daemon to re-parse and
+        # rewrite the cached class — and we patch the class field in `raw`
+        # too, so the CSS (color/flash animation) flips instantly along with
+        # the glyph, not just the icon.
+        if [[ "$mode" == "claude" && -f "$NEEDS_INPUT_MARKER" ]]; then
+            class="llm-needs-input"
+            raw="${raw/\"$cached_class\"/\"$class\"}"
+        fi
 
         glyph=""
         case "$class" in
