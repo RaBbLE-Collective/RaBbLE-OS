@@ -154,8 +154,7 @@ def main():
     one_day = now - 86_400
     seven_d = now - 604_800
 
-    print(f"\n{MAGENTA}  RaBbLE — Claude Code Usage{RESET}")
-    print(f"{MUTED}  {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}{RESET}")
+    print(f"\n{MAGENTA}  RaBbLE — Claude Code Usage{RESET}  {MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}    q / Esc to close{RESET}")
 
     sessions_5h  = parse_sessions(five_h)
     sessions_24h = parse_sessions(one_day)
@@ -166,9 +165,7 @@ def main():
     print_section("Last 7 days",   sessions_7d,  604_800,  now)
 
     total_week = sum(s["total"] for s in sessions_7d)
-    print(f"\n{MUTED}  Weekly total: {fmt_tokens(total_week)} tokens across {len(sessions_7d)} session(s){RESET}")
-    print(f"\n{VIOLET}{'─'*60}{RESET}")
-    print(f"  {MUTED}press  {RESET}{TEXT}q{RESET}{MUTED}  to close{RESET}\n")
+    print(f"\n{MUTED}  Weekly total: {fmt_tokens(total_week)} tokens across {len(sessions_7d)} session(s){RESET}\n")
 
 
 if __name__ == "__main__":
