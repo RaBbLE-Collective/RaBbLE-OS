@@ -166,7 +166,9 @@ def main():
     print_section("Last 7 days",   sessions_7d,  604_800,  now)
 
     total_week = sum(s["total"] for s in sessions_7d)
-    print(f"\n{MUTED}  Weekly total: {fmt_tokens(total_week)} tokens across {len(sessions_7d)} session(s){RESET}\n")
+    print(f"\n{MUTED}  Weekly total: {fmt_tokens(total_week)} tokens across {len(sessions_7d)} session(s){RESET}")
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"  {MUTED}press  {RESET}{TEXT}q{RESET}{MUTED}  to close{RESET}\n")
 
 
 if __name__ == "__main__":
