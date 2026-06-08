@@ -154,7 +154,7 @@ def main():
     one_day = now - 86_400
     seven_d = now - 604_800
 
-    print(f"\n{MAGENTA}  RaBbLE — Claude Code Usage{RESET}  {MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}    q / Esc to close{RESET}")
+    print(f"\n{MAGENTA}  RaBbLE — Claude Code Usage{RESET}  {MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}{RESET}  {CYAN}q to close{RESET}")
 
     sessions_5h  = parse_sessions(five_h)
     sessions_24h = parse_sessions(one_day)
