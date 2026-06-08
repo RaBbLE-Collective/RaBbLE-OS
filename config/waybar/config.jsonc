@@ -229,6 +229,6 @@
         "return-type": "json",
         "interval": 30,
         "tooltip": true,
-        "on-click": "bash -c 'python3 ~/.config/waybar/scripts/llm-usage-detail.py | fuzzel --dmenu --prompt=\"\" --width=52 --lines=28 --match-mode=exact'"
+        "on-click": "bash -c 'python3 ~/.config/waybar/scripts/llm-usage-detail.py | fuzzel --dmenu --prompt=\"\" --placeholder=\"\" --width=52 --lines=28 --match-mode=exact'"
     }
 }
