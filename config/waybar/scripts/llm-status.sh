@@ -8,8 +8,18 @@
 # ── Configure your plan limits here ─────────────────────────────────────────
 # Set to 0 if unknown — the bar shows raw token count instead of percentage.
 # Tune these after hitting a rate limit: note your token count at that moment.
-FIVE_H_LIMIT=0       # tokens per 5-hour rolling window  (e.g. 2000000)
-WEEKLY_LIMIT=0       # tokens per 7-day rolling window   (e.g. 10000000)
+#
+# NOTE: Anthropic's usage meter does NOT weigh tokens 1:1 — output tokens cost
+# more than input, and model multipliers apply (Opus ~2x+, Sonnet 1x, Haiku <1x).
+# This script just sums raw input+output tokens, so any fixed limit here is an
+# approximation that will drift as your model/in-out mix changes. Recalibrate
+# whenever the bar's % and the web meter's % diverge meaningfully.
+#
+# Recalibrated 2026-06-08 against web usage meter:
+#   5h window : ~402K tokens measured at web "50%"  → 402000 / 0.50 ≈ 804K
+#   weekly    : ~2.80M tokens measured at web "19%" → 2800000 / 0.19 ≈ 14.7M
+FIVE_H_LIMIT=804000     # tokens per 5-hour rolling window  (estimated from 50% @ ~402K)
+WEEKLY_LIMIT=14700000   # tokens per 7-day rolling window   (estimated from 19% @ ~2.8M)
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -79,7 +89,7 @@ for jl in pathlib.Path(proj_dir).rglob("*.jsonl"):
         continue
 
 reset_in_s = max(0, int(oldest_ts + window_s - now)) if (total_in + total_out) > 0 else 0
-print(total_in + total_out, reset_in_s)
+print(total_in, total_out, reset_in_s)
 PYEOF
 }
 
@@ -118,9 +128,12 @@ main() {
     five_h_data=$(count_tokens_since 18000)
     weekly_data=$(count_tokens_since 604800)
 
-    local five_h_tok reset_in_s weekly_tok
-    read -r five_h_tok reset_in_s <<< "$five_h_data"
-    read -r weekly_tok _          <<< "$weekly_data"
+    local five_h_in five_h_out reset_in_s weekly_in weekly_out
+    read -r five_h_in five_h_out reset_in_s <<< "$five_h_data"
+    read -r weekly_in weekly_out _          <<< "$weekly_data"
+
+    local five_h_tok=$(( five_h_in + five_h_out ))
+    local weekly_tok=$(( weekly_in + weekly_out ))
 
     # Agent state
     local state="idle"
@@ -149,21 +162,27 @@ main() {
         *)     state_mark="·" ;;
     esac
 
-    local text="C ${state_mark} ${five_h_disp}"
+    local five_h_in_disp five_h_out_disp
+    five_h_in_disp=$(fmt_tokens "$five_h_in")
+    five_h_out_disp=$(fmt_tokens "$five_h_out")
+
+    local text="C ${state_mark} ↓${five_h_in_disp} ↑${five_h_out_disp} ${five_h_disp}"
     (( weekly_tok > 0 )) && text+=" / ${weekly_disp}wk"
 
     # Tooltip
-    local five_h_raw weekly_raw
+    local five_h_raw weekly_raw weekly_in_disp weekly_out_disp
     five_h_raw=$(fmt_tokens "$five_h_tok")
     weekly_raw=$(fmt_tokens "$weekly_tok")
+    weekly_in_disp=$(fmt_tokens "$weekly_in")
+    weekly_out_disp=$(fmt_tokens "$weekly_out")
 
     local tt1="Claude Code — ${state_label}"
 
-    local tt2="5h window : ${five_h_raw} tokens"
+    local tt2="5h window : ${five_h_raw} tokens (↓${five_h_in_disp} in / ↑${five_h_out_disp} out)"
     (( FIVE_H_LIMIT > 0 ))  && tt2+=" / $(fmt_tokens $FIVE_H_LIMIT) limit (${five_h_disp})"
     (( five_h_tok  > 0 ))   && tt2+="  [resets in ${reset_fmt}]"
 
-    local tt3="Week      : ${weekly_raw} tokens"
+    local tt3="Week      : ${weekly_raw} tokens (↓${weekly_in_disp} in / ↑${weekly_out_disp} out)"
     (( WEEKLY_LIMIT > 0 ))  && tt3+=" / $(fmt_tokens $WEEKLY_LIMIT) limit (${weekly_disp})"
 
     local other=""
