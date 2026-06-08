@@ -256,6 +256,43 @@ window#waybar.empty {
 }
 
 
+/* ── LLM Status (Claude Code usage meter) ────────────────────────────────── */
+#custom-llm-status {
+    color:          @violet;
+    font-weight:    500;
+    padding:        2px 10px;
+    margin:         3px 1px;
+    border-radius:  8px;
+    background:     rgba(191, 95, 255, 0.08);
+}
+
+#custom-llm-status.llm-busy {
+    color:          @cyan;
+    background:     rgba(0, 245, 255, 0.12);
+    animation:      pulse 2s ease-in-out infinite;
+}
+
+#custom-llm-status.llm-ready {
+    color:          @violet;
+    background:     rgba(191, 95, 255, 0.12);
+}
+
+#custom-llm-status.llm-idle {
+    color:          @muted;
+    background:     rgba(136, 96, 170, 0.06);
+}
+
+#custom-llm-status:hover {
+    background:     rgba(191, 95, 255, 0.18);
+}
+
+@keyframes pulse {
+    0%   { background: rgba(0, 245, 255, 0.08); }
+    50%  { background: rgba(0, 245, 255, 0.20); }
+    100% { background: rgba(0, 245, 255, 0.08); }
+}
+
+
 /* ── Tooltip ─────────────────────────────────────────────────────────────── */
 tooltip {
     background:     @surface;

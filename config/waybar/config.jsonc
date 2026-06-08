@@ -18,6 +18,7 @@
     ],
     "modules-center": [],
     "modules-right": [
+        "custom/llm-status",
         "pulseaudio",
         "network",
         "cpu",
@@ -218,5 +219,16 @@
 			"suspend": "systemctl suspend",
 			"hibernate": "systemctl hibernate"
 		}
+    },
+
+    // ── LLM usage meter (Claude Pro / Claude Code) ───────────────────────────
+    // Polls local ~/.claude/projects/**/*.jsonl transcripts every 30 s.
+    // Shows 5-hour rolling token count and weekly total. No API key needed.
+    "custom/llm-status": {
+        "exec": "$HOME/.config/waybar/scripts/llm-status.sh",
+        "return-type": "json",
+        "interval": 30,
+        "tooltip": true,
+        "on-click": "kitty --title 'Claude Usage' bash -c 'python3 ~/.config/waybar/scripts/llm-usage-detail.py; read'"
     }
 }
