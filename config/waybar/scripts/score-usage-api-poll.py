@@ -7,10 +7,10 @@
 # ]
 # ///
 """
-llm-usage-api-poll.py — Pulls Claude's *official* 5h/7d usage % straight from
+score-usage-api-poll.py — Pulls Claude's *official* 5h/7d usage % straight from
 Anthropic's own API and feeds it to the Waybar tracker.
 
-Why this exists: the local transcript-token estimate (llm-status.sh) can't see
+Why this exists: the local transcript-token estimate (score-status.sh) can't see
 claude.ai web-chat usage, and scraping the rendered usage page (the original
 userscript+bridge plan) means parsing UI text that breaks on every redesign.
 
@@ -27,7 +27,7 @@ Approach lifted from github.com/NihilDigit/waybar-ai-usage (claude.py/common.py)
 
 Runs as a persistent loop (see hypr/conf.d/autostart.conf exec-once) and
 writes straight into ~/.cache/rabble/llm-usage-latest.json — the same
-"observed" cache llm-status.sh already prefers over its token estimate, so no
+"observed" cache score-status.sh already prefers over its token estimate, so no
 changes to the bar script are needed.
 
 Fragility notes (the parts that CAN break):
@@ -51,14 +51,14 @@ from pathlib import Path
 import browser_cookie3
 from curl_cffi import requests
 
-POLL_INTERVAL_S = 300  # 5 min — comfortably under llm-status.sh's 1200s staleness cutoff
+POLL_INTERVAL_S = 300  # 5 min — comfortably under score-status.sh's 1200s staleness cutoff
 CLAUDE_DOMAIN = "claude.ai"
 CLAUDE_DIR = Path.home() / ".claude" / "projects"
 CACHE_DIR = Path.home() / ".cache" / "rabble"
 LATEST_FILE = CACHE_DIR / "llm-usage-latest.json"
 LOG_FILE = CACHE_DIR / "llm-usage-api-poll.log"
 
-# Same regression-sample log llm-usage-log.sh writes to — llm-usage-fit.py
+# Same regression-sample log score-usage-log.sh writes to — score-usage-fit.py
 # reads from here to fit token→% coefficients per model/token-type.
 REG_LOG_FILE = CACHE_DIR / "llm-usage-log.jsonl"
 
@@ -70,7 +70,7 @@ BASE_HEADERS = {
     "Accept": "application/json, text/plain, */*",
 }
 
-# Map Anthropic's window keys -> the labels llm-status.sh's OBS_FILE expects
+# Map Anthropic's window keys -> the labels score-status.sh's OBS_FILE expects
 WINDOW_MAP = {"five_hour": "5h", "seven_day": "week"}
 
 
@@ -152,7 +152,7 @@ def fetch_usage() -> dict:
 
 def count_tokens_by_model(since_ts: float) -> dict:
     """Per-model token breakdown for everything Claude Code has spent since
-    `since_ts` — the same shape llm-usage-log.sh records, so llm-usage-fit.py
+    `since_ts` — the same shape score-usage-log.sh records, so score-usage-fit.py
     can fit on either source interchangeably."""
     import datetime
 
@@ -206,8 +206,8 @@ def count_tokens_by_model(since_ts: float) -> dict:
 
 def append_regression_sample(window_label: str, pct: float, window_start, resets_at) -> None:
     """Append a (cumulative tokens-since-window-start, official %) sample to
-    the same log llm-usage-fit.py already fits on. Unlike the old manual
-    llm-usage-log.sh entries — sparse, single-point-in-time, and requiring you
+    the same log score-usage-fit.py already fits on. Unlike the old manual
+    score-usage-log.sh entries — sparse, single-point-in-time, and requiring you
     to flag whether web chat was "contaminating" the sample — these arrive
     automatically every poll, are anchored to Anthropic's own window-start
     (not a guess), and (critically) are NOT pre-judged as clean/mixed: with a

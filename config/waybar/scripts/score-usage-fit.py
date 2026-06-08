@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-llm-usage-fit.py — Fit a token→usage% formula from logged observations.
+score-usage-fit.py — Fit a token→usage% formula from logged observations.
 
-Reads ~/.cache/rabble/llm-usage-log.jsonl (written by llm-usage-log.sh, one
+Reads ~/.cache/rabble/llm-usage-log.jsonl (written by score-usage-log.sh, one
 JSON row per observation: window, observed pct, per-model token breakdown)
 and runs a least-squares regression per window (5h / week — each has its own
 rolling limit, so they can't share one fit).
@@ -17,7 +17,7 @@ against Sonnet's input coefficient (defined as 1.0x) to print interpretable
 the form Anthropic talks about its own limits in.
 
 Usage:
-    llm-usage-fit.py            # fit + report using all logged samples
+    score-usage-fit.py            # fit + report using all logged samples
 """
 
 import json
@@ -177,7 +177,7 @@ def fit_window(rows, window_label):
 
     if len(samples) < 2:
         print(f"  not enough CLEAN (CC-only) samples for '{window_label}' "
-              f"(have {len(samples)}, need ≥2) — keep logging with llm-usage-log.sh (no --web)")
+              f"(have {len(samples)}, need ≥2) — keep logging with score-usage-log.sh (no --web)")
         return
 
     # Stable, sorted feature ordering: (model, token_type)
@@ -254,8 +254,8 @@ def main():
     rows = load_rows()
     if not rows:
         print(f"No observations logged yet. Record some with:")
-        print(f"  llm-usage-log.sh 5h <pct>")
-        print(f"  llm-usage-log.sh week <pct>")
+        print(f"  score-usage-log.sh 5h <pct>")
+        print(f"  score-usage-log.sh week <pct>")
         print(f"(read <pct> off the Claude web usage meter when you run it)")
         return
 

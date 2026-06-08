@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# llm-usage-log.sh — Record a usage-meter observation for regression fitting.
+# score-usage-log.sh — Record a usage-meter observation for regression fitting.
 #
 # Anthropic's real usage accounting weighs token types and models differently
 # (output > input, cache reads cheaper, Opus/Sonnet/Haiku multipliers). To tune
 # our local estimate toward reality, we log paired samples of
 # (per-model token breakdown, observed % from the Claude web usage meter)
-# and fit a regression over them with llm-usage-fit.py.
+# and fit a regression over them with score-usage-fit.py.
 #
 # Usage:
-#   llm-usage-log.sh 5h   <observed_pct>     # e.g. llm-usage-log.sh 5h 50
-#   llm-usage-log.sh week <observed_pct>     # e.g. llm-usage-log.sh week 19
+#   score-usage-log.sh 5h   <observed_pct>     # e.g. score-usage-log.sh 5h 50
+#   score-usage-log.sh week <observed_pct>     # e.g. score-usage-log.sh week 19
 #
 # Read the % directly off the Claude web usage meter at the moment you run this
 # — the closer in time to that reading, the better the sample.
@@ -24,7 +24,7 @@ mkdir -p "$LOG_DIR"
 
 usage() {
     cat >&2 <<'EOF'
-usage: llm-usage-log.sh <5h|week> <observed_pct> [--web]
+usage: score-usage-log.sh <5h|week> <observed_pct> [--web]
 
   --web   Mark this sample as "contaminated": claude.ai web chat was used
           within this window too. Web usage draws on the same pool but
@@ -35,7 +35,7 @@ usage: llm-usage-log.sh <5h|week> <observed_pct> [--web]
           Clean (no --web) samples train the fit. --web samples are scored
           against that fit afterward to *estimate* the web-only contribution
           (observed % minus what CC tokens alone would predict) — see
-          llm-usage-fit.py.
+          score-usage-fit.py.
 EOF
     exit 1
 }

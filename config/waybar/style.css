@@ -287,8 +287,8 @@ window#waybar.empty {
 }
 
 #custom-llm-claude.llm-idle {
-    color:          @muted;
-    background:     rgba(136, 96, 170, 0.06);
+    color:          @magenta;
+    background:     rgba(255, 45, 120, 0.06);
 }
 
 #custom-llm-codex.llm-busy {

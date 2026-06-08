@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# llm-status.sh — Claude/Codex usage meter for Waybar (JSON output)
+# score-status.sh — Claude/Codex usage meter for Waybar (JSON output)
 #
 # Tracks Claude Pro / Claude Code usage against the 5-hour rolling window
 # and 7-day weekly cap by parsing ~/.claude/projects/**/*.jsonl transcripts.
@@ -414,9 +414,9 @@ main() {
 
         local claude_mark
         case "$claude_state" in
-            busy)  claude_mark="⚡" ;;
+            busy)  claude_mark="◉" ;;
             ready) claude_mark="▶" ;;
-            *)     claude_mark="·" ;;
+            *)     claude_mark="✱" ;;
         esac
 
         # Minimize to just the icon when no Claude harness is running — the
@@ -526,9 +526,9 @@ PYEOF
 
         local codex_mark
         case "$codex_state" in
-            busy)  codex_mark="⚡" ;;
+            busy)  codex_mark="◉" ;;
             ready) codex_mark="▶" ;;
-            *)     codex_mark="·" ;;
+            *)     codex_mark=">_" ;;
         esac
 
         # Minimize to just the icon when no Codex harness is running — same
@@ -664,7 +664,7 @@ PYEOF
     # State markers using standard Unicode (no Nerd Font required)
     local state_mark
     case "$state" in
-        busy)  state_mark="⚡" ;;
+        busy)  state_mark="◉" ;;
         ready) state_mark="▶" ;;
         *)     state_mark="·" ;;
     esac

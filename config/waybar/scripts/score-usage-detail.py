@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-llm-usage-detail.py — Full Claude/Codex usage breakdown.
+score-usage-detail.py — Full Claude/Codex usage breakdown.
 Opened by clicking the waybar llm-status module.
 Shows per-session token counts for the current 5h window and the past 7 days.
 """

@@ -226,17 +226,17 @@
     // Polls Claude transcript estimates, latest claude.ai web readings, and
     // Codex local rate-limit telemetry every 30 s. No API key needed.
     "custom/llm-claude": {
-        "exec": "$HOME/.config/waybar/scripts/llm-status.sh claude",
+        "exec": "$HOME/.config/waybar/scripts/score-status.sh claude",
         "return-type": "json",
         "interval": 30,
         "tooltip": true,
-        "on-click": "kitty --class rabble-popup bash -c 'FORCE_COLOR=1 python3 ~/.config/waybar/scripts/llm-usage-detail.py claude | less -R'"
+        "on-click": "kitty --class rabble-popup bash -c 'FORCE_COLOR=1 python3 ~/.config/waybar/scripts/score-usage-detail.py claude | less -R'"
     },
     "custom/llm-codex": {
-        "exec": "$HOME/.config/waybar/scripts/llm-status.sh codex",
+        "exec": "$HOME/.config/waybar/scripts/score-status.sh codex",
         "return-type": "json",
         "interval": 30,
         "tooltip": true,
-        "on-click": "kitty --class rabble-popup bash -c 'FORCE_COLOR=1 python3 ~/.config/waybar/scripts/llm-usage-detail.py codex | less -R'"
+        "on-click": "kitty --class rabble-popup bash -c 'FORCE_COLOR=1 python3 ~/.config/waybar/scripts/score-usage-detail.py codex | less -R'"
     }
 }
