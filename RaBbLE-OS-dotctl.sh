@@ -134,11 +134,18 @@ _post_apply_claude() {
 }
 
 # Wire score-claude-hook.sh into ~/.claude/settings.json so the sCoRE Usage
-# Tracker's "needs input" state (flashing magenta when a tool-permission
-# prompt is waiting on you) works without a manual setup step. Merges — never
-# clobbers — the Notification/PreToolUse/UserPromptSubmit hook arrays: each
-# event gets our entry appended only if it isn't already present, so any other
-# hooks you add by hand survive re-applies untouched.
+# Tracker's live busy/ready/needs-input state (the whole point — Claude's own
+# lifecycle events are ground truth, not a guess from transcript timestamps)
+# works without a manual setup step. Merges — never clobbers — each event's
+# hook array: our entry is appended only if it isn't already present, so any
+# other hooks you add by hand survive re-applies untouched.
+#
+#   UserPromptSubmit / PreToolUse / PostToolUse -> busy
+#   Notification (permission)                   -> needs input (flashing magenta)
+#   Stop / SubagentStop                          -> ready
+#
+# See score-claude-hook.sh's header for why this replaced the old
+# transcript-mtime heuristic (it can't tell "thinking" from "idle").
 _post_apply_waybar() {
   local settings="${HOME}/.claude/settings.json"
   # Always the expanded absolute path — Claude Code normalizes "~/..." to it
@@ -162,10 +169,11 @@ _post_apply_waybar() {
           | if any(.[]?.hooks[]?.command == $cmd; .) then .
             else . + [{"matcher": "", "hooks": [{"type": "command", "command": $cmd}]}]
             end);
-      ensure_hook("Notification") | ensure_hook("PreToolUse") | ensure_hook("UserPromptSubmit")
+      ensure_hook("Notification") | ensure_hook("PreToolUse") | ensure_hook("PostToolUse")
+        | ensure_hook("UserPromptSubmit") | ensure_hook("Stop") | ensure_hook("SubagentStop")
     ' "$settings" > "$tmp"; then
     mv "$tmp" "$settings"
-    info "score-claude-hook.sh wired into ~/.claude/settings.json (Notification/PreToolUse/UserPromptSubmit)"
+    info "score-claude-hook.sh wired into ~/.claude/settings.json (full lifecycle: prompt/tool/permission/stop)"
   else
     rm -f "$tmp"
     warn "jq failed — score-claude-hook.sh not wired into settings.json"

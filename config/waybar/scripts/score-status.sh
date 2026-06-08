@@ -29,7 +29,7 @@ CODEX_DIR="$HOME/.codex/sessions"
 CACHE_DIR="$HOME/.cache/rabble"
 CACHE_FILE="$CACHE_DIR/llm-status.json"
 OBS_FILE="$CACHE_DIR/llm-usage-latest.json"
-CLAUDE_NEEDS_INPUT_MARKER="$CACHE_DIR/claude-needs-input"
+CLAUDE_LIVE_STATE_FILE="$CACHE_DIR/claude-live-state"
 
 mkdir -p "$CACHE_DIR" 2>/dev/null || true
 
@@ -340,19 +340,36 @@ source_state() {
                 state="ready"
                 state_label="ready"
             fi
-            if [[ -f "$CACHE_FILE" ]] && find "$CLAUDE_DIR" -name "*.jsonl" \
-                    -newer "$CACHE_FILE" 2>/dev/null | grep -q .; then
+            # Heuristic fallback: a transcript write in roughly the last
+            # polling cycle suggests activity. Comparing against "now" rather
+            # than the cache file's mtime avoids the race where the heuristic
+            # flips back to "ready" for a beat right after each cache refresh.
+            if [[ -d "$CLAUDE_DIR" ]] && find "$CLAUDE_DIR" -name "*.jsonl" \
+                    -newermt '-8 seconds' 2>/dev/null | grep -q .; then
                 state="busy"
                 state_label="busy"
             fi
-            # Highest priority: a Claude Code hook (score-claude-hook.sh,
-            # wired into ~/.claude/settings.json) drops this marker the
-            # moment a tool-permission prompt appears, and clears it once
-            # you respond — the only reliable signal for "needs you right
-            # now" vs. just "thinking" (both look identical on disk).
-            if [[ -f "$CLAUDE_NEEDS_INPUT_MARKER" ]]; then
-                state="needs-input"
-                state_label="needs input"
+            # Authoritative override: score-claude-hook.sh (wired into
+            # ~/.claude/settings.json across the full lifecycle — prompt
+            # submit, tool use, permission prompts, turn end) is ground
+            # truth straight from Claude Code itself, not a guess from
+            # transcript timestamps. Transcripts don't update while Claude
+            # is generating, so the mtime heuristic alone would flash
+            # "ready" mid-response — this is what actually fixes that.
+            # Treated as stale (ignored) past 10 minutes so a crashed Claude
+            # can't wedge the pill in "busy"/"needs input" forever.
+            if [[ -f "$CLAUDE_LIVE_STATE_FILE" ]]; then
+                local live age now
+                now=$(date +%s)
+                age=$(( now - $(stat -c %Y "$CLAUDE_LIVE_STATE_FILE" 2>/dev/null || echo "$now") ))
+                if (( age < 600 )); then
+                    live="$(<"$CLAUDE_LIVE_STATE_FILE")"
+                    case "$live" in
+                        busy)         state="busy";         state_label="busy" ;;
+                        ready)        state="ready";        state_label="ready" ;;
+                        needs-input)  state="needs-input";  state_label="needs input" ;;
+                    esac
+                fi
             fi
             ;;
         codex)
@@ -360,8 +377,11 @@ source_state() {
                 state="ready"
                 state_label="ready"
             fi
-            if [[ -f "$CACHE_FILE" && -d "$CODEX_DIR" ]] && find "$CODEX_DIR" -name "*.jsonl" \
-                    -newer "$CACHE_FILE" 2>/dev/null | grep -q .; then
+            # Same "recent write" heuristic as Claude — Codex has no hook
+            # surface yet, so this mtime check is the best signal available.
+            # See score-claude-hook.sh's header for what would replace it.
+            if [[ -d "$CODEX_DIR" ]] && find "$CODEX_DIR" -name "*.jsonl" \
+                    -newermt '-8 seconds' 2>/dev/null | grep -q .; then
                 state="busy"
                 state_label="busy"
             fi
