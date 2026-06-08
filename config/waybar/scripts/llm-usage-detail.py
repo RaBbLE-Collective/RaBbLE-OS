@@ -252,6 +252,14 @@ def print_web_observations(now: float):
         print(f"  {CYAN}{label:<5}{RESET} {TEXT}{row['pct']:>5.1f}%{RESET}  {MUTED}{fmt_age(row['age'])} · {source}{RESET}")
 
 
+def print_separator(title: str):
+    label = f" {title} "
+    width = 60
+    side = max(4, (width - len(title) - 2) // 2)
+    line = f"{'═' * side}{label}{'═' * (width - side - len(label))}"
+    print(f"\n{VIOLET}{line}{RESET}")
+
+
 def print_codex(now: float):
     codex = parse_codex(now)
     if not codex:
@@ -287,6 +295,7 @@ def print_codex(now: float):
 
 
 def main():
+    mode = (sys.argv[1] if len(sys.argv) > 1 else "claude").strip().lower()
     now = time.time()
     five_h  = now - 18_000
     one_day = now - 86_400
@@ -298,11 +307,22 @@ def main():
     sessions_24h = parse_sessions(one_day)
     sessions_7d  = parse_sessions(seven_d)
 
-    print_web_observations(now)
-    print_section("5-hour window", sessions_5h,  18_000,   now)
-    print_section("Last 24 hours", sessions_24h, 86_400,   now)
-    print_section("Last 7 days",   sessions_7d,  604_800,  now)
-    print_codex(now)
+    if mode == "codex":
+        print_separator("Codex")
+        print_codex(now)
+        print_separator("Claude Code")
+        print_web_observations(now)
+        print_section("5-hour window", sessions_5h,  18_000,   now)
+        print_section("Last 24 hours", sessions_24h, 86_400,   now)
+        print_section("Last 7 days",   sessions_7d,  604_800,  now)
+    else:
+        print_separator("Claude Code")
+        print_web_observations(now)
+        print_section("5-hour window", sessions_5h,  18_000,   now)
+        print_section("Last 24 hours", sessions_24h, 86_400,   now)
+        print_section("Last 7 days",   sessions_7d,  604_800,  now)
+        print_separator("Codex")
+        print_codex(now)
 
     total_week = sum(s["total"] for s in sessions_7d)
     print(f"\n{MUTED}  Weekly total: {fmt_tokens(total_week)} tokens across {len(sessions_7d)} session(s){RESET}\n")

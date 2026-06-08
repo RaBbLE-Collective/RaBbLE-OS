@@ -133,6 +133,7 @@ import time
 root = pathlib.Path(sys.argv[1])
 latest = None
 now = time.time()
+snapshots = []
 tokens_7d = {"input": 0, "cached": 0, "output": 0, "reasoning": 0, "total": 0}
 tokens_5h = {"input": 0, "cached": 0, "output": 0, "reasoning": 0, "total": 0}
 
@@ -155,6 +156,13 @@ def add_tokens(bucket, usage):
     bucket["reasoning"] += int(usage.get("reasoning_output_tokens", 0) or 0)
     bucket["total"] += int(usage.get("total_tokens", 0) or 0)
 
+def snapshot_at_or_before(target_ts):
+    chosen = None
+    for snap in snapshots:
+        if snap["ts"] <= target_ts and (chosen is None or snap["ts"] > chosen["ts"]):
+            chosen = snap
+    return chosen
+
 for path in root.rglob("*.jsonl"):
     try:
         if path.stat().st_mtime < now - 604800 - 3600:
@@ -171,6 +179,12 @@ for path in root.rglob("*.jsonl"):
                     continue
                 ts = parse_ts(row, path)
                 rate = payload.get("rate_limits") or {}
+                primary = rate.get("primary") or {}
+                if primary.get("used_percent") is not None:
+                    snapshots.append({
+                        "ts": ts,
+                        "used_percent": float(primary.get("used_percent") or 0),
+                    })
                 info = payload.get("info") or {}
                 usage = info.get("last_token_usage") or {}
                 if usage:
@@ -197,17 +211,33 @@ if not latest:
 
 primary = latest["rate"].get("primary") or {}
 secondary = latest["rate"].get("secondary") or {}
+latest_pct = primary.get("used_percent")
+trend = {}
+if latest_pct is not None and snapshots:
+    snapshots.sort(key=lambda s: s["ts"])
+    latest_ts = latest["ts"]
+    for label, seconds in (("1h", 3600), ("24h", 86400), ("7d", 604800)):
+        snap = snapshot_at_or_before(latest_ts - seconds)
+        if snap is None:
+            snap = snapshots[0]
+        if snap is not None:
+            trend[label] = {
+                "delta": float(latest_pct) - float(snap["used_percent"]),
+                "from_ts": snap["ts"],
+            }
 out = {
-    "used_percent": primary.get("used_percent"),
+    "used_percent": latest_pct,
     "window_minutes": primary.get("window_minutes"),
     "resets_at": primary.get("resets_at"),
     "secondary_used_percent": secondary.get("used_percent") if isinstance(secondary, dict) else None,
     "secondary_resets_at": secondary.get("resets_at") if isinstance(secondary, dict) else None,
     "plan_type": latest["rate"].get("plan_type"),
     "limit_id": latest["rate"].get("limit_id"),
+    "age_s": int(now - latest["ts"]),
+    "trend": trend,
     "tokens_5h": tokens_5h,
     "tokens_7d": tokens_7d,
-    "age_s": int(now - latest["ts"]),
+    "snapshot_count": len(snapshots),
 }
 print(json.dumps(out, separators=(",", ":")))
 PYEOF
@@ -254,9 +284,229 @@ fmt_abs_reset() {
     fmt_reset "$reset_s"
 }
 
+source_state() {
+    local source="$1"
+    local state="idle"
+    local state_label="idle"
+
+    case "$source" in
+        claude)
+            if claude_is_running; then
+                state="ready"
+                state_label="ready"
+            fi
+            if [[ -f "$CACHE_FILE" ]] && find "$CLAUDE_DIR" -name "*.jsonl" \
+                    -newer "$CACHE_FILE" 2>/dev/null | grep -q .; then
+                state="busy"
+                state_label="busy"
+            fi
+            ;;
+        codex)
+            if codex_is_running; then
+                state="ready"
+                state_label="ready"
+            fi
+            if [[ -f "$CACHE_FILE" && -d "$CODEX_DIR" ]] && find "$CODEX_DIR" -name "*.jsonl" \
+                    -newer "$CACHE_FILE" 2>/dev/null | grep -q .; then
+                state="busy"
+                state_label="busy"
+            fi
+            ;;
+    esac
+
+    printf '%s %s\n' "$state" "$state_label"
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 main() {
+    local mode="${1:-summary}"
+
+    if [[ "$mode" == "claude" ]]; then
+        local nl=$'\n'
+        local five_h_data weekly_data
+        five_h_data=$(count_tokens_since 18000)
+        weekly_data=$(count_tokens_since 604800)
+
+        local five_h_in five_h_out reset_in_s weekly_in weekly_out
+        read -r five_h_in five_h_out reset_in_s <<< "$five_h_data"
+        read -r weekly_in weekly_out _          <<< "$weekly_data"
+
+        local five_h_tok=$(( five_h_in + five_h_out ))
+        local weekly_tok=$(( weekly_in + weekly_out ))
+        local five_h_est weekly_est five_h_disp weekly_disp reset_fmt observed_5h observed_week observed_5h_age observed_week_age observed_5h_pct observed_week_pct
+        five_h_est=$(fmt_pct  "$five_h_tok" "$FIVE_H_LIMIT")
+        weekly_est=$(fmt_pct  "$weekly_tok" "$WEEKLY_LIMIT")
+        five_h_disp="$five_h_est"
+        weekly_disp="$weekly_est"
+        observed_5h=$(latest_observed_pct 5h 1200 || true)
+        observed_week=$(latest_observed_pct week 1200 || true)
+        if [[ -n "$observed_5h" ]]; then
+            read -r observed_5h_pct observed_5h_age <<< "$observed_5h"
+            five_h_disp="${observed_5h_pct}%"
+        fi
+        if [[ -n "$observed_week" ]]; then
+            read -r observed_week_pct observed_week_age <<< "$observed_week"
+            weekly_disp="${observed_week_pct}%"
+        fi
+        reset_fmt=$(fmt_reset  "$reset_in_s")
+
+        local five_h_in_disp five_h_out_disp
+        five_h_in_disp=$(fmt_tokens "$five_h_in")
+        five_h_out_disp=$(fmt_tokens "$five_h_out")
+
+        local claude_state claude_state_label
+        read -r claude_state claude_state_label <<< "$(source_state claude)"
+
+        local claude_mark
+        case "$claude_state" in
+            busy)  claude_mark="⚡" ;;
+            ready) claude_mark="▶" ;;
+            *)     claude_mark="·" ;;
+        esac
+
+        local claude_text="Claude ${claude_mark} ${five_h_disp}"
+        (( weekly_tok > 0 )) && claude_text+=" / ${weekly_disp}wk"
+
+        local tt1=$'════════════════════ Claude ═════════════════════'
+        local tt2="Status    : ${claude_state_label}"
+        tt2+="${nl}5h window : $(fmt_tokens "$five_h_tok") tokens (↓${five_h_in_disp} in / ↑${five_h_out_disp} out)"
+        (( FIVE_H_LIMIT > 0 ))  && tt2+=" / $(fmt_tokens $FIVE_H_LIMIT) limit (est ${five_h_est})"
+        if [[ -n "${observed_5h:-}" ]]; then
+            local five_h_delta
+            five_h_delta=$(python3 - "$observed_5h_pct" "${five_h_est%%%}" <<'PYEOF'
+import sys
+print(f"{float(sys.argv[1]) - float(sys.argv[2]):+.1f}pp")
+PYEOF
+            )
+            tt2+=" / web ${five_h_disp} (${observed_5h_age}s old, Δ ${five_h_delta})"
+        fi
+        (( five_h_tok  > 0 )) && tt2+="  [resets in ${reset_fmt}]"
+
+        local tt3="Week      : $(fmt_tokens "$weekly_tok") tokens (↓$(fmt_tokens "$weekly_in") in / ↑$(fmt_tokens "$weekly_out") out)"
+        (( WEEKLY_LIMIT > 0 ))  && tt3+=" / $(fmt_tokens $WEEKLY_LIMIT) limit (est ${weekly_est})"
+        if [[ -n "${observed_week:-}" ]]; then
+            local weekly_delta
+            weekly_delta=$(python3 - "$observed_week_pct" "${weekly_est%%%}" <<'PYEOF'
+import sys
+print(f"{float(sys.argv[1]) - float(sys.argv[2]):+.1f}pp")
+PYEOF
+            )
+            tt3+=" / web ${weekly_disp} (${observed_week_age}s old, Δ ${weekly_delta})"
+        fi
+
+        RABBLE_TEXT="$claude_text" \
+        RABBLE_TT1="$tt1" \
+        RABBLE_TT2="$tt2" \
+        RABBLE_TT3="$tt3" \
+        RABBLE_CLASS="llm-${claude_state}" \
+        python3 -c "
+import json, os
+parts = [os.environ[k] for k in ('RABBLE_TT1','RABBLE_TT2','RABBLE_TT3')]
+print(json.dumps({
+    'text':    os.environ['RABBLE_TEXT'],
+    'tooltip': '\n'.join(parts),
+    'class':   os.environ['RABBLE_CLASS'],
+}, ensure_ascii=False))
+"
+
+        touch "$CACHE_FILE" 2>/dev/null || true
+        return
+    fi
+
+    if [[ "$mode" == "codex" ]]; then
+        local nl=$'\n'
+        local codex_json codex_pct codex_reset codex_plan codex_5h_total codex_7d_total codex_age_s codex_trend codex_snapshot_count
+        codex_json=$(codex_usage || true)
+        if [[ -n "$codex_json" ]]; then
+            read -r codex_pct codex_reset codex_plan codex_5h_total codex_7d_total <<< "$(
+                RABBLE_CODEX_JSON="$codex_json" python3 - <<'PYEOF'
+import json, os
+data = json.loads(os.environ["RABBLE_CODEX_JSON"])
+print(
+    data.get("used_percent") if data.get("used_percent") is not None else "",
+    data.get("resets_at") if data.get("resets_at") is not None else "",
+    data.get("plan_type") or "",
+    (data.get("tokens_5h") or {}).get("total", 0),
+    (data.get("tokens_7d") or {}).get("total", 0),
+)
+PYEOF
+            )"
+            read -r codex_age_s codex_snapshot_count <<< "$(
+                RABBLE_CODEX_JSON="$codex_json" python3 - <<'PYEOF'
+import json, os
+data = json.loads(os.environ["RABBLE_CODEX_JSON"])
+print(
+    data.get("age_s") if data.get("age_s") is not None else "",
+    data.get("snapshot_count") if data.get("snapshot_count") is not None else "",
+)
+PYEOF
+            )"
+            codex_trend=$(RABBLE_CODEX_JSON="$codex_json" python3 - <<'PYEOF'
+import json, os
+data = json.loads(os.environ["RABBLE_CODEX_JSON"])
+trend = data.get("trend") or {}
+parts = []
+for label in ("1h", "24h", "7d"):
+    row = trend.get(label) or {}
+    delta = row.get("delta")
+    if delta is None:
+        continue
+    parts.append(f"{label} {delta:+.1f}pp")
+print(" / ".join(parts))
+PYEOF
+            )
+        fi
+
+        local codex_state codex_state_label
+        read -r codex_state codex_state_label <<< "$(source_state codex)"
+
+        local codex_mark
+        case "$codex_state" in
+            busy)  codex_mark="⚡" ;;
+            ready) codex_mark="▶" ;;
+            *)     codex_mark="·" ;;
+        esac
+
+        local codex_text="Codex ${codex_mark}"
+        if [[ -n "${codex_pct:-}" ]]; then
+            codex_text+=" ${codex_pct}%"
+        else
+            codex_text+=" n/a"
+        fi
+
+        local tt1=$'════════════════════ Codex ══════════════════════'
+        local tt2="Status    : ${codex_state_label}"
+        tt2+="${nl}Plan      : ${codex_plan:-unknown}"
+        if [[ -n "${codex_pct:-}" ]]; then
+            local codex_reset_fmt codex_5h_fmt codex_7d_fmt
+            codex_reset_fmt=$(fmt_abs_reset "$codex_reset")
+            tt2+=" / ${codex_pct}% used"
+            [[ -n "$codex_reset_fmt" ]] && tt2+=" [resets in ${codex_reset_fmt}]"
+            tt2+="${nl}Recent    : ${codex_trend:-no trend yet}"
+            [[ -n "$codex_age_s" ]] && tt2+="${nl}Snapshot  : ${codex_age_s}s old from ${codex_snapshot_count:-0} samples"
+            codex_5h_fmt=$(fmt_tokens "$codex_5h_total")
+            codex_7d_fmt=$(fmt_tokens "$codex_7d_total")
+            tt2+="${nl}Local logs: ${codex_5h_fmt} 5h / ${codex_7d_fmt} 7d transcript volume"
+        fi
+        RABBLE_TEXT="$codex_text" \
+        RABBLE_TT1="$tt1" \
+        RABBLE_TT2="$tt2" \
+        RABBLE_CLASS="llm-${codex_state}" \
+        python3 -c "
+import json, os
+parts = [os.environ[k] for k in ('RABBLE_TT1','RABBLE_TT2')]
+print(json.dumps({
+    'text':    os.environ['RABBLE_TEXT'],
+    'tooltip': '\n'.join(parts),
+    'class':   os.environ['RABBLE_CLASS'],
+}, ensure_ascii=False))
+"
+
+        touch "$CACHE_FILE" 2>/dev/null || true
+        return
+    fi
+
     local five_h_data weekly_data
     five_h_data=$(count_tokens_since 18000)
     weekly_data=$(count_tokens_since 604800)
@@ -416,4 +666,4 @@ print(json.dumps({
     touch "$CACHE_FILE" 2>/dev/null || true
 }
 
-main
+main "$@"
