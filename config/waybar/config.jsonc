@@ -221,9 +221,9 @@
 		}
     },
 
-    // ── LLM usage meter (Claude Pro / Claude Code) ───────────────────────────
-    // Polls local ~/.claude/projects/**/*.jsonl transcripts every 30 s.
-    // Shows 5-hour rolling token count and weekly total. No API key needed.
+    // ── LLM usage meter (Claude Code + Codex) ────────────────────────────────
+    // Polls Claude transcript estimates, latest claude.ai web readings, and
+    // Codex local rate-limit telemetry every 30 s. No API key needed.
     "custom/llm-status": {
         "exec": "$HOME/.config/waybar/scripts/llm-status.sh",
         "return-type": "json",

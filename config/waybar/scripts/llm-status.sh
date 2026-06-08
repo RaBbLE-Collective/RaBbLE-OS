@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# llm-status.sh — Claude Code usage meter for Waybar (JSON output)
+# llm-status.sh — Claude/Codex usage meter for Waybar (JSON output)
 #
 # Tracks Claude Pro / Claude Code usage against the 5-hour rolling window
 # and 7-day weekly cap by parsing ~/.claude/projects/**/*.jsonl transcripts.
@@ -25,10 +25,12 @@ WEEKLY_LIMIT=14700000   # tokens per 7-day rolling window   (estimated from 19% 
 set -euo pipefail
 
 CLAUDE_DIR="$HOME/.claude/projects"
+CODEX_DIR="$HOME/.codex/sessions"
 CACHE_DIR="$HOME/.cache/rabble"
 CACHE_FILE="$CACHE_DIR/llm-status.json"
+OBS_FILE="$CACHE_DIR/llm-usage-latest.json"
 
-mkdir -p "$CACHE_DIR"
+mkdir -p "$CACHE_DIR" 2>/dev/null || true
 
 # ── Token counting from JSONL transcripts ─────────────────────────────────────
 
@@ -93,10 +95,132 @@ print(total_in, total_out, reset_in_s)
 PYEOF
 }
 
+latest_observed_pct() {
+    local window_label="$1" max_age_s="$2"
+    [[ -f "$OBS_FILE" ]] || { echo ""; return; }
+
+    python3 - "$OBS_FILE" "$window_label" "$max_age_s" <<'PYEOF'
+import json, pathlib, sys, time
+
+path = pathlib.Path(sys.argv[1])
+window = sys.argv[2]
+max_age = int(sys.argv[3])
+now = time.time()
+
+try:
+    data = json.loads(path.read_text())
+    row = data.get(window) or {}
+    ts = float(row.get("ts", 0))
+    pct = float(row["pct"])
+except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+    sys.exit(0)
+
+if 0 <= pct <= 100 and now - ts <= max_age:
+    print(f"{pct:g} {int(now - ts)}")
+PYEOF
+}
+
+codex_usage() {
+    [[ -d "$CODEX_DIR" ]] || { echo ""; return; }
+
+    python3 - "$CODEX_DIR" <<'PYEOF'
+import datetime
+import json
+import pathlib
+import sys
+import time
+
+root = pathlib.Path(sys.argv[1])
+latest = None
+now = time.time()
+tokens_7d = {"input": 0, "cached": 0, "output": 0, "reasoning": 0, "total": 0}
+tokens_5h = {"input": 0, "cached": 0, "output": 0, "reasoning": 0, "total": 0}
+
+def parse_ts(row, path):
+    raw = row.get("timestamp")
+    if raw:
+        try:
+            return datetime.datetime.fromisoformat(raw.replace("Z", "+00:00")).timestamp()
+        except Exception:
+            pass
+    try:
+        return float(row.get("ts"))
+    except (TypeError, ValueError):
+        return path.stat().st_mtime
+
+def add_tokens(bucket, usage):
+    bucket["input"] += int(usage.get("input_tokens", 0) or 0)
+    bucket["cached"] += int(usage.get("cached_input_tokens", 0) or 0)
+    bucket["output"] += int(usage.get("output_tokens", 0) or 0)
+    bucket["reasoning"] += int(usage.get("reasoning_output_tokens", 0) or 0)
+    bucket["total"] += int(usage.get("total_tokens", 0) or 0)
+
+for path in root.rglob("*.jsonl"):
+    try:
+        if path.stat().st_mtime < now - 604800 - 3600:
+            continue
+        session_latest = None
+        with path.open() as f:
+            for line in f:
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                payload = row.get("payload") or {}
+                if payload.get("type") != "token_count":
+                    continue
+                ts = parse_ts(row, path)
+                rate = payload.get("rate_limits") or {}
+                info = payload.get("info") or {}
+                usage = info.get("last_token_usage") or {}
+                if usage:
+                    if ts >= now - 604800:
+                        add_tokens(tokens_7d, usage)
+                    if ts >= now - 18000:
+                        add_tokens(tokens_5h, usage)
+                if rate.get("primary"):
+                    candidate = {"ts": ts, "rate": rate, "info": info}
+                    if latest is None or ts > latest["ts"]:
+                        latest = candidate
+                if info.get("total_token_usage"):
+                    session_latest = {"ts": ts, "usage": info["total_token_usage"], "model_context_window": info.get("model_context_window")}
+        # Fallback display total for older sessions where last_token_usage is absent.
+        if session_latest and session_latest["ts"] >= now - 604800 and tokens_7d["total"] == 0:
+            add_tokens(tokens_7d, session_latest["usage"])
+            if session_latest["ts"] >= now - 18000:
+                add_tokens(tokens_5h, session_latest["usage"])
+    except Exception:
+        continue
+
+if not latest:
+    sys.exit(0)
+
+primary = latest["rate"].get("primary") or {}
+secondary = latest["rate"].get("secondary") or {}
+out = {
+    "used_percent": primary.get("used_percent"),
+    "window_minutes": primary.get("window_minutes"),
+    "resets_at": primary.get("resets_at"),
+    "secondary_used_percent": secondary.get("used_percent") if isinstance(secondary, dict) else None,
+    "secondary_resets_at": secondary.get("resets_at") if isinstance(secondary, dict) else None,
+    "plan_type": latest["rate"].get("plan_type"),
+    "limit_id": latest["rate"].get("limit_id"),
+    "tokens_5h": tokens_5h,
+    "tokens_7d": tokens_7d,
+    "age_s": int(now - latest["ts"]),
+}
+print(json.dumps(out, separators=(",", ":")))
+PYEOF
+}
+
 # ── Agent state ───────────────────────────────────────────────────────────────
 
 claude_is_running() {
     pgrep -x "claude" &>/dev/null || pgrep -f "claude.*code" &>/dev/null
+}
+
+codex_is_running() {
+    pgrep -x "codex" &>/dev/null || pgrep -f "codex" &>/dev/null
 }
 
 # ── Format helpers ────────────────────────────────────────────────────────────
@@ -121,6 +245,15 @@ fmt_reset() {
     (( h > 0 )) && echo "${h}h ${m}m" || echo "${m}m"
 }
 
+fmt_abs_reset() {
+    local epoch="$1"
+    [[ -z "$epoch" || "$epoch" == "null" ]] && { echo ""; return; }
+    local now reset_s
+    now=$(date +%s)
+    reset_s=$(( epoch - now ))
+    fmt_reset "$reset_s"
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 main() {
@@ -138,7 +271,7 @@ main() {
     # Agent state
     local state="idle"
     local state_label="idle"
-    if claude_is_running; then
+    if claude_is_running || codex_is_running; then
         state="ready"
         state_label="ready"
     fi
@@ -147,12 +280,47 @@ main() {
         state="busy"
         state_label="busy"
     fi
+    if [[ -f "$CACHE_FILE" && -d "$CODEX_DIR" ]] && find "$CODEX_DIR" -name "*.jsonl" \
+            -newer "$CACHE_FILE" 2>/dev/null | grep -q .; then
+        state="busy"
+        state_label="busy"
+    fi
 
     # Bar text: state indicator + 5h usage + weekly usage
-    local five_h_disp weekly_disp reset_fmt
-    five_h_disp=$(fmt_pct  "$five_h_tok" "$FIVE_H_LIMIT")
-    weekly_disp=$(fmt_pct  "$weekly_tok" "$WEEKLY_LIMIT")
+    local five_h_est weekly_est five_h_disp weekly_disp reset_fmt observed_5h observed_week observed_5h_age observed_week_age observed_5h_pct observed_week_pct
+    five_h_est=$(fmt_pct  "$five_h_tok" "$FIVE_H_LIMIT")
+    weekly_est=$(fmt_pct  "$weekly_tok" "$WEEKLY_LIMIT")
+    five_h_disp="$five_h_est"
+    weekly_disp="$weekly_est"
+    observed_5h=$(latest_observed_pct 5h 1200 || true)
+    observed_week=$(latest_observed_pct week 1200 || true)
+    if [[ -n "$observed_5h" ]]; then
+        read -r observed_5h_pct observed_5h_age <<< "$observed_5h"
+        five_h_disp="${observed_5h_pct}%"
+    fi
+    if [[ -n "$observed_week" ]]; then
+        read -r observed_week_pct observed_week_age <<< "$observed_week"
+        weekly_disp="${observed_week_pct}%"
+    fi
     reset_fmt=$(fmt_reset  "$reset_in_s")
+
+    local codex_json codex_pct codex_reset codex_plan codex_5h_total codex_7d_total
+    codex_json=$(codex_usage || true)
+    if [[ -n "$codex_json" ]]; then
+        read -r codex_pct codex_reset codex_plan codex_5h_total codex_7d_total <<< "$(
+            RABBLE_CODEX_JSON="$codex_json" python3 - <<'PYEOF'
+import json, os
+data = json.loads(os.environ["RABBLE_CODEX_JSON"])
+print(
+    data.get("used_percent") if data.get("used_percent") is not None else "",
+    data.get("resets_at") if data.get("resets_at") is not None else "",
+    data.get("plan_type") or "",
+    (data.get("tokens_5h") or {}).get("total", 0),
+    (data.get("tokens_7d") or {}).get("total", 0),
+)
+PYEOF
+        )"
+    fi
 
     # State markers using standard Unicode (no Nerd Font required)
     local state_mark
@@ -166,8 +334,11 @@ main() {
     five_h_in_disp=$(fmt_tokens "$five_h_in")
     five_h_out_disp=$(fmt_tokens "$five_h_out")
 
-    local text="C ${state_mark} ↓${five_h_in_disp} ↑${five_h_out_disp} ${five_h_disp}"
+    local text="Claude ${state_mark} ${five_h_disp}"
     (( weekly_tok > 0 )) && text+=" / ${weekly_disp}wk"
+    if [[ -n "${codex_pct:-}" ]]; then
+        text+=" | Codex ${codex_pct}%"
+    fi
 
     # Tooltip
     local five_h_raw weekly_raw weekly_in_disp weekly_out_disp
@@ -176,19 +347,48 @@ main() {
     weekly_in_disp=$(fmt_tokens "$weekly_in")
     weekly_out_disp=$(fmt_tokens "$weekly_out")
 
-    local tt1="Claude Code — ${state_label}"
+    local tt1="LLM usage — ${state_label}"
 
     local tt2="5h window : ${five_h_raw} tokens (↓${five_h_in_disp} in / ↑${five_h_out_disp} out)"
-    (( FIVE_H_LIMIT > 0 ))  && tt2+=" / $(fmt_tokens $FIVE_H_LIMIT) limit (${five_h_disp})"
+    (( FIVE_H_LIMIT > 0 ))  && tt2+=" / $(fmt_tokens $FIVE_H_LIMIT) limit (est ${five_h_est})"
+    if [[ -n "${observed_5h:-}" ]]; then
+        local five_h_delta
+        five_h_delta=$(python3 - "$observed_5h_pct" "${five_h_est%%%}" <<'PYEOF'
+import sys
+print(f"{float(sys.argv[1]) - float(sys.argv[2]):+.1f}pp")
+PYEOF
+        )
+        tt2+=" / web ${five_h_disp} (${observed_5h_age}s old, Δ ${five_h_delta})"
+    fi
     (( five_h_tok  > 0 ))   && tt2+="  [resets in ${reset_fmt}]"
 
     local tt3="Week      : ${weekly_raw} tokens (↓${weekly_in_disp} in / ↑${weekly_out_disp} out)"
-    (( WEEKLY_LIMIT > 0 ))  && tt3+=" / $(fmt_tokens $WEEKLY_LIMIT) limit (${weekly_disp})"
+    (( WEEKLY_LIMIT > 0 ))  && tt3+=" / $(fmt_tokens $WEEKLY_LIMIT) limit (est ${weekly_est})"
+    if [[ -n "${observed_week:-}" ]]; then
+        local weekly_delta
+        weekly_delta=$(python3 - "$observed_week_pct" "${weekly_est%%%}" <<'PYEOF'
+import sys
+print(f"{float(sys.argv[1]) - float(sys.argv[2]):+.1f}pp")
+PYEOF
+        )
+        tt3+=" / web ${weekly_disp} (${observed_week_age}s old, Δ ${weekly_delta})"
+    fi
+
+    local tt4=""
+    if [[ -n "${codex_pct:-}" ]]; then
+        local codex_reset_fmt codex_5h_fmt codex_7d_fmt
+        codex_reset_fmt=$(fmt_abs_reset "$codex_reset")
+        codex_5h_fmt=$(fmt_tokens "$codex_5h_total")
+        codex_7d_fmt=$(fmt_tokens "$codex_7d_total")
+        tt4="Codex    : ${codex_pct}%"
+        [[ -n "$codex_plan" ]] && tt4+=" (${codex_plan})"
+        [[ -n "$codex_reset_fmt" ]] && tt4+=" [resets in ${codex_reset_fmt}]"
+        tt4+=" — ${codex_5h_fmt} 5h / ${codex_7d_fmt} 7d local tokens"
+    fi
 
     local other=""
-    pgrep -x "codex"  &>/dev/null && other+=" codex"
     pgrep -x "gemini" &>/dev/null && other+=" gemini"
-    local tt4="${other:+Also running:${other}}"
+    local tt5="${other:+Also running:${other}}"
 
     local css_class="llm-${state}"
 
@@ -197,12 +397,15 @@ main() {
     RABBLE_TT2="$tt2" \
     RABBLE_TT3="$tt3" \
     RABBLE_TT4="$tt4" \
+    RABBLE_TT5="$tt5" \
     RABBLE_CLASS="$css_class" \
     python3 -c "
 import json, os
 parts = [os.environ[k] for k in ('RABBLE_TT1','RABBLE_TT2','RABBLE_TT3')]
 tt4 = os.environ['RABBLE_TT4']
 if tt4: parts.append(tt4)
+tt5 = os.environ['RABBLE_TT5']
+if tt5: parts.append(tt5)
 print(json.dumps({
     'text':    os.environ['RABBLE_TEXT'],
     'tooltip': '\n'.join(parts),
@@ -210,7 +413,7 @@ print(json.dumps({
 }, ensure_ascii=False))
 "
 
-    touch "$CACHE_FILE"
+    touch "$CACHE_FILE" 2>/dev/null || true
 }
 
 main

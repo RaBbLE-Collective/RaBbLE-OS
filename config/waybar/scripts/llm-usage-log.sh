@@ -19,6 +19,7 @@ set -euo pipefail
 CLAUDE_DIR="$HOME/.claude/projects"
 LOG_DIR="$HOME/.cache/rabble"
 LOG_FILE="$LOG_DIR/llm-usage-log.jsonl"
+LATEST_FILE="$LOG_DIR/llm-usage-latest.json"
 mkdir -p "$LOG_DIR"
 
 usage() {
@@ -56,12 +57,12 @@ esac
 
 [[ "$observed_pct" =~ ^[0-9]+(\.[0-9]+)?$ ]] || usage
 
-python3 - "$CLAUDE_DIR" "$window_s" "$window_label" "$observed_pct" "$LOG_FILE" "$web_used" <<'PYEOF'
+python3 - "$CLAUDE_DIR" "$window_s" "$window_label" "$observed_pct" "$LOG_FILE" "$LATEST_FILE" "$web_used" <<'PYEOF'
 import sys, json, time, pathlib, datetime
 from collections import defaultdict
 
-proj_dir, window_s, window_label, observed_pct, log_file, web_used = (
-    sys.argv[1], int(sys.argv[2]), sys.argv[3], float(sys.argv[4]), sys.argv[5], sys.argv[6] == "true"
+proj_dir, window_s, window_label, observed_pct, log_file, latest_file, web_used = (
+    sys.argv[1], int(sys.argv[2]), sys.argv[3], float(sys.argv[4]), sys.argv[5], sys.argv[6], sys.argv[7] == "true"
 )
 now = time.time()
 cutoff = now - window_s
@@ -122,6 +123,25 @@ row = {
 
 with open(log_file, "a") as f:
     f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+latest = {}
+latest_path = pathlib.Path(latest_file)
+if latest_path.exists():
+    try:
+        latest = json.loads(latest_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        latest = {}
+latest[window_label] = {
+    "ts": now,
+    "date": row["date"],
+    "pct": observed_pct,
+    "web_used": web_used,
+    "local_tokens": {
+        "total": sum(sum(v.values()) for v in models.values()),
+        "models": models,
+    },
+}
+latest_path.write_text(json.dumps(latest, ensure_ascii=False, indent=2) + "\n")
 
 tag = " [MIXED — web also used]" if web_used else " [clean — CC only]"
 print(f"Logged {window_label} observation: {observed_pct}%{tag} — "
