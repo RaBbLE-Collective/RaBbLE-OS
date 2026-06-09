@@ -87,7 +87,9 @@ def main():
             print(f"# SKIPPED: {name} — {reason}", file=sys.stderr)
 
     print("%packages")
-    print("@^minimal-environment")
+    # @core, not @^minimal-environment — Fedora 44 comps groups changed
+    # (see Grimoire RaBbLE-OS-AgentGuide.md, Kickstart lessons)
+    print("@core")
     for pkg in sorted(set(packages)):
         print(pkg)
     print("%end")
