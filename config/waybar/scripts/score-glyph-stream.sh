@@ -24,7 +24,8 @@ mode="${1:-claude}"
 GLYPH_INTERVAL_S="${SCORE_GLYPH_INTERVAL_S:-0.2}"
 CACHE_DIR="$HOME/.cache/rabble"
 CACHE="$CACHE_DIR/score-${mode}.json"
-CLAUDE_LIVE_STATE_FILE="$CACHE_DIR/claude-live-state"
+CLAUDE_AGG_FILE="$CACHE_DIR/claude-agg-state"
+CODEX_LIVE_STATE_FILE="$CACHE_DIR/codex-live-state"
 WAKE_FIFO="$CACHE_DIR/score-${mode}-wake.fifo"
 
 mkdir -p "$CACHE_DIR" 2>/dev/null || true
@@ -64,25 +65,62 @@ while true; do
         class="${class%%\"*}"
         cached_class="$class"
 
-        # score-claude-hook.sh is ground truth for Claude's lifecycle —
-        # it knows "prompt submitted"/"blocked on permission"/"response
-        # finished" directly from Claude Code itself, not by guessing from
-        # transcript mtimes (which can't tell "thinking" from "idle" and
-        # is what caused the tracker to flash "ready" mid-response). When
-        # it's fresh, it overrides both the glyph and the cached `class`
-        # field in `raw` so the CSS color/flash flips with it, instantly.
-        if [[ "$mode" == "claude" && -f "$CLAUDE_LIVE_STATE_FILE" ]]; then
+        # The hook-fed aggregate (score-sessions.py via score-claude-hook.sh)
+        # is ground truth for Claude's lifecycle, aggregated across ALL
+        # running instances — "needs-input" wins over "busy" wins over
+        # "ready", so one blocked agent flashes the pill even while others
+        # grind on. When fresh, it overrides both the glyph and the cached
+        # `class` field in `raw` so the CSS color/flash flips instantly.
+        if [[ "$mode" == "claude" && -f "$CLAUDE_AGG_FILE" ]]; then
             now_s now
-            state_age=$(( now - $(stat -c %Y "$CLAUDE_LIVE_STATE_FILE" 2>/dev/null || echo "$now") ))
+            state_age=$(( now - $(stat -c %Y "$CLAUDE_AGG_FILE" 2>/dev/null || echo "$now") ))
             if (( state_age < 600 )); then
-                live="$(<"$CLAUDE_LIVE_STATE_FILE")"
+                read -r live agg_total agg_busy agg_needs agg_ready < "$CLAUDE_AGG_FILE" || live=""
+                # Priority: blocked > computing > ready. When busy and ready
+                # agents coexist (and nothing is blocked), cycle the pill
+                # cyan↔green every 2s so both fleets stay visible at a glance.
+                if [[ "$live" == "busy" && "${agg_ready:-0}" -gt 0 && "${agg_needs:-0}" -eq 0 ]]; then
+                    (( (now / 2) % 2 )) && live="ready"
+                fi
                 case "$live" in
-                    busy|ready|needs-input)
+                    busy|ready|needs-input|idle)
                         class="llm-${live}"
                         raw="${raw/\"$cached_class\"/\"$class\"}"
                         ;;
                 esac
+
+                # Census repaint — same interrupt path as the glyph: the
+                # hook pokes the FIFO, we rebuild "⚑n ✦n ▶n" straight from
+                # the aggregate it just wrote. Blocked counts land on the
+                # bar instantly, not at the heavy tier's next 5s pass.
+                census=""
+                (( ${agg_needs:-0} > 0 )) && census+="⚑${agg_needs} "
+                (( ${agg_busy:-0}  > 0 )) && census+="✦${agg_busy} "
+                (( ${agg_ready:-0} > 0 )) && census+="▶${agg_ready} "
+                census="${census% }"
+                if [[ -n "$census" ]]; then
+                    raw="${raw/ @CENSUS@/ $census}"
+                else
+                    raw="${raw/ @CENSUS@/}"
+                fi
             fi
+        fi
+
+        # Stale/missing aggregate: never leak the placeholder to the bar.
+        [[ "$raw" == *"@CENSUS@"* ]] && raw="${raw/ @CENSUS@/}"
+
+        # Codex turn-complete override: score-codex-notify.sh touches the
+        # live-state file the instant a turn ends. Until the heavy tier
+        # recomputes the cache (≤5s), a state file newer than the cache
+        # means the cached "busy" is already over — flip to ready now.
+        if [[ "$mode" == "codex" && -f "$CODEX_LIVE_STATE_FILE" \
+              && "$CODEX_LIVE_STATE_FILE" -nt "$CACHE" ]]; then
+            case "$class" in
+                *busy*)
+                    class="llm-ready"
+                    raw="${raw/\"$cached_class\"/\"$class\"}"
+                    ;;
+            esac
         fi
 
         glyph=""

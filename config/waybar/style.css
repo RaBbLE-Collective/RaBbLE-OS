@@ -303,6 +303,14 @@ window#waybar.empty {
     animation:      flash-magenta 0.5s step-start infinite;
 }
 
+/* needs-input parity for codex — unreachable until Codex grows a permission
+   hook surface, but the aggregate state machine already emits it */
+#custom-llm-codex.llm-needs-input {
+    color:          @magenta;
+    background:     rgba(255, 45, 120, 0.30);
+    animation:      flash-magenta 0.5s step-start infinite;
+}
+
 #custom-llm-codex.llm-busy {
     color:          @cyan;
     background:     rgba(0, 245, 255, 0.14);

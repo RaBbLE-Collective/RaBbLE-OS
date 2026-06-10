@@ -233,12 +233,12 @@
         "exec": "$HOME/.config/waybar/scripts/score-glyph-stream.sh claude",
         "return-type": "json",
         "tooltip": true,
-        "on-click": "kitty --class rabble-popup bash -c 'FORCE_COLOR=1 python3 ~/.config/waybar/scripts/score-usage-detail.py claude | less -R'"
+        "on-click": "kitty --class rabble-popup -e python3 $HOME/.config/waybar/scripts/score-usage-detail.py claude --live"
     },
     "custom/llm-codex": {
         "exec": "$HOME/.config/waybar/scripts/score-glyph-stream.sh codex",
         "return-type": "json",
         "tooltip": true,
-        "on-click": "kitty --class rabble-popup bash -c 'FORCE_COLOR=1 python3 ~/.config/waybar/scripts/score-usage-detail.py codex | less -R'"
+        "on-click": "kitty --class rabble-popup -e python3 $HOME/.config/waybar/scripts/score-usage-detail.py codex --live"
     }
 }

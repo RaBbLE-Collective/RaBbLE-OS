@@ -1,20 +1,40 @@
 #!/usr/bin/env python3
 """
-score-usage-detail.py — Full Claude/Codex usage breakdown.
+score-usage-detail.py — Full Claude/Codex usage + agent breakdown.
 Opened by clicking the waybar llm-status module.
-Shows per-session token counts for the current 5h window and the past 7 days.
+
+Default (one-shot) mode prints everything once — pipeable into less.
+--live keeps the popup open and self-refreshing:
+  · Agents panel + usage bars repaint every 2s (cheap: session-state files,
+    incremental transcript tails, cached API observations)
+  · the heavy sections (per-session 5h/24h/7d token lists, Codex quota)
+    recompute every 15s
+  · q / Esc closes
+
+The Agents panel reads the per-session state files score-sessions.py
+maintains (one per running Claude instance, hook-fed, PID-checked) — state,
+project, model, current context size, session token totals, last activity.
 """
 
-import json
-import pathlib
-import time
+import contextlib
 import datetime
+import io
+import json
 import os
+import pathlib
+import subprocess
 import sys
+import time
 
 CLAUDE_DIR = pathlib.Path.home() / ".claude" / "projects"
 CODEX_DIR = pathlib.Path.home() / ".codex" / "sessions"
-LATEST_OBS = pathlib.Path.home() / ".cache" / "rabble" / "llm-usage-latest.json"
+CACHE_DIR = pathlib.Path.home() / ".cache" / "rabble"
+LATEST_OBS = CACHE_DIR / "llm-usage-latest.json"
+SESS_DIR = CACHE_DIR / "claude-sessions"
+CODEX_CACHE = CACHE_DIR / "score-codex.json"
+
+LIGHT_REFRESH_S = 2
+HEAVY_REFRESH_S = 15
 
 # Strip ANSI when piped, unless FORCE_COLOR is set (e.g. piped into less -R)
 _tty = sys.stdout.isatty() or bool(os.environ.get("FORCE_COLOR"))
@@ -26,6 +46,12 @@ MUTED   = "\033[38;2;107;64;128m"   if _tty else ""
 TEXT    = "\033[38;2;232;213;255m"  if _tty else ""
 MAGENTA = "\033[38;2;255;45;120m"   if _tty else ""
 RESET   = "\033[0m"                  if _tty else ""
+
+STATE_META = {
+    "needs-input": ("⚑", "needs input", MAGENTA),
+    "busy":        ("✦", "busy",        CYAN),
+    "ready":       ("▶", "ready",       GREEN),
+}
 
 
 def fmt_tokens(n: int) -> str:
@@ -51,6 +77,17 @@ def fmt_age(seconds: float) -> str:
     return f"{seconds}s ago"
 
 
+def fmt_dur(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}h {m:02d}m"
+    if m:
+        return f"{m}m {s:02d}s"
+    return f"{s}s"
+
+
 def parse_any_ts(row: dict, fallback: float) -> float:
     raw = row.get("timestamp") or row.get("ts")
     if isinstance(raw, (int, float)):
@@ -61,6 +98,264 @@ def parse_any_ts(row: dict, fallback: float) -> float:
         except Exception:
             pass
     return fallback
+
+
+# ── Agents panel ──────────────────────────────────────────────────────────────
+
+
+def load_agents(now: float) -> list[dict]:
+    """Read score-sessions.py's per-session state files. Read-only mirror of
+    its load logic — the engine itself owns pruning; here a dead PID just
+    hides the row."""
+    agents = []
+    if not SESS_DIR.is_dir():
+        return agents
+    for p in SESS_DIR.glob("*.json"):
+        try:
+            data = json.loads(p.read_text())
+            age = now - p.stat().st_mtime
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        pid = data.get("pid")
+        alive = None
+        if pid:
+            try:
+                alive = (pathlib.Path(f"/proc/{pid}/comm").read_text().strip() == "claude")
+            except OSError:
+                alive = False
+        if alive is False or (alive is None and age > 6 * 3600):
+            continue
+
+        state = data.get("state", "ready")
+        if state == "busy" and age > (7200 if alive else 600):
+            state = "ready"
+        data["effective_state"] = state
+        data["age_s"] = int(age)
+        agents.append(data)
+
+    rank = {"needs-input": 3, "busy": 2, "ready": 1}
+    agents.sort(key=lambda d: (-rank.get(d["effective_state"], 0), d["age_s"]))
+    return agents
+
+
+def update_transcript_stats(cache: dict, path: str) -> dict:
+    """Incremental per-session transcript totals. Remembers the byte offset
+    between live-mode refreshes so each repaint only parses new lines. Never
+    consumes a trailing partial line (the file is being written mid-turn)."""
+    st = cache.get(path)
+    if st is None:
+        st = {"offset": 0, "in": 0, "out": 0, "model": "", "ctx": 0, "last_ts": 0.0}
+        cache[path] = st
+    try:
+        size = os.stat(path).st_size
+    except OSError:
+        return st
+    if size < st["offset"]:  # truncated/rotated — start over
+        st.update(offset=0, **{"in": 0, "out": 0, "ctx": 0})
+    if size == st["offset"]:
+        return st
+
+    try:
+        with open(path, "rb") as f:
+            f.seek(st["offset"])
+            chunk = f.read()
+    except OSError:
+        return st
+    nl = chunk.rfind(b"\n")
+    if nl == -1:
+        return st
+    st["offset"] += nl + 1
+
+    for line in chunk[: nl + 1].decode("utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        msg = entry.get("message", {})
+        usage = msg.get("usage") or entry.get("usage") or {}
+        if not usage:
+            continue
+        inp = usage.get("input_tokens", 0)
+        out = usage.get("output_tokens", 0)
+        st["in"] += inp
+        st["out"] += out
+        # Current context size = the latest request's full input picture
+        st["ctx"] = (
+            inp
+            + usage.get("cache_read_input_tokens", 0)
+            + usage.get("cache_creation_input_tokens", 0)
+        )
+        if msg.get("model"):
+            st["model"] = msg["model"]
+        st["last_ts"] = parse_any_ts(entry, st["last_ts"])
+    return st
+
+
+def codex_instance_count() -> int:
+    try:
+        out = subprocess.run(
+            ["pgrep", "-cx", "codex"], capture_output=True, text=True, timeout=2
+        ).stdout.strip()
+        return int(out)
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return 0
+
+
+def codex_bar_state() -> str:
+    """Codex state as the bar sees it — read from the heavy-tier cache."""
+    try:
+        cls = json.loads(CODEX_CACHE.read_text()).get("class", "")
+    except (OSError, json.JSONDecodeError):
+        return ""
+    return cls.removeprefix("llm-")
+
+
+def short_model(model: str) -> str:
+    m = model.removeprefix("claude-")
+    return m if len(m) <= 18 else m[:17] + "…"
+
+
+def print_agents(now: float, tcache: dict):
+    agents = load_agents(now)
+    codex_n = codex_instance_count()
+
+    n_blocked = sum(1 for a in agents if a["effective_state"] == "needs-input")
+    n_busy = sum(1 for a in agents if a["effective_state"] == "busy")
+    head = f"{len(agents)} claude · {codex_n} codex"
+    if n_blocked:
+        head += f"  {MAGENTA}⚑{n_blocked} blocked{RESET}"
+
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}Agents{RESET}  {TEXT}{head}{RESET}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+
+    if not agents and codex_n == 0:
+        print(f"  {MUTED}no agents running{RESET}")
+
+    for a in agents:
+        state = a["effective_state"]
+        glyph, label, color = STATE_META.get(state, ("·", state, MUTED))
+        project = (a.get("project") or "?")[:22]
+        sid = (a.get("session_id") or "")[-6:]
+
+        stats = {}
+        if a.get("transcript"):
+            stats = update_transcript_stats(tcache, a["transcript"])
+
+        last_ts = max(
+            float(stats.get("last_ts") or 0), now - a["age_s"]
+        )
+        detail = []
+        if stats.get("model"):
+            detail.append(short_model(stats["model"]))
+        if stats.get("ctx"):
+            detail.append(f"ctx {fmt_tokens(stats['ctx'])}")
+        if stats.get("in") or stats.get("out"):
+            detail.append(f"Σ {fmt_tokens(stats['in'] + stats['out'])}")
+        if state == "busy" and a.get("busy_since"):
+            detail.append(f"turn {fmt_dur(now - float(a['busy_since']))}")
+        if state == "needs-input" and a.get("note"):
+            note = a["note"].strip()
+            detail.append(note if len(note) <= 48 else note[:47] + "…")
+
+        print(
+            f"  {color}{glyph} {label:<11}{RESET} {TEXT}{project:<22}{RESET} "
+            f"{MUTED}{fmt_age(now - last_ts):>10} · {' · '.join(detail) or '—'} · {sid}{RESET}"
+        )
+
+    if codex_n:
+        state = codex_bar_state() or "ready"
+        glyph, label, color = STATE_META.get(state, (">_", state or "?", CYAN))
+        print(
+            f"  {color}{glyph} {label:<11}{RESET} {TEXT}{'codex':<22}{RESET} "
+            f"{MUTED}{codex_n} instance{'s' if codex_n != 1 else ''}{RESET}"
+        )
+
+    # Hook-less stragglers: claude processes with no session registration
+    try:
+        claude_procs = int(subprocess.run(
+            ["pgrep", "-cx", "claude"], capture_output=True, text=True, timeout=2
+        ).stdout.strip())
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        claude_procs = 0
+    if claude_procs > len(agents):
+        extra = claude_procs - len(agents)
+        print(f"  {MUTED}· {extra} claude process(es) without session hooks (pre-wiring){RESET}")
+
+
+# ── Usage bars (official API observations) ───────────────────────────────────
+
+
+def latest_web_observations(now: float) -> dict:
+    if not LATEST_OBS.exists():
+        return {}
+    try:
+        data = json.loads(LATEST_OBS.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    out = {}
+    for label, max_age in (("5h", 18_000), ("week", 604_800)):
+        row = data.get(label) or {}
+        try:
+            ts = float(row["ts"])
+            pct = float(row["pct"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if now - ts <= max_age:
+            entry = {"pct": pct, "age": now - ts, "web_used": bool(row.get("web_used"))}
+            raw_reset = row.get("resets_at")
+            if raw_reset:
+                try:
+                    if isinstance(raw_reset, str):
+                        entry["resets_at"] = datetime.datetime.fromisoformat(
+                            raw_reset.replace("Z", "+00:00")
+                        ).timestamp()
+                    else:
+                        entry["resets_at"] = float(raw_reset)
+                except Exception:
+                    pass
+            out[label] = entry
+    return out
+
+
+def make_bar(pct: float, width: int = 26) -> str:
+    pct = max(0.0, min(100.0, pct))
+    filled = round(pct / 100 * width)
+    color = GREEN if pct < 60 else YELLOW if pct < 85 else MAGENTA
+    return f"{color}{'█' * filled}{MUTED}{'░' * (width - filled)}{RESET}"
+
+
+def print_usage_bars(now: float):
+    observations = latest_web_observations(now)
+    if not observations:
+        return
+
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}Claude quota{RESET}  {MUTED}(Anthropic's own meter){RESET}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+    for label in ("5h", "week"):
+        row = observations.get(label)
+        if not row:
+            continue
+        reset_txt = ""
+        if row.get("resets_at"):
+            left = int(row["resets_at"] - now)
+            reset_txt = " · resets now" if left <= 0 else (
+                f" · resets {left // 3600}h {(left % 3600) // 60:02d}m"
+            )
+        print(
+            f"  {CYAN}{label:<5}{RESET} {make_bar(row['pct'])} "
+            f"{TEXT}{row['pct']:>5.1f}%{RESET}"
+            f"{MUTED}{reset_txt} · {fmt_age(row['age'])}{RESET}"
+        )
+
+
+# ── Heavy sections (per-session token lists, Codex quota) ────────────────────
 
 
 def parse_sessions(since_s: float) -> list[dict]:
@@ -126,42 +421,6 @@ def parse_sessions(since_s: float) -> list[dict]:
 
     sessions.sort(key=lambda s: s["last_ts"], reverse=True)
     return sessions
-
-
-def latest_web_observations(now: float) -> dict:
-    if not LATEST_OBS.exists():
-        return {}
-    try:
-        data = json.loads(LATEST_OBS.read_text())
-    except (OSError, json.JSONDecodeError):
-        return {}
-
-    out = {}
-    for label, max_age in (("5h", 18_000), ("week", 604_800)):
-        row = data.get(label) or {}
-        try:
-            ts = float(row["ts"])
-            pct = float(row["pct"])
-        except (KeyError, TypeError, ValueError):
-            continue
-        if now - ts <= max_age:
-            entry = {"pct": pct, "age": now - ts, "web_used": bool(row.get("web_used"))}
-            # Anthropic's own reset timestamp (from the API poller) — far more
-            # accurate than guessing from the oldest cached transcript, which
-            # drifts the moment the real window has already rolled over.
-            raw_reset = row.get("resets_at")
-            if raw_reset:
-                try:
-                    if isinstance(raw_reset, str):
-                        entry["resets_at"] = datetime.datetime.fromisoformat(
-                            raw_reset.replace("Z", "+00:00")
-                        ).timestamp()
-                    else:
-                        entry["resets_at"] = float(raw_reset)
-                except Exception:
-                    pass
-            out[label] = entry
-    return out
 
 
 def parse_codex(now: float) -> dict | None:
@@ -254,22 +513,6 @@ def print_section(title: str, sessions: list[dict], window_s: float, now: float,
         print(f"  {CYAN}{age}{RESET}  {TEXT}{tok:>7}{RESET}  {MUTED}↓{inp} ↑{out}{RESET}  {MUTED}{label}{RESET}")
 
 
-def print_web_observations(now: float):
-    observations = latest_web_observations(now)
-    if not observations:
-        return
-
-    print(f"\n{VIOLET}{'─'*60}{RESET}")
-    print(f"{VIOLET}Claude web readings{RESET}")
-    print(f"{VIOLET}{'─'*60}{RESET}")
-    for label in ("5h", "week"):
-        row = observations.get(label)
-        if not row:
-            continue
-        source = "mixed web+code sample" if row["web_used"] else "clean code-only sample"
-        print(f"  {CYAN}{label:<5}{RESET} {TEXT}{row['pct']:>5.1f}%{RESET}  {MUTED}{fmt_age(row['age'])} · {source}{RESET}")
-
-
 def print_separator(title: str):
     label = f" {title} "
     width = 60
@@ -295,7 +538,7 @@ def print_codex(now: float):
     print(f"\n{VIOLET}{'─'*60}{RESET}")
     print(f"{VIOLET}Codex quota{RESET}", end="")
     if pct is not None:
-        print(f"  {TEXT}{pct}% used{RESET}", end="")
+        print(f"  {make_bar(float(pct))} {TEXT}{float(pct):>5.1f}%{RESET}", end="")
     if reset_text:
         print(f"  {MUTED}(resets in {reset_text}){RESET}", end="")
     print()
@@ -312,14 +555,11 @@ def print_codex(now: float):
         )
 
 
-def main():
-    mode = (sys.argv[1] if len(sys.argv) > 1 else "claude").strip().lower()
-    now = time.time()
+# ── Render orchestration ──────────────────────────────────────────────────────
 
-    # Anthropic's 5h window resets at a fixed wall-clock boundary, not on a
-    # rolling "last 18000s" basis. When the API poller has told us the actual
-    # reset time, scope the session list to that real window-start so this
-    # popup doesn't show tokens from a window the meter has already forgotten.
+
+def five_h_window_start(now: float):
+    """Anchor the 5h section to Anthropic's real window when known."""
     web_obs = latest_web_observations(now)
     five_h_reset = (web_obs.get("5h") or {}).get("resets_at")
     five_h_start = now - 18_000
@@ -329,35 +569,190 @@ def main():
             five_h_start = candidate_start
         else:
             five_h_reset = None  # snapshot hasn't caught up with a fresh reset yet
+    return five_h_start, five_h_reset
 
-    one_day = now - 86_400
-    seven_d = now - 604_800
 
-    print(f"\n{MAGENTA}  sCoRE Usage Tracker{RESET}  {MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}{RESET}  {CYAN}q to close{RESET}")
+def _capture(fn, *args, **kwargs) -> str:
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        fn(*args, **kwargs)
+    return buf.getvalue()
 
-    sessions_5h  = parse_sessions(five_h_start)
-    sessions_24h = parse_sessions(one_day)
-    sessions_7d  = parse_sessions(seven_d)
 
-    if mode == "codex":
-        print_separator("Codex")
-        print_codex(now)
-        print_separator("Claude Code")
-        print_web_observations(now)
-        print_section("5-hour window", sessions_5h,  18_000,   now, five_h_reset)
-        print_section("Last 24 hours", sessions_24h, 86_400,   now)
-        print_section("Last 7 days",   sessions_7d,  604_800,  now)
-    else:
-        print_separator("Claude Code")
-        print_web_observations(now)
-        print_section("5-hour window", sessions_5h,  18_000,   now, five_h_reset)
-        print_section("Last 24 hours", sessions_24h, 86_400,   now)
-        print_section("Last 7 days",   sessions_7d,  604_800,  now)
-        print_separator("Codex")
-        print_codex(now)
+def render_light(now: float, tcache: dict, live: bool) -> str:
+    def body():
+        hint = "live" if live else "q to close"
+        print(
+            f"\n{MAGENTA}  sCoRE Usage Tracker{RESET}  "
+            f"{MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}{RESET}  "
+            f"{CYAN}{hint}{RESET}"
+        )
+        print_agents(now, tcache)
+        print_usage_bars(now)
+    return _capture(body)
 
-    total_week = sum(s["total"] for s in sessions_7d)
-    print(f"\n{MUTED}  Weekly total: {fmt_tokens(total_week)} tokens across {len(sessions_7d)} session(s){RESET}\n")
+
+def render_heavy(now: float, mode: str) -> str:
+    def body():
+        five_h_start, five_h_reset = five_h_window_start(now)
+        sessions_5h  = parse_sessions(five_h_start)
+        sessions_24h = parse_sessions(now - 86_400)
+        sessions_7d  = parse_sessions(now - 604_800)
+
+        def claude_sections():
+            print_separator("Claude Code")
+            print_section("5-hour window", sessions_5h,  18_000,  now, five_h_reset)
+            print_section("Last 24 hours", sessions_24h, 86_400,  now)
+            print_section("Last 7 days",   sessions_7d,  604_800, now)
+
+        def codex_sections():
+            print_separator("Codex")
+            print_codex(now)
+
+        if mode == "codex":
+            codex_sections()
+            claude_sections()
+        else:
+            claude_sections()
+            codex_sections()
+
+        total_week = sum(s["total"] for s in sessions_7d)
+        print(f"\n{MUTED}  Weekly total: {fmt_tokens(total_week)} tokens across {len(sessions_7d)} session(s){RESET}\n")
+    return _capture(body)
+
+
+def read_key(timeout: float):
+    """One keypress, with arrow/page escape sequences decoded — a bare Esc is
+    distinguishable from the \\x1b that starts every arrow key, so scrolling
+    never accidentally closes the popup (the `less` failure mode)."""
+    import select
+
+    r, _, _ = select.select([sys.stdin], [], [], timeout)
+    if not r:
+        return None
+    ch = sys.stdin.read(1)
+    if ch != "\x1b":
+        return ch
+    r, _, _ = select.select([sys.stdin], [], [], 0.03)
+    if not r:
+        return "ESC"
+    if sys.stdin.read(1) != "[":
+        return "ESC"
+    final = sys.stdin.read(1)
+    if final.isdigit():
+        num = final
+        while True:
+            c = sys.stdin.read(1)
+            if not c.isdigit():
+                break
+            num += c
+        return {"5": "PGUP", "6": "PGDN", "1": "HOME", "4": "END"}.get(num)
+    return {"A": "UP", "B": "DOWN", "H": "HOME", "F": "END"}.get(final)
+
+
+def run_live(mode: str):
+    import shutil
+
+    tcache: dict = {}
+    heavy = ""
+    heavy_ts = 0.0
+    offset = 0
+    frame_lines: list[str] = []
+
+    old_attrs = None
+    fd = None
+    try:
+        import termios
+        import tty
+        fd = sys.stdin.fileno()
+        old_attrs = termios.tcgetattr(fd)
+        tty.setcbreak(fd)
+    except Exception:
+        old_attrs = None
+
+    def draw():
+        nonlocal offset
+        cols, rows = shutil.get_terminal_size()
+        view_h = max(5, rows - 1)  # last row is the status bar
+        max_off = max(0, len(frame_lines) - view_h)
+        offset = max(0, min(offset, max_off))
+        visible = frame_lines[offset:offset + view_h]
+        pos = "all" if max_off == 0 else f"{offset + 1}-{offset + len(visible)}/{len(frame_lines)}"
+        status = (
+            f"{MUTED}  [{pos}] ↑↓/jk PgUp/PgDn scroll · g/G top/bottom · "
+            f"q close · refresh {LIGHT_REFRESH_S}s{RESET}"
+        )
+        sys.stdout.write("\x1b[H\x1b[2J" + "\n".join(visible) + "\n" + status)
+        sys.stdout.flush()
+
+    sys.stdout.write("\x1b[?1049h\x1b[?25l")  # alt screen, hide cursor
+    try:
+        while True:
+            now = time.time()
+            if now - heavy_ts > HEAVY_REFRESH_S:
+                heavy = render_heavy(now, mode)
+                heavy_ts = now
+            frame_lines = (render_light(now, tcache, live=True) + heavy).splitlines()
+            draw()
+
+            if old_attrs is None:
+                time.sleep(LIGHT_REFRESH_S)
+                continue
+
+            # Keys act instantly (redraw the same data at the new offset);
+            # the data refresh itself waits for the cadence timeout.
+            deadline = time.time() + LIGHT_REFRESH_S
+            quit_now = False
+            while True:
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    break
+                key = read_key(remaining)
+                if key is None:
+                    continue
+                page = max(5, shutil.get_terminal_size().lines - 2)
+                if key in ("q", "Q", "ESC"):
+                    quit_now = True
+                    break
+                elif key in ("UP", "k"):
+                    offset -= 1
+                elif key in ("DOWN", "j"):
+                    offset += 1
+                elif key in ("PGUP",):
+                    offset -= page
+                elif key in ("PGDN", " "):
+                    offset += page
+                elif key in ("HOME", "g"):
+                    offset = 0
+                elif key in ("END", "G"):
+                    offset = 10**9
+                else:
+                    continue
+                draw()
+            if quit_now:
+                break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        sys.stdout.write("\x1b[?25h\x1b[?1049l")
+        sys.stdout.flush()
+        if old_attrs is not None:
+            import termios
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_attrs)
+
+
+def main():
+    args = [a for a in sys.argv[1:]]
+    live = "--live" in args
+    mode = next((a for a in args if not a.startswith("-")), "claude").strip().lower()
+
+    if live:
+        run_live(mode)
+        return
+
+    now = time.time()
+    sys.stdout.write(render_light(now, {}, live=False))
+    sys.stdout.write(render_heavy(now, mode))
 
 
 if __name__ == "__main__":

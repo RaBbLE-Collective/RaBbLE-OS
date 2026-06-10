@@ -140,12 +140,15 @@ _post_apply_claude() {
 # hook array: our entry is appended only if it isn't already present, so any
 # other hooks you add by hand survive re-applies untouched.
 #
+#   SessionStart / SessionEnd                   -> instance registered/removed
 #   UserPromptSubmit / PreToolUse / PostToolUse -> busy
+#   SubagentStop                                -> busy (parent still working)
 #   Notification (permission)                   -> needs input (flashing magenta)
-#   Stop / SubagentStop                          -> ready
+#   Notification (waiting for input)            -> ready (open prompt, not blocked)
+#   Stop                                        -> ready
 #
-# See score-claude-hook.sh's header for why this replaced the old
-# transcript-mtime heuristic (it can't tell "thinking" from "idle").
+# Per-session state files + aggregation live in score-sessions.py — one file
+# per running Claude instance, so multiple agents never clobber each other.
 _post_apply_waybar() {
   local settings="${HOME}/.claude/settings.json"
   # Always the expanded absolute path — Claude Code normalizes "~/..." to it
@@ -171,12 +174,31 @@ _post_apply_waybar() {
             end);
       ensure_hook("Notification") | ensure_hook("PreToolUse") | ensure_hook("PostToolUse")
         | ensure_hook("UserPromptSubmit") | ensure_hook("Stop") | ensure_hook("SubagentStop")
+        | ensure_hook("SessionStart") | ensure_hook("SessionEnd")
     ' "$settings" > "$tmp"; then
     mv "$tmp" "$settings"
-    info "score-claude-hook.sh wired into ~/.claude/settings.json (full lifecycle: prompt/tool/permission/stop)"
+    info "score-claude-hook.sh wired into ~/.claude/settings.json (full lifecycle: session/prompt/tool/permission/stop)"
   else
     rm -f "$tmp"
     warn "jq failed — score-claude-hook.sh not wired into settings.json"
+  fi
+
+  # Wire score-codex-notify.sh as Codex's `notify` program — its only hook
+  # surface (agent-turn-complete) — for an instant "ready" flip + desktop
+  # notification when a Codex turn finishes. `notify` is a top-level TOML
+  # key, so it must land before the first [table]; inserting at line 1 is
+  # the only always-safe spot. Skipped if any notify key already exists —
+  # never clobbers a hand-rolled notify program.
+  local codex_cfg="${HOME}/.codex/config.toml"
+  local notify_cmd
+  notify_cmd="$(realpath -m "${HOME}/.config/waybar/scripts/score-codex-notify.sh")"
+  if [[ -f "$codex_cfg" ]]; then
+    if grep -q '^notify' "$codex_cfg"; then
+      info "codex config.toml already has a notify program — left untouched"
+    else
+      sed -i "1i notify = [\"${notify_cmd}\"]" "$codex_cfg"
+      info "score-codex-notify.sh wired into ~/.codex/config.toml (turn-complete)"
+    fi
   fi
 }
 

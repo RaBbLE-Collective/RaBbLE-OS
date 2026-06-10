@@ -24,12 +24,16 @@ WEEKLY_LIMIT=14700000   # tokens per 7-day rolling window   (estimated from 19% 
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SESSIONS_PY="$SCRIPT_DIR/score-sessions.py"
+
 CLAUDE_DIR="$HOME/.claude/projects"
 CODEX_DIR="$HOME/.codex/sessions"
 CACHE_DIR="$HOME/.cache/rabble"
 CACHE_FILE="$CACHE_DIR/llm-status.json"
 OBS_FILE="$CACHE_DIR/llm-usage-latest.json"
 CLAUDE_LIVE_STATE_FILE="$CACHE_DIR/claude-live-state"
+CODEX_LIVE_STATE_FILE="$CACHE_DIR/codex-live-state"
 
 mkdir -p "$CACHE_DIR" 2>/dev/null || true
 
@@ -451,8 +455,33 @@ main() {
         five_h_in_disp=$(fmt_tokens "$five_h_in")
         five_h_out_disp=$(fmt_tokens "$five_h_out")
 
-        local claude_state claude_state_label
-        read -r claude_state claude_state_label <<< "$(source_state claude)"
+        # Multi-instance state: score-sessions.py aggregates the per-session
+        # state files that score-claude-hook.sh maintains (one per running
+        # Claude instance, PID-checked for liveness) — so the bar knows how
+        # many agents exist and whether ANY of them is blocked, instead of
+        # whichever instance's hook happened to write last.
+        local CL_STATE=idle CL_TOTAL=0 CL_BUSY=0 CL_NEEDS=0 CL_READY=0 CL_AGENTS=""
+        local summary_out
+        if summary_out=$(python3 "$SESSIONS_PY" summary --shell 2>/dev/null); then
+            eval "$summary_out"
+        fi
+        # Hook-less fallback: claude processes that predate the SessionStart
+        # wiring (or run with hooks disabled) still register as ready.
+        if (( CL_TOTAL == 0 )); then
+            local claude_nproc
+            claude_nproc=$(pgrep -cx claude 2>/dev/null || true)
+            claude_nproc=${claude_nproc:-0}
+            if (( claude_nproc > 0 )); then
+                CL_STATE="ready"; CL_TOTAL=$claude_nproc; CL_READY=$claude_nproc
+            fi
+        fi
+
+        local claude_state="$CL_STATE"
+        local claude_state_label="$CL_STATE"
+        [[ "$claude_state" == "needs-input" ]] && claude_state_label="needs input"
+        if (( CL_TOTAL > 1 )); then
+            claude_state_label="${CL_TOTAL} agents — ${CL_BUSY} busy · ${CL_NEEDS} blocked · ${CL_READY} ready"
+        fi
 
         local claude_mark
         if [[ "${RABBLE_GLYPH_PLACEHOLDER:-0}" == "1" ]]; then
@@ -478,12 +507,36 @@ main() {
         if [[ "$claude_state" == "idle" ]]; then
             claude_text="${claude_mark}"
         else
-            claude_text="Claude ${claude_mark} ${five_h_disp}"
+            claude_text="Claude ${claude_mark}"
+            # Full per-state census, zero counts omitted: "⚑1 ✦2 ▶1" —
+            # blocked, computing, ready. The animated glyph carries the
+            # highest-priority state; the census tells the whole fleet.
+            # In daemon mode the census is a placeholder like @GLYPH@ —
+            # score-glyph-stream.sh repaints it every tick from the live
+            # aggregate, so a new block shows its ⚑ count instantly instead
+            # of waiting out the heavy tier's 5s cadence.
+            local census=""
+            if [[ "${RABBLE_GLYPH_PLACEHOLDER:-0}" == "1" ]]; then
+                census="@CENSUS@"
+            else
+                (( CL_NEEDS > 0 )) && census+="⚑${CL_NEEDS} "
+                (( CL_BUSY  > 0 )) && census+="✦${CL_BUSY} "
+                (( CL_READY > 0 )) && census+="▶${CL_READY} "
+                census="${census% }"
+            fi
+            [[ -n "$census" ]] && claude_text+=" ${census}"
+            claude_text+=" ${five_h_disp}"
             (( weekly_tok > 0 )) && claude_text+=" / ${weekly_disp}wk"
         fi
 
         local tt1=$'════════════════════ Claude ═════════════════════'
         local tt2="Status    : ${claude_state_label}"
+        if [[ -n "$CL_AGENTS" ]]; then
+            local agent_line
+            while IFS= read -r agent_line; do
+                tt2+="${nl}  ${agent_line}"
+            done <<< "$CL_AGENTS"
+        fi
         tt2+="${nl}5h window : $(fmt_tokens "$five_h_tok") tokens (↓${five_h_in_disp} in / ↑${five_h_out_disp} out)"
         (( FIVE_H_LIMIT > 0 ))  && tt2+=" / $(fmt_tokens $FIVE_H_LIMIT) limit (est ${five_h_est})"
         if [[ -n "${observed_5h:-}" ]]; then
@@ -575,6 +628,27 @@ PYEOF
         local codex_state codex_state_label
         read -r codex_state codex_state_label <<< "$(source_state codex)"
 
+        # Instance count — Codex has no session-hook surface, so each running
+        # TUI process is the best proxy for "an agent".
+        local codex_count
+        codex_count=$(pgrep -cx codex 2>/dev/null || true)
+        codex_count=${codex_count:-0}
+
+        # Turn-complete override: score-codex-notify.sh (Codex's `notify`
+        # program) touches codex-live-state the instant a turn finishes. If
+        # no transcript has been written SINCE then, the "recent write" the
+        # busy heuristic is seeing is just the finished turn's final flush —
+        # the agent is actually ready.
+        if [[ "$codex_state" == "busy" && -f "$CODEX_LIVE_STATE_FILE" ]]; then
+            if ! find "$CODEX_DIR" -name '*.jsonl' -newer "$CODEX_LIVE_STATE_FILE" 2>/dev/null | grep -q .; then
+                codex_state="ready"
+                codex_state_label="ready"
+            fi
+        fi
+        if [[ "$codex_state" != "idle" && "$codex_count" -gt 1 ]]; then
+            codex_state_label="${codex_state_label} · ${codex_count} instances"
+        fi
+
         local codex_mark
         if [[ "${RABBLE_GLYPH_PLACEHOLDER:-0}" == "1" ]]; then
             codex_mark="@GLYPH@"
@@ -595,6 +669,7 @@ PYEOF
             codex_text="${codex_mark}"
         else
             codex_text="Codex ${codex_mark}"
+            (( codex_count > 1 )) && codex_text+="×${codex_count}"
             if [[ -n "${codex_pct:-}" ]]; then
                 codex_text+=" ${codex_pct}%"
             else
