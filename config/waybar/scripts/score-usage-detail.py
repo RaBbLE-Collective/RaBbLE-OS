@@ -358,8 +358,12 @@ def print_usage_bars(now: float):
 # ── Heavy sections (per-session token lists, Codex quota) ────────────────────
 
 
+def _short_model(m: str) -> str:
+    return m.replace("claude-", "").replace("-20251001", "")
+
+
 def parse_sessions(since_s: float) -> list[dict]:
-    """Return list of {path, first_ts, last_ts, input, output} for each session."""
+    """Return list of {path, first_ts, last_ts, input, output, models} for each session."""
     sessions = []
     if not CLAUDE_DIR.exists():
         return sessions
@@ -370,11 +374,12 @@ def parse_sessions(since_s: float) -> list[dict]:
             if mtime < since_s - 60:
                 continue
 
-            first_ts = mtime
-            last_ts  = mtime
-            total_in = 0
+            first_ts  = mtime
+            last_ts   = mtime
+            total_in  = 0
             total_out = 0
             has_data  = False
+            models: dict[str, int] = {}  # short_name -> output tokens
 
             with open(jl) as f:
                 for line in f:
@@ -404,6 +409,10 @@ def parse_sessions(since_s: float) -> list[dict]:
                             first_ts = ts
                         if ts > last_ts:
                             last_ts = ts
+                        model = msg.get("model") or entry.get("model") or ""
+                        if model and model != "<synthetic>":
+                            ms = _short_model(model)
+                            models[ms] = models.get(ms, 0) + out
 
             if has_data:
                 proj_name = jl.parent.name
@@ -415,6 +424,7 @@ def parse_sessions(since_s: float) -> list[dict]:
                     "input":    total_in,
                     "output":   total_out,
                     "total":    total_in + total_out,
+                    "models":   models,
                 })
         except Exception:
             continue
@@ -511,6 +521,24 @@ def print_section(title: str, sessions: list[dict], window_s: float, now: float,
         inp   = fmt_tokens(s["input"])
         out   = fmt_tokens(s["output"])
         print(f"  {CYAN}{age}{RESET}  {TEXT}{tok:>7}{RESET}  {MUTED}↓{inp} ↑{out}{RESET}  {MUTED}{label}{RESET}")
+
+    # Per-model breakdown: aggregate output tokens across all sessions shown,
+    # then display as a share of total output (ratios hold despite duplicate records)
+    if sessions:
+        model_totals: dict[str, int] = {}
+        for s in sessions:
+            for m, toks in s.get("models", {}).items():
+                model_totals[m] = model_totals.get(m, 0) + toks
+        total_mtok = sum(model_totals.values())
+        if total_mtok > 0:
+            parts = []
+            for m, toks in sorted(model_totals.items(), key=lambda x: -x[1]):
+                pct = 100 * toks / total_mtok
+                if pct >= 1:
+                    parts.append(f"{YELLOW}{m}{RESET} {fmt_tokens(toks)} ({pct:.0f}%)")
+            if parts:
+                print(f"  {MUTED}{'─'*58}{RESET}")
+                print(f"  {MUTED}By model (output share): {RESET}{'  '.join(parts)}")
 
 
 def print_separator(title: str):

@@ -42,27 +42,37 @@ mkdir -p "$CACHE_DIR" 2>/dev/null || true
 count_tokens_since() {
     local seconds_ago="$1"
     local cutoff_override="${2:-}"
+    local window_tag="${3:-}"  # "5h" or "week" — written to score-model-mix-{tag}.json
 
     [[ -d "$CLAUDE_DIR" ]] || { echo "0 0"; return; }
 
-    python3 - "$CLAUDE_DIR" "$seconds_ago" "$cutoff_override" <<'PYEOF'
+    python3 - "$CLAUDE_DIR" "$seconds_ago" "$cutoff_override" "${window_tag}" "$CACHE_DIR" <<'PYEOF'
 import sys, os, json, time, pathlib, datetime
+from collections import defaultdict
 
-proj_dir  = sys.argv[1]
-window_s  = int(sys.argv[2])
+proj_dir        = sys.argv[1]
+window_s        = int(sys.argv[2])
 cutoff_override = sys.argv[3]
-now       = time.time()
+window_tag      = sys.argv[4]
+cache_dir       = pathlib.Path(sys.argv[5])
+now             = time.time()
 # Anthropic's 5h window resets at a fixed wall-clock boundary, not on a
 # rolling "last 18000s" basis — once it rolls over, only tokens spent since
 # THAT reset count toward the new window. When the API has told us the actual
 # reset time (resets_at - window_length), use that as the cutoff instead of
 # the rolling guess, so the bar doesn't double-count tokens from the prior
 # window that the meter has already forgotten about.
-cutoff_t  = float(cutoff_override) if cutoff_override else (now - window_s)
+cutoff_t = float(cutoff_override) if cutoff_override else (now - window_s)
 
 total_in  = 0
 total_out = 0
 oldest_ts = now
+# per-model: {short_name: {in, out, cc}} — ratios valid even with duplicate
+# streaming records; used for display only (not the percentage formula)
+model_stats = defaultdict(lambda: {"in": 0, "out": 0, "cc": 0})
+
+def _short(m):
+    return m.replace("claude-", "").replace("-20251001", "")
 
 for jl in pathlib.Path(proj_dir).rglob("*.jsonl"):
     try:
@@ -95,16 +105,32 @@ for jl in pathlib.Path(proj_dir).rglob("*.jsonl"):
                 usage = msg.get("usage") or entry.get("usage") or {}
                 inp   = usage.get("input_tokens", 0)
                 out   = usage.get("output_tokens", 0)
+                cc    = usage.get("cache_creation_input_tokens", 0)
                 if inp or out:
                     total_in  += inp
                     total_out += out
                     if ts < oldest_ts:
                         oldest_ts = ts
+                    model = msg.get("model") or entry.get("model") or ""
+                    if model and model != "<synthetic>":
+                        ms = _short(model)
+                        model_stats[ms]["in"]  += inp
+                        model_stats[ms]["out"] += out
+                        model_stats[ms]["cc"]  += cc
     except Exception:
         continue
 
 reset_in_s = max(0, int(oldest_ts + window_s - now)) if (total_in + total_out) > 0 else 0
 print(total_in, total_out, reset_in_s)
+
+# Write per-model breakdown for tooltip/popup; ratios are valid regardless
+# of duplicate streaming records (overcounting is proportional across models)
+if window_tag and model_stats:
+    try:
+        with open(cache_dir / f"score-model-mix-{window_tag}.json", "w") as f:
+            json.dump(dict(model_stats), f)
+    except Exception:
+        pass
 PYEOF
 }
 
@@ -422,8 +448,8 @@ main() {
         fi
 
         local five_h_data weekly_data
-        five_h_data=$(count_tokens_since 18000 "$five_h_cutoff")
-        weekly_data=$(count_tokens_since 604800)
+        five_h_data=$(count_tokens_since 18000 "$five_h_cutoff" 5h)
+        weekly_data=$(count_tokens_since 604800 "" week)
 
         local five_h_in five_h_out reset_in_s weekly_in weekly_out
         read -r five_h_in five_h_out reset_in_s <<< "$five_h_data"
@@ -561,6 +587,29 @@ PYEOF
             )
             tt3+=" / web ${weekly_disp} (${observed_week_age}s old, Δ ${weekly_delta})"
         fi
+
+        # Per-model output-share for the 5h window (written by count_tokens_since)
+        local tt_models=""
+        if [[ -f "$CACHE_DIR/score-model-mix-5h.json" ]]; then
+            tt_models=$(python3 - "$CACHE_DIR/score-model-mix-5h.json" <<'PYEOF'
+import json, pathlib, sys
+try:
+    data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+    total_out = sum(v.get("out", 0) for v in data.values())
+    if not total_out:
+        raise SystemExit
+    parts = []
+    for model, t in sorted(data.items(), key=lambda x: -x[1].get("out", 0)):
+        pct = 100 * t.get("out", 0) / total_out
+        if pct >= 2:
+            parts.append(f"{model} {pct:.0f}%")
+    print("  ".join(parts))
+except Exception:
+    pass
+PYEOF
+)
+        fi
+        [[ -n "$tt_models" ]] && tt3+="${nl}Models 5h : $tt_models (output share)"
 
         RABBLE_TEXT="$claude_text" \
         RABBLE_TT1="$tt1" \
