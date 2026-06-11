@@ -10,88 +10,114 @@
     }
   },
   "display": {
-    "separator": "  ",
+    "separator": " ",
     "color": {
-      "keys": "magenta",
-      "title": "cyan"
+      "keys": "38;5;135",
+      "title": "38;5;51",
+      "separator": "38;5;60"
+    },
+    "percent": {
+      "color": {
+        "green": "38;5;51",
+        "yellow": "38;5;205",
+        "red": "38;5;197"
+      }
     }
   },
   "modules": [
     {
       "type": "title",
       "color": {
-        "user": "magenta",
-        "at": "57",
-        "host": "51"
+        "user": "38;5;51",
+        "at": "38;5;60",
+        "host": "38;5;197"
       }
     },
     "separator",
     {
       "type": "os",
       "key": "OS",
-      "keyColor": "57"
+      "keyColor": "38;5;51",
+      "format": "{pretty-name}"
     },
     {
       "type": "host",
       "key": "Host",
-      "keyColor": "57"
+      "keyColor": "38;5;51"
     },
     {
       "type": "kernel",
       "key": "Kernel",
-      "keyColor": "57"
+      "keyColor": "38;5;51"
     },
     {
       "type": "uptime",
       "key": "Uptime",
-      "keyColor": "57"
+      "keyColor": "38;5;51"
     },
     {
       "type": "packages",
       "key": "Packages",
-      "keyColor": "57"
+      "keyColor": "38;5;135"
     },
     {
       "type": "shell",
       "key": "Shell",
-      "keyColor": "57"
+      "keyColor": "38;5;135"
     },
     {
       "type": "display",
       "key": "Display",
-      "keyColor": "57"
+      "keyColor": "38;5;135",
+      "format": "{width}x{height} @ {refresh-rate} Hz, {inch}\""
     },
     {
       "type": "wm",
       "key": "WM",
-      "keyColor": "57"
+      "keyColor": "38;5;135"
     },
     {
       "type": "terminal",
       "key": "Terminal",
-      "keyColor": "57"
+      "keyColor": "38;5;205"
     },
     {
       "type": "cpu",
       "key": "CPU",
-      "keyColor": "57"
+      "keyColor": "38;5;205"
     },
     {
       "type": "gpu",
       "key": "GPU",
-      "keyColor": "57",
-      "hideType": "integrated"
+      "keyColor": "38;5;205",
+      "hideType": "integrated",
+      "format": "{name}"
     },
     {
       "type": "memory",
       "key": "Memory",
-      "keyColor": "57"
+      "keyColor": "38;5;205"
+    },
+    {
+      "type": "swap",
+      "key": "Swap",
+      "keyColor": "38;5;197"
     },
     {
       "type": "disk",
       "key": "Disk",
-      "keyColor": "57",
+      "keyColor": "38;5;197",
       "folders": "/"
+    },
+    {
+      "type": "battery",
+      "key": "Battery",
+      "keyColor": "38;5;197"
+    },
+    {
+      "type": "localip",
+      "key": "IP",
+      "keyColor": "38;5;197"
     },
     "break",
     {
