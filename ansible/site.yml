@@ -15,9 +15,11 @@
 #   --tags runtime               → GPU/NPU runtimes (cross-cutting)
 #   --tags monitoring            → System observability stack (cross-cutting)
 #   --tags virtualization        → QEMU/KVM host stack (cross-cutting, dev machines)
-#   --tags desktop               → Layer 3: Hyprland + shell stack
+#   --tags desktop               → Layer 3: Hyprland + shell stack (incl. fastfetch)
+#   --tags fastfetch             → Layer 3: Fastfetch config + logo only
 #   --tags hyprland              → Layer 3: Hyprland only
 #   --tags apps                  → Layer 4: applications
+#   --tags collective            → RaBbLE Collective dev tooling (Node.js, wrangler, age, gh)
 #   --tags dotfiles              → Dotfile symlinks only (user-level)
 #
 # Packages/config split (combine with above):
@@ -185,6 +187,13 @@
   roles:
     - role: desktop/terminal
 
+- name: "Layer 3 — Desktop: Fastfetch"
+  hosts: all
+  become: true
+  tags: [desktop, fastfetch]
+  roles:
+    - role: desktop/fastfetch
+
 - name: "Layer 3 — Desktop: Waybar"
   hosts: all
   become: true
@@ -270,6 +279,9 @@
     - role: desktop/shell/bash
       vars:
         bash_tasks_only: dotfiles
+    - role: desktop/fastfetch
+      vars:
+        fastfetch_tasks_only: config
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Layer 4 — Applications
@@ -282,3 +294,17 @@
   tags: [apps]
   roles:
     - role: apps
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Collective — RaBbLE development tooling
+# Node.js/npm, wrangler (Cloudflare Workers CLI), age (secrets), gh (GitHub CLI).
+# Run once on any machine developing or deploying the Collective.
+# Skip on headless servers: --skip-tags collective
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Collective — RaBbLE development tooling"
+  hosts: all
+  become: true
+  tags: [collective]
+  roles:
+    - role: apps/rabble-collective

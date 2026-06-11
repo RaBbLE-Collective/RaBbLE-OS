@@ -880,3 +880,34 @@ packages:
     platform: all
     layer: layer/dev
     ks: false
+
+  # ── apps.collective — RaBbLE Collective development tooling ───────────────
+  # Run via: ansible-playbook site.yml --tags collective -K
+  # Role: ansible/roles/apps/rabble-collective/
+
+  - name: nodejs
+    category: apps.collective
+    reason: JavaScript runtime — prerequisite for wrangler (Cloudflare Workers CLI) and Collective build tooling (Aether/NeBuLA esbuild)
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: gh
+    category: apps.collective
+    reason: GitHub CLI — RC publishing (publish-rc.sh), PR/issue/release management; also in layer.dev
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: age
+    category: apps.collective
+    reason: Encryption for RaBbLE two-tier secrets model — SOPS/age layer for episode signing and vault
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  # wrangler: installed via npm install -g (community.general.npm) — not a Fedora package
+  # See: ansible/roles/apps/rabble-collective/tasks/main.yml

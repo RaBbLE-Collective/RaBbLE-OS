@@ -1,0 +1,44 @@
+---
+# apps/rabble-collective/tasks/main.yml
+# Tools needed to develop and deploy the RaBbLE Collective:
+#   nodejs/npm  — wrangler prerequisite and general build tooling
+#   wrangler    — Cloudflare Workers CLI (npm global, not a Fedora package)
+#   gh          — GitHub CLI: RC publishing, PR/release management
+#   age         — encryption for the two-tier secrets model (SOPS/age layer)
+
+- name: collective | install Node.js
+  ansible.builtin.dnf:
+    name: nodejs
+    state: present
+  tags: [collective, packages]
+
+- name: collective | install GitHub CLI
+  ansible.builtin.dnf:
+    name: gh
+    state: present
+  tags: [collective, packages]
+
+- name: collective | install age (secrets encryption)
+  ansible.builtin.dnf:
+    name: age
+    state: present
+  tags: [collective, packages]
+
+- name: collective | install wrangler via npm (global)
+  community.general.npm:
+    name: wrangler
+    global: true
+    state: present
+  tags: [collective, wrangler]
+
+- name: collective | verify wrangler
+  ansible.builtin.command:
+    cmd: wrangler --version
+  register: _wrangler_ver
+  changed_when: false
+  tags: [collective, wrangler]
+
+- name: collective | wrangler version
+  ansible.builtin.debug:
+    msg: "wrangler {{ _wrangler_ver.stdout }}"
+  tags: [collective, wrangler]
