@@ -83,3 +83,33 @@
   become: true
   when: workbench_css.matched > 0
   tags: [apps, vscode]
+
+# Injecting @import edits workbench.desktop.main.css, which is integrity-checked
+# in product.json ("checksums"). A stale checksum triggers VSCodium's
+# "Your installation appears to be corrupt" banner. Recompute it to match.
+# Idempotent: rewrites product.json only when the stored checksum differs.
+- name: vscode | repair product.json integrity checksum for patched workbench CSS
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "-c"
+      - |
+        import json, hashlib, base64, os, sys
+        css = sys.argv[1]
+        # app root is the dir containing "out/"; product.json sits beside it
+        app = css.split('/out/')[0]
+        prod = os.path.join(app, 'product.json')
+        key = css.split('/out/')[1]
+        d = json.load(open(prod))
+        new = base64.b64encode(hashlib.sha256(open(css, 'rb').read()).digest()).decode().rstrip('=')
+        if d.get('checksums', {}).get(key) == new:
+            print('unchanged'); sys.exit(0)
+        d.setdefault('checksums', {})[key] = new
+        json.dump(d, open(prod, 'w'), indent='\t')
+        print('patched')
+      - "{{ workbench_css.files[0].path }}"
+  become: true
+  when: workbench_css.matched > 0
+  register: codium_checksum
+  changed_when: "'patched' in codium_checksum.stdout"
+  tags: [apps, vscode]

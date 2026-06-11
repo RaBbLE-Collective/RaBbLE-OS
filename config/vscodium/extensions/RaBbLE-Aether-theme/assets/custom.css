@@ -27,16 +27,15 @@
   100% { box-shadow: 0 0 12px rgba(0,245,255,0.35), 0 0 24px rgba(0,245,255,0.12); }
 }
 
-/* Flowing scan line — vertical (activity bar edge) */
-@keyframes aether-scan-down {
-  0%   { background-position: 0 0; }
-  100% { background-position: 0 200px; }
+/* Flowing neon ribbon — vertical (within-bounds edge, survives ancestor clip).
+ * Period = 240px; position travels one full period for a seamless loop. */
+@keyframes aether-flow-y {
+  to { background-position: 0 240px; }
 }
 
-/* Flowing scan line — horizontal (panel top edge) */
-@keyframes aether-scan-right {
-  0%   { background-position: 0 0; }
-  100% { background-position: 200px 0; }
+/* Flowing neon ribbon — horizontal */
+@keyframes aether-flow-x {
+  to { background-position: 240px 0; }
 }
 
 /* ══ Harmony border mixin — applied to floating overlays ═════════════════════
@@ -67,70 +66,86 @@
     transition: background 0.2s ease !important;
 }
 
-/* ══ Activity bar — static magenta edge + flowing scan overlay ═══════════════ */
+/* ══ Flowing neon separators ═════════════════════════════════════════════════
+ * The ribbon lives INSIDE the element's right/top edge (not escaping with a
+ * negative offset), so VSCode's grid-view ancestors — which clip overflow —
+ * can't cut it off. Continuous cyan→violet→magenta gradient, always flowing.
+ */
 
+/* Activity bar → sidebar seam (leftmost vertical ribbon) */
 .monaco-workbench .activitybar.left {
     position: relative !important;
-    overflow: visible !important;
-    border-right: 1px solid #ff2d78 !important;
-    box-shadow: 2px 0 14px rgba(255,45,120,0.35) !important;
 }
-
 .monaco-workbench .activitybar.left::after {
     content: '';
     position: absolute;
     top: 0;
-    right: -1px;
-    width: 2px;
+    right: 0;
+    width: 3px;
     height: 100%;
     background: repeating-linear-gradient(
         180deg,
-        transparent       0px,
-        rgba(0,245,255,0.9)   40px,
-        rgba(191,95,255,0.95) 80px,
-        rgba(255,45,120,1.0)  120px,
-        transparent       160px,
-        transparent       200px
+        #00f5ff   0px,
+        #bf5fff  60px,
+        #ff2d78 120px,
+        #bf5fff 180px,
+        #00f5ff 240px
     );
-    animation: aether-scan-down 3s linear infinite;
+    box-shadow: 0 0 8px rgba(0,245,255,0.55), 0 0 14px rgba(255,45,120,0.40);
+    animation: aether-flow-y 4s linear infinite;
     pointer-events: none;
-    z-index: 9999;
+    z-index: 30;
 }
 
-/* ══ Sidebar — faded right border ════════════════════════════════════════════ */
-
+/* Sidebar → editor seam (vertical ribbon between file tree and editor) */
 .monaco-workbench .part.sidebar.left {
-    border-right: 1px solid rgba(255,45,120,0.35) !important;
-    box-shadow: 2px 0 18px rgba(255,45,120,0.18) !important;
+    position: relative !important;
+}
+.monaco-workbench .part.sidebar.left::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 3px;
+    height: 100%;
+    background: repeating-linear-gradient(
+        180deg,
+        #00f5ff   0px,
+        #bf5fff  60px,
+        #ff2d78 120px,
+        #bf5fff 180px,
+        #00f5ff 240px
+    );
+    box-shadow: 0 0 8px rgba(0,245,255,0.55), 0 0 14px rgba(255,45,120,0.40);
+    animation: aether-flow-y 4s linear infinite;
+    animation-delay: -2s;
+    pointer-events: none;
+    z-index: 30;
 }
 
-/* ══ Panel — static top edge + flowing scan overlay ════════════════════════= */
-
+/* Editor → panel seam (horizontal ribbon along panel top) */
 .monaco-workbench .part.panel.bottom {
     position: relative !important;
-    overflow: visible !important;
-    border-top: 1px solid rgba(255,45,120,0.45) !important;
 }
-
 .monaco-workbench .part.panel.bottom::before {
     content: '';
     position: absolute;
-    top: -1px;
+    top: 0;
     left: 0;
     width: 100%;
-    height: 2px;
+    height: 3px;
     background: repeating-linear-gradient(
         90deg,
-        transparent       0px,
-        rgba(0,245,255,0.9)   40px,
-        rgba(191,95,255,0.95) 80px,
-        rgba(255,45,120,1.0)  120px,
-        transparent       160px,
-        transparent       200px
+        #00f5ff   0px,
+        #bf5fff  60px,
+        #ff2d78 120px,
+        #bf5fff 180px,
+        #00f5ff 240px
     );
-    animation: aether-scan-right 3s linear infinite;
+    box-shadow: 0 0 8px rgba(0,245,255,0.55), 0 0 14px rgba(255,45,120,0.40);
+    animation: aether-flow-x 4s linear infinite;
     pointer-events: none;
-    z-index: 9999;
+    z-index: 30;
 }
 
 /* ══ Status bar / title bar ══════════════════════════════════════════════════ */
