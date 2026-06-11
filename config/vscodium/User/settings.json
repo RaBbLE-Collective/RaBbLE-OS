@@ -1,5 +1,6 @@
 {
   "workbench.colorTheme": "RaBbLE Aether",
+  "window.zoomLevel": 1,
   "editor.fontFamily": "'JetBrains Mono', 'Cascadia Code', monospace",
   "editor.fontLigatures": true,
   "editor.fontSize": 13,
