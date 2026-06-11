@@ -56,7 +56,7 @@ declare -A BUNDLE_SRC=(
   [mako]="config/mako"
   [claude]="config/claude/themes"
   [vscodium]="config/vscodium/User"
-  [vscodium-theme]="config/vscodium/extensions/rabble-aether-theme"
+  [vscodium-theme]="config/vscodium/extensions/RaBbLE-Aether-theme"
 )
 
 declare -A BUNDLE_DEST=(

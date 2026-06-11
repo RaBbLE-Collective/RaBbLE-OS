@@ -14,9 +14,5 @@
   "workbench.startupEditor": "none",
   "workbench.tree.indent": 16,
   "window.titleBarStyle": "custom",
-  "telemetry.telemetryLevel": "off",
-  "vscode_custom_css.imports": [
-    "file:///home/rabble/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/assets/custom.css"
-  ],
-  "vscode_custom_css.policy": true
+  "telemetry.telemetryLevel": "off"
 }

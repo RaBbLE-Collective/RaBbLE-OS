@@ -1,0 +1,253 @@
+/* RaBbLE Aether — VSCodium visual injection
+ * Full Aether language: harmony borders, flowing scan edges, rounded tabs,
+ * neon glow cycling. Mirrors rabble-border-harmony from aether.css.
+ * Self-contained — tokens inlined, no @import.
+ */
+
+/* ══ @property — enables smooth conic-gradient angle animation ══════════════ */
+@property --aether-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* ══ Keyframes ═══════════════════════════════════════════════════════════════ */
+
+/* Rotating conic-gradient — matches rabble-border-harmony */
+@keyframes aether-harmony-spin {
+  from { --aether-angle: 0deg; }
+  to   { --aether-angle: 360deg; }
+}
+
+/* Cycling glow: cyan → violet → magenta — matches harmony-glow */
+@keyframes aether-glow-cycle {
+  0%   { box-shadow: 0 0 12px rgba(0,245,255,0.35), 0 0 24px rgba(0,245,255,0.12); }
+  33%  { box-shadow: 0 0 12px rgba(191,95,255,0.35), 0 0 24px rgba(191,95,255,0.12); }
+  66%  { box-shadow: 0 0 12px rgba(255,45,120,0.35), 0 0 24px rgba(255,45,120,0.12); }
+  100% { box-shadow: 0 0 12px rgba(0,245,255,0.35), 0 0 24px rgba(0,245,255,0.12); }
+}
+
+/* Flowing scan line — vertical (activity bar edge) */
+@keyframes aether-scan-down {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 200px; }
+}
+
+/* Flowing scan line — horizontal (panel top edge) */
+@keyframes aether-scan-right {
+  0%   { background-position: 0 0; }
+  100% { background-position: 200px 0; }
+}
+
+/* ══ Harmony border mixin — applied to floating overlays ═════════════════════
+ * Technique from .rabble-border-harmony in aether.css:
+ *   ::before fills element with conic-gradient, mask clips to 1px border ring.
+ */
+
+/* ══ Scrollbar ═══════════════════════════════════════════════════════════════ */
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb {
+    background: #ff2d78;
+    border-radius: 9999px;
+    box-shadow: 0 0 6px #ff2d78;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #ff79c6;
+    box-shadow: 0 0 10px #ff79c6;
+}
+::-webkit-scrollbar-track { background: #0a0010; }
+::-webkit-scrollbar-corner { background: #0a0010; }
+
+/* ══ Tabs — rounded top, synthwave feel ══════════════════════════════════════ */
+
+.monaco-workbench .part.editor .tabs-container .tab {
+    border-radius: 6px 6px 0 0 !important;
+    margin: 0 1px !important;
+    transition: background 0.2s ease !important;
+}
+
+/* ══ Activity bar — static magenta edge + flowing scan overlay ═══════════════ */
+
+.monaco-workbench .activitybar.left {
+    position: relative !important;
+    overflow: visible !important;
+    border-right: 1px solid #ff2d78 !important;
+    box-shadow: 2px 0 14px rgba(255,45,120,0.35) !important;
+}
+
+.monaco-workbench .activitybar.left::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -1px;
+    width: 2px;
+    height: 100%;
+    background: repeating-linear-gradient(
+        180deg,
+        transparent       0px,
+        rgba(0,245,255,0.9)   40px,
+        rgba(191,95,255,0.95) 80px,
+        rgba(255,45,120,1.0)  120px,
+        transparent       160px,
+        transparent       200px
+    );
+    animation: aether-scan-down 3s linear infinite;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+/* ══ Sidebar — faded right border ════════════════════════════════════════════ */
+
+.monaco-workbench .part.sidebar.left {
+    border-right: 1px solid rgba(255,45,120,0.35) !important;
+    box-shadow: 2px 0 18px rgba(255,45,120,0.18) !important;
+}
+
+/* ══ Panel — static top edge + flowing scan overlay ════════════════════════= */
+
+.monaco-workbench .part.panel.bottom {
+    position: relative !important;
+    overflow: visible !important;
+    border-top: 1px solid rgba(255,45,120,0.45) !important;
+}
+
+.monaco-workbench .part.panel.bottom::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: repeating-linear-gradient(
+        90deg,
+        transparent       0px,
+        rgba(0,245,255,0.9)   40px,
+        rgba(191,95,255,0.95) 80px,
+        rgba(255,45,120,1.0)  120px,
+        transparent       160px,
+        transparent       200px
+    );
+    animation: aether-scan-right 3s linear infinite;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+/* ══ Status bar / title bar ══════════════════════════════════════════════════ */
+
+.monaco-workbench .part.statusbar {
+    box-shadow: 0 -1px 8px rgba(255,45,120,0.12) !important;
+}
+.monaco-workbench .part.titlebar {
+    box-shadow: 0 1px 8px rgba(255,45,120,0.10) !important;
+}
+
+/* ══ Command palette — harmony border + deep float shadow ════════════════════ */
+
+.monaco-workbench .quick-input-widget {
+    position: relative !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    border: none !important;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.80) !important;
+    animation: aether-glow-cycle 9s linear infinite !important;
+}
+
+.monaco-workbench .quick-input-widget::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    padding: 1px;
+    background: conic-gradient(
+        from var(--aether-angle),
+        #00f5ff, #bf5fff, #ff2d78, #00f5ff
+    );
+    animation: aether-harmony-spin 9s linear infinite;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* ══ Notification toasts — harmony border ════════════════════════════════════ */
+
+.monaco-workbench .notifications-toasts .notification-toast {
+    position: relative !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    border: none !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.70) !important;
+}
+
+.monaco-workbench .notifications-toasts .notification-toast::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    padding: 1px;
+    background: conic-gradient(
+        from var(--aether-angle),
+        #00f5ff, #bf5fff, #ff2d78, #00f5ff
+    );
+    animation: aether-harmony-spin 9s linear infinite;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* ══ Context menu — harmony border ══════════════════════════════════════════ */
+
+.monaco-workbench .context-view.monaco-menu-container {
+    position: relative !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    border: none !important;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.80) !important;
+    animation: aether-glow-cycle 9s linear infinite !important;
+}
+
+.monaco-workbench .context-view.monaco-menu-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    padding: 1px;
+    background: conic-gradient(
+        from var(--aether-angle),
+        #00f5ff, #bf5fff, #ff2d78, #00f5ff
+    );
+    animation: aether-harmony-spin 9s linear infinite;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* ══ Suggest / hover widgets — glow cycle ════════════════════════════════════ */
+
+.monaco-workbench .overlayWidgets .suggest-widget {
+    border-radius: 6px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(42,40,64,0.90) !important;
+    animation: aether-glow-cycle 9s linear infinite !important;
+}
+
+/* ══ Sidebar section headers — cyan micro-accent ════════════════════════════ */
+
+.monaco-workbench .part.sidebar .pane-header {
+    border-bottom: 1px solid rgba(0,245,255,0.15) !important;
+}
+
+/* ══ Editor group split divider ══════════════════════════════════════════════ */
+
+.monaco-workbench .part.editor > .content .editor-group-container + .editor-group-container {
+    border-left: 1px solid rgba(255,45,120,0.25) !important;
+}

@@ -3,18 +3,12 @@
 #
 # spark ~ apps/vscode >> RaBbLE Aether theme wired into VSCodium // %VSCODE_AETHER%
 #
-# Extension lives at config/vscodium/extensions/rabble-aether-theme/ — dotctl
+# Extension lives at config/vscodium/extensions/RaBbLE-Aether-theme/ — dotctl
 # also manages these files (vscodium + vscodium-theme bundles), so the user
 # can re-sync anytime with: ./RaBbLE-OS-dotctl.sh apply vscodium-theme
-
-- name: vscode | install custom css loader extension
-  ansible.builtin.command:
-    cmd: "codium --install-extension be5invis.vscode-custom-css"
-  register: extension_install
-  changed_when: "'already installed' not in extension_install.stdout"
-  become: true
-  become_user: "{{ rabble_user }}"
-  tags: [apps, vscode]
+#
+# CSS injection: Ansible prepends @import to workbench.desktop.main.css.
+# Must be re-run after VSCodium updates (the system CSS file gets replaced on upgrade).
 
 - name: vscode | create VSCodium user config directory
   ansible.builtin.file:
@@ -48,7 +42,7 @@
 
 - name: vscode | deploy RaBbLE Aether extension manifest
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/rabble-aether-theme/package.json"
+    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/RaBbLE-Aether-theme/package.json"
     dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/package.json"
     mode: '0644'
     owner: "{{ rabble_user }}"
@@ -57,7 +51,7 @@
 
 - name: vscode | deploy RaBbLE Aether theme assets
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/rabble-aether-theme/assets/"
+    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/RaBbLE-Aether-theme/assets/"
     dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/assets/"
     mode: '0644'
     owner: "{{ rabble_user }}"
@@ -66,9 +60,26 @@
 
 - name: vscode | deploy RaBbLE Aether color theme
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/rabble-aether-theme/themes/"
+    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/RaBbLE-Aether-theme/themes/"
     dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/themes/"
     mode: '0644'
     owner: "{{ rabble_user }}"
   become: true
+  tags: [apps, vscode]
+
+- name: vscode | find workbench CSS path
+  ansible.builtin.find:
+    paths: /usr/share/codium/resources/app/out/vs/workbench
+    patterns: "workbench.desktop.main.css"
+  register: workbench_css
+  tags: [apps, vscode]
+
+- name: vscode | inject Aether custom CSS into workbench stylesheet
+  ansible.builtin.lineinfile:
+    path: "{{ workbench_css.files[0].path }}"
+    line: "@import url('file://{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/assets/custom.css');"
+    insertbefore: BOF
+    state: present
+  become: true
+  when: workbench_css.matched > 0
   tags: [apps, vscode]
