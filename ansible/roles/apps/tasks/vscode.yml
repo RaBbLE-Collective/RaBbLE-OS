@@ -18,7 +18,7 @@
 
 - name: vscode | create VSCodium extension directory
   ansible.builtin.file:
-    path: "{{ rabble_home }}/.vscode-oss/extensions/rabble-aether-theme/themes"
+    path: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/themes"
     state: directory
     mode: '0755'
     owner: "{{ rabble_user }}"
@@ -37,7 +37,7 @@
 - name: vscode | deploy RaBbLE Aether extension manifest
   ansible.builtin.copy:
     src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/rabble-aether-theme/package.json"
-    dest: "{{ rabble_home }}/.vscode-oss/extensions/rabble-aether-theme/package.json"
+    dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/package.json"
     mode: '0644'
     owner: "{{ rabble_user }}"
   become: true
@@ -46,7 +46,7 @@
 - name: vscode | deploy RaBbLE Aether color theme
   ansible.builtin.copy:
     src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/rabble-aether-theme/themes/rabble-aether-color-theme.json"
-    dest: "{{ rabble_home }}/.vscode-oss/extensions/rabble-aether-theme/themes/rabble-aether-color-theme.json"
+    dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/themes/rabble-aether-color-theme.json"
     mode: '0644'
     owner: "{{ rabble_user }}"
   become: true

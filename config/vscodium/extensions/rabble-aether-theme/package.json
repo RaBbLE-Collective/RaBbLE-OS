@@ -3,7 +3,7 @@
   "displayName": "RaBbLE Aether",
   "description": "Synthwave outrun theme for RaBbLE-OS. Deep void. Neon signal.",
   "version": "0.0.1",
-  "publisher": "rabble-collective",
+  "publisher": "RaBbLE-Collective",
   "license": "RaBbLE-Collective SvAccord License",
   "engines": { "vscode": "^1.75.0" },
   "categories": ["Themes"],

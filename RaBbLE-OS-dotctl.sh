@@ -71,7 +71,7 @@ declare -A BUNDLE_DEST=(
   [mako]="${HOME}/.config/mako"
   [claude]="${HOME}/.claude/themes"
   [vscodium]="${HOME}/.config/VSCodium/User"
-  [vscodium-theme]="${HOME}/.vscode-oss/extensions/rabble-aether-theme"
+  [vscodium-theme]="${HOME}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1"
 )
 
 declare -A BUNDLE_DESC=(
