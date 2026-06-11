@@ -1,6 +1,9 @@
 ---
 # desktop/fastfetch/tasks/config.yml
 # Deploys fastfetch config + RaBbLE portals logo to ~/.config/fastfetch/
+# rabble-portals.txt is GENERATED — edit rabble-portals.base.txt and run
+# spells/fastfetch-fx.py, never edit the composed file by hand.
+# Guide: RaBbLE-Grimoire/RaBbLE-OS/desktop/RaBbLE-OS-Desktop-Fastfetch.md
 
 - name: Create fastfetch config directory
   ansible.builtin.file:

@@ -1,4 +1,7 @@
 // ~/.config/fastfetch/config.jsonc — RaBbLE-OS system identity display
+// Logo is generated: edit rabble-portals.base.txt, then run spells/fastfetch-fx.py.
+// Full guide: RaBbLE-Grimoire/RaBbLE-OS/desktop/RaBbLE-OS-Desktop-Fastfetch.md
+// Colors are raw SGR params: 256-color is "38;5;N" — bare "N" is silently ignored.
 {
   "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
   "logo": {
@@ -121,9 +124,10 @@
     },
     "break",
     {
-      "type": "colors",
-      "paddingLeft": 1,
-      "symbol": "circle"
+      // RaBbLE palette strip — cyan, violet, pink, magenta, muted (RaBbLE-Palette.md),
+      // not the terminal's ANSI colors. {#38;5;N} = 256-color escape, {#} = reset.
+      "type": "custom",
+      "format": " {#38;5;51}◆◆◆ {#38;5;135}◆◆◆ {#38;5;205}◆◆◆ {#38;5;197}◆◆◆ {#38;5;60}◆◆◆{#}"
     }
   ]
 }
