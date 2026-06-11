@@ -111,3 +111,9 @@ _rabble_zsh_prompt() {
 ${D}╰─${N} ${char_color}❯${N} "
 }
 precmd_functions+=(_rabble_zsh_prompt)
+
+# ── Startup splash ────────────────────────────────────────────────────────────
+# Show RaBbLE-OS identity on new interactive shell sessions (not SSH, not tmux panes)
+if [[ -o interactive && -z "$TMUX" && -z "$SSH_TTY" && "$TERM_PROGRAM" != "vscode" ]]; then
+    command -v fastfetch &>/dev/null && fastfetch
+fi

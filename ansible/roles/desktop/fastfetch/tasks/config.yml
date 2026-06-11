@@ -1,0 +1,30 @@
+---
+# desktop/fastfetch/tasks/config.yml
+# Deploys fastfetch config + RaBbLE portals logo to ~/.config/fastfetch/
+
+- name: Create fastfetch config directory
+  ansible.builtin.file:
+    path: "{{ rabble_config_home }}/fastfetch"
+    state: directory
+    mode: '0755'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [desktop, fastfetch, config]
+
+- name: Deploy fastfetch config
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/fastfetch/config.jsonc"
+    dest: "{{ rabble_config_home }}/fastfetch/config.jsonc"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [desktop, fastfetch, config]
+
+- name: Deploy RaBbLE portals logo
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/fastfetch/rabble-portals.txt"
+    dest: "{{ rabble_config_home }}/fastfetch/rabble-portals.txt"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [desktop, fastfetch, config]

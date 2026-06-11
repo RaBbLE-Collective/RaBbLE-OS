@@ -1,0 +1,7 @@
+---
+# desktop/fastfetch/tasks/packages.yml
+# fastfetch is already installed via core/packages — this is a no-op marker
+- name: fastfetch — already in core manifest
+  ansible.builtin.debug:
+    msg: "fastfetch installed via Layer 0 core manifest"
+  tags: [desktop, fastfetch, packages]

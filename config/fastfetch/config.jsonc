@@ -1,0 +1,103 @@
+// ~/.config/fastfetch/config.jsonc — RaBbLE-OS system identity display
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": {
+    "source": "~/.config/fastfetch/rabble-portals.txt",
+    "type": "file",
+    "padding": {
+      "top": 0,
+      "left": 1
+    }
+  },
+  "display": {
+    "separator": "  ",
+    "color": {
+      "keys": "magenta",
+      "title": "cyan"
+    }
+  },
+  "modules": [
+    {
+      "type": "title",
+      "color": {
+        "user": "magenta",
+        "at": "57",
+        "host": "51"
+      }
+    },
+    "separator",
+    {
+      "type": "os",
+      "key": "OS",
+      "keyColor": "57"
+    },
+    {
+      "type": "host",
+      "key": "Host",
+      "keyColor": "57"
+    },
+    {
+      "type": "kernel",
+      "key": "Kernel",
+      "keyColor": "57"
+    },
+    {
+      "type": "uptime",
+      "key": "Uptime",
+      "keyColor": "57"
+    },
+    {
+      "type": "packages",
+      "key": "Packages",
+      "keyColor": "57"
+    },
+    {
+      "type": "shell",
+      "key": "Shell",
+      "keyColor": "57"
+    },
+    {
+      "type": "display",
+      "key": "Display",
+      "keyColor": "57"
+    },
+    {
+      "type": "wm",
+      "key": "WM",
+      "keyColor": "57"
+    },
+    {
+      "type": "terminal",
+      "key": "Terminal",
+      "keyColor": "57"
+    },
+    {
+      "type": "cpu",
+      "key": "CPU",
+      "keyColor": "57"
+    },
+    {
+      "type": "gpu",
+      "key": "GPU",
+      "keyColor": "57",
+      "hideType": "integrated"
+    },
+    {
+      "type": "memory",
+      "key": "Memory",
+      "keyColor": "57"
+    },
+    {
+      "type": "disk",
+      "key": "Disk",
+      "keyColor": "57",
+      "folders": "/"
+    },
+    "break",
+    {
+      "type": "colors",
+      "paddingLeft": 1,
+      "symbol": "circle"
+    }
+  ]
+}
