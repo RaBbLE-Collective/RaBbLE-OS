@@ -6,7 +6,7 @@ Produces: config/fastfetch/rabble-portals.txt
 Design:
   - Dual portals: LEFT=cyan (ring above), RIGHT=magenta (ring below)
   - Violet accent inner ring on both portals
-  - "RaBbLE" in banner3 block letters: R=white, a=violet, B=magenta, b=magenta, L=cyan, E=cyan
+  - "RaBbLE" in banner font (proper mixed case): R=white, a=violet, B=magenta, b=magenta, L=cyan, E=cyan
   - Palette separator line (all five neon colors)
   - "Episode 1 Preview" tagline in violet
   - "Low Entropy. Infinite Resonance." in dim
@@ -27,7 +27,7 @@ DM = "\033[38;5;60m"    # Muted/Dim        #2a2840
 RS = "\033[0m"           # Reset
 
 # ── Portal canvas ─────────────────────────────────────────────────────
-COLS, ROWS = 76, 32
+COLS, ROWS = 52, 18
 canvas = [[" "] * COLS for _ in range(ROWS)]
 colors  = [[RS]   * COLS for _ in range(ROWS)]
 
@@ -65,9 +65,9 @@ def draw_diamond(cx, cy, hw, hh, color, exp=0.52):
             plot(r, c, "█", WH)
 
 # ── Layout: LEFT=CYAN, RIGHT=MAGENTA ─────────────────────────────────
-hw, hh   = 8, 10
+hw, hh   = 4, 6
 gap_cols = 4
-gap_ring = -3  # overlap rows between orb tip and portal ring
+gap_ring = -2   # overlap rows between orb tip and portal ring
 
 total_w  = hw*2+1 + gap_cols + hw*2+1
 lo       = (COLS - total_w) // 2
@@ -101,11 +101,13 @@ for r in range(ROWS):
 while portal_lines and not strip(portal_lines[0]).strip():  portal_lines.pop(0)
 while portal_lines and not strip(portal_lines[-1]).strip(): portal_lines.pop()
 
-# ── "RaBbLE" block text (banner3 font, # → █) ────────────────────────
+# ── "RaBbLE" block text (banner font — proper mixed case, # → █) ─────
+# banner font: uppercase = 7 rows, lowercase = 6 rows (1 blank top row)
+# This gives visually distinct mixed case: RaBbLE reads as mixed, not RABBLE
 LETTER_COL = {'R': WH, 'a': VT, 'B': MG, 'b': MG, 'L': CY, 'E': CY}
 
 def get_art(ch):
-    raw = pyfiglet.figlet_format(ch, font='banner3').replace('#', '█')
+    raw = pyfiglet.figlet_format(ch, font='banner').replace('#', '█')
     lines = raw.rstrip().split('\n')
     while lines and not lines[-1].strip():
         lines.pop()
@@ -145,7 +147,7 @@ ler = center(f"{DM}Low Entropy.  Infinite Resonance.{RS}", full_w)
 
 # ── Final output ──────────────────────────────────────────────────────
 output = (
-    '\n'.join(portal_lines) + '\n\n'
+    '\n'.join(portal_lines) + '\n'
     + '\n'.join(text_rows)  + '\n'
     + sep + '\n'
     + ep1 + '\n'
