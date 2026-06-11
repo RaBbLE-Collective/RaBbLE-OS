@@ -1,0 +1,17 @@
+{
+  "workbench.colorTheme": "RaBbLE Aether",
+  "editor.fontFamily": "'JetBrains Mono', 'Cascadia Code', monospace",
+  "editor.fontLigatures": true,
+  "editor.fontSize": 13,
+  "editor.lineHeight": 22,
+  "editor.cursorBlinking": "phase",
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.smoothScrolling": true,
+  "editor.renderWhitespace": "boundary",
+  "editor.minimap.renderCharacters": false,
+  "workbench.startupEditor": "none",
+  "workbench.tree.indent": 16,
+  "window.titleBarStyle": "custom",
+  "telemetry.telemetryLevel": "off"
+}

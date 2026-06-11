@@ -55,6 +55,8 @@ declare -A BUNDLE_SRC=(
   [bash]="config/shell/bash"
   [mako]="config/mako"
   [claude]="config/claude/themes"
+  [vscodium]="config/vscodium/User"
+  [vscodium-theme]="config/vscodium/extensions/rabble-aether-theme"
 )
 
 declare -A BUNDLE_DEST=(
@@ -68,6 +70,8 @@ declare -A BUNDLE_DEST=(
   [bash]="${HOME}"
   [mako]="${HOME}/.config/mako"
   [claude]="${HOME}/.claude/themes"
+  [vscodium]="${HOME}/.config/VSCodium/User"
+  [vscodium-theme]="${HOME}/.vscode-oss/extensions/rabble-aether-theme"
 )
 
 declare -A BUNDLE_DESC=(
@@ -81,9 +85,11 @@ declare -A BUNDLE_DESC=(
   [bash]="Bash config, aliases, and .zshenv"
   [mako]="Mako notification daemon config (config/mako/config → ~/.config/mako/config)"
   [claude]="Claude Code RaBbLE theme (themes only — settings.json is not managed)"
+  [vscodium]="VSCodium user settings — activates RaBbLE Aether theme"
+  [vscodium-theme]="RaBbLE Aether theme extension for VSCodium / VS Code"
 )
 
-BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako claude)
+BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako claude vscodium vscodium-theme)
 
 # Post-apply hooks — run after a bundle's files are deployed.
 # Only set for bundles that need more than a file copy (e.g. patching a config key).

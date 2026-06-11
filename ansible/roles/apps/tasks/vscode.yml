@@ -1,6 +1,53 @@
 ---
-# apps/tasks/vscode.yml — STUB
-- name: vscode — stub
-  ansible.builtin.debug:
-    msg: "spark ~ apps/vscode >> stub, no-op // %DORMANT%"
+# apps/tasks/vscode.yml — VSCodium install + RaBbLE Aether theme deployment
+#
+# spark ~ apps/vscode >> RaBbLE Aether theme wired into VSCodium // %VSCODE_AETHER%
+#
+# Extension lives at config/vscodium/extensions/rabble-aether-theme/ — dotctl
+# also manages these files (vscodium + vscodium-theme bundles), so the user
+# can re-sync anytime with: ./RaBbLE-OS-dotctl.sh apply vscodium-theme
+
+- name: vscode | create VSCodium user config directory
+  ansible.builtin.file:
+    path: "{{ rabble_config_home }}/VSCodium/User"
+    state: directory
+    mode: '0755'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [apps, vscode]
+
+- name: vscode | create VSCodium extension directory
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.vscode-oss/extensions/rabble-aether-theme/themes"
+    state: directory
+    mode: '0755'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [apps, vscode]
+
+- name: vscode | deploy user settings (activates RaBbLE Aether theme)
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/vscodium/User/settings.json"
+    dest: "{{ rabble_config_home }}/VSCodium/User/settings.json"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [apps, vscode]
+
+- name: vscode | deploy RaBbLE Aether extension manifest
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/rabble-aether-theme/package.json"
+    dest: "{{ rabble_home }}/.vscode-oss/extensions/rabble-aether-theme/package.json"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [apps, vscode]
+
+- name: vscode | deploy RaBbLE Aether color theme
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/rabble-aether-theme/themes/rabble-aether-color-theme.json"
+    dest: "{{ rabble_home }}/.vscode-oss/extensions/rabble-aether-theme/themes/rabble-aether-color-theme.json"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
   tags: [apps, vscode]

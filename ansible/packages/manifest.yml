@@ -857,6 +857,16 @@ packages:
     # VSCode repo: https://packages.microsoft.com/yumrepos/vscode
     # Added via RPM key + repo file task in layer/dev role before dnf install
 
+  - name: codium
+    category: layer.dev
+    reason: VSCodium — open-source VS Code build without telemetry; RaBbLE Aether theme at config/vscodium/
+    source: "repo:vscodium"
+    platform: all
+    layer: layer/dev
+    ks: false
+    # VSCodium RPM repo: https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/-/raw/repos/rpm/
+    # Theme deployed by apps/tasks/vscode.yml; re-sync via dotctl apply vscodium vscodium-theme
+
   - name: gh
     category: layer.dev
     reason: GitHub CLI — PR/issue/release management from terminal
