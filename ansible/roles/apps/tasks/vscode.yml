@@ -7,6 +7,15 @@
 # also manages these files (vscodium + vscodium-theme bundles), so the user
 # can re-sync anytime with: ./RaBbLE-OS-dotctl.sh apply vscodium-theme
 
+- name: vscode | install custom css loader extension
+  ansible.builtin.command:
+    cmd: "codium --install-extension be5invis.vscode-custom-css"
+  register: extension_install
+  changed_when: "'already installed' not in extension_install.stdout"
+  become: true
+  become_user: "{{ rabble_user }}"
+  tags: [apps, vscode]
+
 - name: vscode | create VSCodium user config directory
   ansible.builtin.file:
     path: "{{ rabble_config_home }}/VSCodium/User"
@@ -16,13 +25,16 @@
   become: true
   tags: [apps, vscode]
 
-- name: vscode | create VSCodium extension directory
+- name: vscode | create VSCodium extension directory structure
   ansible.builtin.file:
-    path: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/themes"
+    path: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/{{ item }}"
     state: directory
     mode: '0755'
     owner: "{{ rabble_user }}"
   become: true
+  loop:
+    - assets
+    - themes
   tags: [apps, vscode]
 
 - name: vscode | deploy user settings (activates RaBbLE Aether theme)
@@ -43,10 +55,19 @@
   become: true
   tags: [apps, vscode]
 
+- name: vscode | deploy RaBbLE Aether theme assets
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/rabble-aether-theme/assets/"
+    dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/assets/"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [apps, vscode]
+
 - name: vscode | deploy RaBbLE Aether color theme
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/rabble-aether-theme/themes/rabble-aether-color-theme.json"
-    dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/themes/rabble-aether-color-theme.json"
+    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/rabble-aether-theme/themes/"
+    dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/themes/"
     mode: '0644'
     owner: "{{ rabble_user }}"
   become: true
