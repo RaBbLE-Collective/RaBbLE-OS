@@ -7,7 +7,8 @@
 # also manages these files (vscodium + vscodium-theme bundles), so the user
 # can re-sync anytime with: ./RaBbLE-OS-dotctl.sh apply vscodium-theme
 #
-# CSS injection: Ansible prepends @import to workbench.desktop.main.css.
+# CSS injection: Ansible inlines custom.css content directly into workbench.desktop.main.css.
+# @import url('file://...') is blocked by Electron's cross-scheme security policy.
 # Must be re-run after VSCodium updates (the system CSS file gets replaced on upgrade).
 
 - name: vscode | create VSCodium user config directory
@@ -74,12 +75,23 @@
   register: workbench_css
   tags: [apps, vscode]
 
-- name: vscode | inject Aether custom CSS into workbench stylesheet
+- name: vscode | remove legacy @import injection if present
   ansible.builtin.lineinfile:
     path: "{{ workbench_css.files[0].path }}"
-    line: "@import url('file://{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/assets/custom.css');"
+    regexp: "^@import url\\("
+    state: absent
+  become: true
+  when: workbench_css.matched > 0
+  tags: [apps, vscode]
+
+# Inline the CSS directly — @import url('file://...') is blocked by Electron's
+# cross-scheme security model (vscode-file:// cannot import file:// resources).
+- name: vscode | inject Aether CSS inline into workbench stylesheet
+  ansible.builtin.blockinfile:
+    path: "{{ workbench_css.files[0].path }}"
+    marker: "/* {mark} RABBLE-AETHER-INJECTION */"
     insertbefore: BOF
-    state: present
+    block: "{{ lookup('file', dotfiles_repo_root + '/config/vscodium/extensions/RaBbLE-Aether-theme/assets/custom.css') }}"
   become: true
   when: workbench_css.matched > 0
   tags: [apps, vscode]
