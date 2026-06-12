@@ -741,6 +741,14 @@ packages:
     layer: apps
     ks: false
 
+  - name: nwg-look
+    category: apps.theming
+    reason: Wayland-native GTK theme selector (lxappearance uses X11 and breaks on Hyprland)
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
   # ═══════════════════════════════════════════════════════════════════════════
   # HARDWARE — ASUS ProArt P16
   # Platform: asus_proart_p16 only — filtered by Ansible inventory group.

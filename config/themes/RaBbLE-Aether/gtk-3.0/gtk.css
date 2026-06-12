@@ -1,0 +1,611 @@
+/* RaBbLE-Aether GTK3 Theme
+ * Synthwave void. Neon burns.
+ * Installed theme — no !important needed; user stylesheet layered on top for fallback.
+ */
+
+/* ── Palette ──────────────────────────────────────────────────────────────── */
+@define-color bg         #0a0010;
+@define-color surface    #12132a;
+@define-color raised     #1a1b2e;
+@define-color border_dim #2a2840;
+@define-color text       #e8e6f0;
+@define-color muted      #6b6880;
+@define-color magenta    #ff2d78;
+@define-color cyan       #00f5ff;
+@define-color violet     #bf5fff;
+@define-color pink       #ff79c6;
+@define-color red        #e05c6f;
+@define-color green      #50fa7b;
+@define-color yellow     #f1fa8c;
+
+/* ── Animations ───────────────────────────────────────────────────────────── */
+@keyframes aether-border-cycle {
+  0%   { border-color: @cyan;    }
+  33%  { border-color: @violet;  }
+  66%  { border-color: @magenta; }
+  100% { border-color: @cyan;    }
+}
+
+/* ── Root ─────────────────────────────────────────────────────────────────── */
+* {
+  color:            @text;
+  background-color: @bg;
+  outline-color:    @cyan;
+  -gtk-icon-theme:  Papirus-Dark;
+}
+
+/* ── Windows & backgrounds ────────────────────────────────────────────────── */
+window,
+.background {
+  background-color: @bg;
+  color:            @text;
+}
+
+.titlebar,
+headerbar {
+  background-color: @surface;
+  color:            @text;
+  border-bottom:    1px solid rgba(191,95,255,0.30);
+  box-shadow:       inset 0 -1px rgba(191,95,255,0.15);
+}
+
+.titlebar .title,
+headerbar .title {
+  color:       @text;
+  font-weight: bold;
+}
+
+.titlebar .subtitle,
+headerbar .subtitle {
+  color:     @muted;
+  font-size: smaller;
+}
+
+/* ── Labels ───────────────────────────────────────────────────────────────── */
+label {
+  color: @text;
+}
+
+label:disabled {
+  color: @muted;
+}
+
+/* ── Text entries ─────────────────────────────────────────────────────────── */
+entry {
+  background-color: @raised;
+  color:            @text;
+  border:           1px solid @border_dim;
+  border-radius:    4px;
+  padding:          4px 8px;
+}
+
+entry:focus {
+  border-color: @cyan;
+  box-shadow:   0 0 0 1px @cyan;
+}
+
+entry:disabled {
+  color: @muted;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+button {
+  background-color: @raised;
+  color:            @text;
+  border:           1px solid @border_dim;
+  border-radius:    4px;
+  padding:          4px 12px;
+}
+
+button:hover {
+  background-color: @surface;
+  border-color:     @violet;
+}
+
+button:active,
+button:checked {
+  background-color: rgba(0,245,255,0.10);
+  border-color:     @cyan;
+  color:            @cyan;
+}
+
+button:disabled {
+  color:            @muted;
+  background-color: @surface;
+  border-color:     @border_dim;
+}
+
+/* Suggested / destructive */
+button.suggested-action {
+  background-color: @magenta;
+  color:            @text;
+  border-color:     @magenta;
+}
+
+button.destructive-action {
+  background-color: @red;
+  color:            @text;
+  border-color:     @red;
+}
+
+/* Flat buttons (toolbar, path-bar) */
+button.flat,
+.toolbar button {
+  background-color: transparent;
+  border-color:     transparent;
+  box-shadow:       none;
+}
+
+button.flat:hover,
+.toolbar button:hover {
+  background-color: rgba(191,95,255,0.12);
+  border-color:     transparent;
+}
+
+/* ── Path bar (Thunar breadcrumbs) ────────────────────────────────────────── */
+.path-bar button,
+.location-bar button {
+  background-color: transparent;
+  border:           none;
+  border-radius:    4px;
+  color:            @text;
+  padding:          2px 6px;
+}
+
+.path-bar button:hover,
+.location-bar button:hover {
+  background-color: rgba(191,95,255,0.12);
+}
+
+.path-bar button:active,
+.location-bar button:last-child {
+  color:       @cyan;
+  font-weight: bold;
+}
+
+/* ── Sidebar (Thunar Places panel) ───────────────────────────────────────── */
+.sidebar {
+  background-color: @surface;
+  color:            @text;
+  border-right:     1px solid rgba(191,95,255,0.20);
+}
+
+.sidebar .view,
+.sidebar treeview {
+  background-color: @surface;
+  color:            @text;
+}
+
+.sidebar row {
+  background-color: @surface;
+  color:            @text;
+  padding:          2px 0;
+}
+
+.sidebar row:hover {
+  background-color: rgba(191,95,255,0.10);
+}
+
+.sidebar row:selected,
+.sidebar row:selected:focus {
+  background-color: rgba(0,245,255,0.12);
+  color:            @text;
+}
+
+/* Sidebar section headers */
+.sidebar .separator,
+.sidebar label.separator {
+  color:         @muted;
+  font-size:     smaller;
+  padding:       4px 8px 2px;
+}
+
+/* ── Views (file lists, trees) ────────────────────────────────────────────── */
+.view,
+treeview,
+GtkTreeView,
+ExoTreeView,
+ExoIconView,
+ExoDetailedView {
+  background-color: @bg;
+  color:            @text;
+}
+
+.view row,
+treeview row {
+  background-color: @bg;
+  color:            @text;
+}
+
+.view row:hover,
+treeview row:hover {
+  background-color: rgba(191,95,255,0.07);
+}
+
+.view row:selected,
+treeview row:selected,
+.view row:selected:focus,
+treeview row:selected:focus {
+  background-color: rgba(0,245,255,0.12);
+  color:            @text;
+}
+
+/* Icon view (Thunar icon mode) */
+.view.cell:selected,
+iconview.cell:selected {
+  background-color: rgba(0,245,255,0.15);
+  color:            @text;
+  border-radius:    4px;
+}
+
+/* Column headers (Thunar list mode) */
+.view column-header button,
+treeview header button {
+  background-color: @surface;
+  color:            @muted;
+  border-bottom:    1px solid rgba(191,95,255,0.20);
+  border-right:     1px solid rgba(191,95,255,0.12);
+  font-size:        smaller;
+}
+
+.view column-header button:hover,
+treeview header button:hover {
+  background-color: rgba(191,95,255,0.10);
+  color:            @text;
+}
+
+/* ── Menus ────────────────────────────────────────────────────────────────── */
+menu,
+.menu,
+.popup,
+.context-menu {
+  background-color: @surface;
+  color:            @text;
+  border:           1px solid rgba(191,95,255,0.30);
+  border-radius:    4px;
+  padding:          4px 0;
+}
+
+menubar {
+  background-color: @surface;
+  color:            @text;
+  border-bottom:    1px solid rgba(191,95,255,0.20);
+}
+
+menuitem {
+  background-color: transparent;
+  color:            @text;
+  padding:          4px 12px;
+}
+
+menuitem:hover,
+menuitem:selected {
+  background-color: rgba(255,45,120,0.12);
+  color:            @text;
+}
+
+menuitem arrow {
+  color: @muted;
+}
+
+menuitem:disabled,
+menuitem > label:disabled {
+  color: @muted;
+}
+
+separator,
+menuitem.separator {
+  background-color: rgba(191,95,255,0.20);
+  min-height:       1px;
+  margin:           4px 0;
+}
+
+/* ── Scrollbars ───────────────────────────────────────────────────────────── */
+scrollbar {
+  background-color: @bg;
+}
+
+scrollbar trough {
+  background-color: @bg;
+  min-width:        6px;
+  min-height:       6px;
+}
+
+scrollbar slider {
+  background-color: @magenta;
+  border-radius:    4px;
+  min-width:        6px;
+  min-height:       6px;
+  margin:           2px;
+}
+
+scrollbar slider:hover {
+  background-color: @violet;
+}
+
+scrollbar slider:active {
+  background-color: @cyan;
+}
+
+scrollbar.vertical {
+  border-left: 1px solid rgba(191,95,255,0.10);
+}
+
+scrollbar.horizontal {
+  border-top: 1px solid rgba(191,95,255,0.10);
+}
+
+/* ── Paned views (split panels) ───────────────────────────────────────────── */
+paned > separator {
+  background-color: rgba(191,95,255,0.20);
+  min-width:        1px;
+  min-height:       1px;
+}
+
+/* ── Frames & group boxes ─────────────────────────────────────────────────── */
+frame > border,
+.frame {
+  background-color: transparent;
+  border:           1px solid @border_dim;
+  border-radius:    4px;
+}
+
+/* ── Notebook tabs ────────────────────────────────────────────────────────── */
+notebook {
+  background-color: @bg;
+}
+
+notebook > header {
+  background-color: @surface;
+  border-bottom:    1px solid rgba(191,95,255,0.25);
+}
+
+notebook > header > tabs > tab {
+  background-color: transparent;
+  color:            @muted;
+  border:           1px solid transparent;
+  padding:          4px 12px;
+}
+
+notebook > header > tabs > tab:hover {
+  color:            @text;
+  background-color: rgba(191,95,255,0.10);
+}
+
+notebook > header > tabs > tab:checked {
+  background-color: @raised;
+  color:            @text;
+  border-color:     rgba(191,95,255,0.30);
+  border-bottom:    2px solid @magenta;
+}
+
+/* ── Tooltips ─────────────────────────────────────────────────────────────── */
+tooltip {
+  background-color: @surface;
+  color:            @text;
+  border:           1px solid rgba(191,95,255,0.40);
+  border-radius:    4px;
+}
+
+tooltip label {
+  color: @text;
+}
+
+/* ── Checkboxes ───────────────────────────────────────────────────────────── */
+checkbutton check,
+check {
+  background-color: @raised;
+  border:           1px solid @border_dim;
+  border-radius:    3px;
+  min-width:        14px;
+  min-height:       14px;
+}
+
+checkbutton check:checked,
+check:checked {
+  background-color: @cyan;
+  border-color:     @cyan;
+  color:            @bg;
+}
+
+checkbutton check:hover,
+check:hover {
+  border-color: @violet;
+}
+
+/* ── Radio buttons ────────────────────────────────────────────────────────── */
+radiobutton radio,
+radio {
+  background-color: @raised;
+  border:           1px solid @border_dim;
+  border-radius:    50%;
+  min-width:        14px;
+  min-height:       14px;
+}
+
+radiobutton radio:checked,
+radio:checked {
+  background-color: @cyan;
+  border-color:     @cyan;
+}
+
+/* ── Progress bars ────────────────────────────────────────────────────────── */
+progressbar trough {
+  background-color: @surface;
+  border-radius:    4px;
+  min-height:       4px;
+}
+
+progressbar progress {
+  background-color: @magenta;
+  border-radius:    4px;
+  min-height:       4px;
+}
+
+progressbar.pulse progress {
+  background: linear-gradient(to right, @magenta, @violet, @cyan);
+}
+
+/* ── Scale / slider ───────────────────────────────────────────────────────── */
+scale trough {
+  background-color: @surface;
+  border-radius:    4px;
+  min-height:       4px;
+  min-width:        4px;
+}
+
+scale highlight {
+  background-color: @cyan;
+  border-radius:    4px;
+}
+
+scale slider {
+  background-color: @text;
+  border:           1px solid @border_dim;
+  border-radius:    50%;
+  min-width:        14px;
+  min-height:       14px;
+}
+
+scale slider:hover {
+  background-color: @cyan;
+  border-color:     @cyan;
+}
+
+/* ── Spinbutton ───────────────────────────────────────────────────────────── */
+spinbutton {
+  background-color: @raised;
+  border:           1px solid @border_dim;
+  border-radius:    4px;
+}
+
+spinbutton:focus {
+  border-color: @cyan;
+}
+
+spinbutton button {
+  background-color: transparent;
+  border:           none;
+  color:            @muted;
+}
+
+spinbutton button:hover {
+  color: @cyan;
+}
+
+/* ── Combobox ─────────────────────────────────────────────────────────────── */
+combobox button {
+  background-color: @raised;
+  border:           1px solid @border_dim;
+  border-radius:    4px;
+}
+
+combobox button:hover {
+  border-color: @violet;
+}
+
+combobox button:focus {
+  border-color: @cyan;
+}
+
+/* ── Links ────────────────────────────────────────────────────────────────── */
+.link {
+  color: @cyan;
+}
+
+.link:visited {
+  color: @violet;
+}
+
+/* ── Status bar ───────────────────────────────────────────────────────────── */
+statusbar {
+  background-color: @surface;
+  color:            @muted;
+  border-top:       1px solid rgba(191,95,255,0.20);
+  font-size:        smaller;
+}
+
+/* ── Popovers & dialogs ───────────────────────────────────────────────────── */
+popover {
+  background-color: @surface;
+  border:           1px solid rgba(191,95,255,0.35);
+  border-radius:    6px;
+}
+
+popover .model {
+  background-color: @raised;
+}
+
+dialog {
+  background-color: @bg;
+}
+
+/* ── File chooser dialog ──────────────────────────────────────────────────── */
+filechooser .sidebar-pane,
+filechooser .sidebar {
+  background-color: @surface;
+  border-right:     1px solid rgba(191,95,255,0.20);
+}
+
+filechooser .path-bar-container {
+  background-color: @surface;
+  border-bottom:    1px solid rgba(191,95,255,0.20);
+}
+
+/* ── Thunar window-specific ───────────────────────────────────────────────── */
+ThunarWindow {
+  background-color: @bg;
+}
+
+ThunarWindow .sidebar,
+ThunarWindow .side-pane {
+  background-color: @surface;
+}
+
+ThunarWindow .view {
+  background-color: @bg;
+}
+
+/* ── Expander (tree expand arrows) ───────────────────────────────────────── */
+expander arrow {
+  color: @muted;
+}
+
+expander arrow:hover {
+  color: @cyan;
+}
+
+/* ── Info bars ────────────────────────────────────────────────────────────── */
+infobar {
+  background-color: @surface;
+  border-bottom:    1px solid rgba(191,95,255,0.25);
+}
+
+infobar.info    { border-left: 3px solid @cyan; }
+infobar.warning { border-left: 3px solid @yellow; }
+infobar.error   { border-left: 3px solid @red; }
+
+/* ── Switches ─────────────────────────────────────────────────────────────── */
+switch {
+  background-color: @raised;
+  border:           1px solid @border_dim;
+  border-radius:    9999px;
+}
+
+switch:checked {
+  background-color: @magenta;
+  border-color:     @magenta;
+}
+
+switch slider {
+  background-color: @text;
+  border-radius:    50%;
+  min-width:        18px;
+  min-height:       18px;
+  margin:           2px;
+}
+
+/* ── Spinner ──────────────────────────────────────────────────────────────── */
+spinner {
+  color: @cyan;
+}
