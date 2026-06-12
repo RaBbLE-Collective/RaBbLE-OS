@@ -18,7 +18,8 @@ window, .background {
 /* All content areas — void like VSCodium editor */
 .view, treeview, GtkTreeView,
 .sidebar, .main,
-GtkFileChooserWidget, GtkFileChooserDefault {
+GtkFileChooserWidget, GtkFileChooserDefault,
+GtkBox, GtkPaned, GtkContainer {
   background-color: @void_bg !important;
   color: @text_fg !important;
 }
