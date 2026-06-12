@@ -1,6 +1,79 @@
 ---
-# apps/tasks/browsers.yml — STUB
-- name: browsers — stub
+# apps/tasks/browsers.yml — Firefox RaBbLE-Aether theme deployment
+#
+# spark ~ apps/browsers >> RaBbLE-Aether theme wired into Firefox // %FF_AETHER%
+#
+# Theme lives at config/firefox/ — dotctl manages these files (firefox bundle),
+# so the user can re-sync anytime with: ./RaBbLE-OS-dotctl.sh apply firefox
+#
+# Mechanism: userChrome.css + userContent.css + user.js, placed in the Firefox
+# default-release profile's chrome/ directory.
+# userChrome must be enabled via user.js (toolkit.legacyUserProfileCustomizations).
+# Re-run after a profile reset (profile dir name doesn't change, only contents).
+
+- name: firefox | check Mozilla profile base dir exists
+  ansible.builtin.stat:
+    path: "{{ rabble_home }}/.mozilla/firefox"
+  register: ff_base_dir
+  tags: [apps, browsers, firefox]
+
+- name: firefox | find default-release profile
+  ansible.builtin.find:
+    paths: "{{ rabble_home }}/.mozilla/firefox"
+    file_type: directory
+    patterns: "*.default-release"
+  register: ff_profile_dirs
+  when: ff_base_dir.stat.exists
+  tags: [apps, browsers, firefox]
+
+- name: firefox | warn and skip if no profile found
   ansible.builtin.debug:
-    msg: "spark ~ apps/browsers >> stub, no-op // %DORMANT%"
-  tags: [apps, browsers]
+    msg: "No Firefox default-release profile found — launch Firefox once, then re-run this role."
+  when: >
+    not ff_base_dir.stat.exists
+    or ff_profile_dirs.matched == 0
+  tags: [apps, browsers, firefox]
+
+- name: firefox | deploy Aether theme
+  when: >
+    ff_base_dir.stat.exists
+    and ff_profile_dirs.matched > 0
+  vars:
+    ff_profile: "{{ ff_profile_dirs.files | sort(attribute='mtime') | last }}"
+  block:
+
+    - name: firefox | create chrome directory
+      ansible.builtin.file:
+        path: "{{ ff_profile.path }}/chrome"
+        state: directory
+        mode: '0755'
+        owner: "{{ rabble_user }}"
+      become: true
+      tags: [apps, browsers, firefox]
+
+    - name: firefox | deploy userChrome.css (browser UI)
+      ansible.builtin.copy:
+        src:   "{{ dotfiles_repo_root }}/config/firefox/userChrome.css"
+        dest:  "{{ ff_profile.path }}/chrome/userChrome.css"
+        mode:  '0644'
+        owner: "{{ rabble_user }}"
+      become: true
+      tags: [apps, browsers, firefox]
+
+    - name: firefox | deploy userContent.css (web content + about:*)
+      ansible.builtin.copy:
+        src:   "{{ dotfiles_repo_root }}/config/firefox/userContent.css"
+        dest:  "{{ ff_profile.path }}/chrome/userContent.css"
+        mode:  '0644'
+        owner: "{{ rabble_user }}"
+      become: true
+      tags: [apps, browsers, firefox]
+
+    - name: firefox | deploy user.js (enable userChrome + theme prefs)
+      ansible.builtin.copy:
+        src:   "{{ dotfiles_repo_root }}/config/firefox/user.js"
+        dest:  "{{ ff_profile.path }}/user.js"
+        mode:  '0644'
+        owner: "{{ rabble_user }}"
+      become: true
+      tags: [apps, browsers, firefox]

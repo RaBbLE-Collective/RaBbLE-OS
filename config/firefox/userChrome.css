@@ -1,0 +1,421 @@
+/* ════════════════════════════════════════════════════════════════════
+ * RaBbLE-Aether — Firefox userChrome.css
+ * Color source:  RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md
+ * Deployed via:  ansible/roles/apps/tasks/browsers.yml
+ *
+ * Design ethos mirrors VSCodium RaBbLE-Aether (custom.css):
+ *   • Void everywhere — no surface-fill for elevation
+ *   • Neon through glows — box-shadow inset rings, not colored backgrounds
+ *   • Active tab: cycling neon outline (cyan→violet→magenta, 9s)
+ *   • Inactive tabs: faint violet inset ring
+ *   • Seam ribbons: magenta separator lines between structural zones
+ * Self-contained — palette tokens inlined (no @import in XUL context).
+ * ════════════════════════════════════════════════════════════════════ */
+
+/* ── Keyframes ───────────────────────────────────────────────────── */
+
+/* Cycling neon border on active tab — animates border-color + background tint.
+ * box-shadow does not render on .tab-background in Firefox XUL; border does. */
+@keyframes aether-tab-outline {
+  0%,100% { border-color: rgba(0,245,255,0.85);   background: rgba(0,245,255,0.07); }
+  33%     { border-color: rgba(191,95,255,0.85);  background: rgba(191,95,255,0.06); }
+  66%     { border-color: rgba(255,45,120,0.85);  background: rgba(255,45,120,0.07); }
+}
+
+/* Flowing seam: same as VSCodium aether-flow-x */
+@keyframes aether-flow-x {
+  from { background-position: 0% center; }
+  to   { background-position: 200% center; }
+}
+
+/* ── 1. Palette tokens ──────────────────────────────────────────── */
+:root {
+  --ra-bg:       #0a0010;
+  --ra-surface:  #12132a;
+  --ra-raised:   #1a1b2e;
+  --ra-border:   #2a2840;
+  --ra-rim:      #3d3860;
+  --ra-text:     #e8e6f0;
+  --ra-soft:     #c4c0d8;
+  --ra-muted:    #9e9ab8;   /* raised from original #6b6880 — readable on void */
+  --ra-dim:      #6b6880;
+  --ra-dimmer:   #3d3860;
+  --ra-magenta:  #ff2d78;
+  --ra-cyan:     #00f5ff;
+  --ra-violet:   #bf5fff;
+  --ra-pink:     #ff79c6;
+  --ra-green:    #50fa7b;
+  --ra-yellow:   #f1fa8c;
+  --ra-red:      #e05c6f;
+  --ra-font-ui:   'Exo 2', 'Rajdhani', sans-serif;
+  --ra-font-mono: 'Share Tech Mono', 'Space Mono', monospace;
+  --focus-outline-color: var(--ra-magenta) !important;
+  --focus-outline-width: 2px !important;
+}
+
+/* ── 2. Window chrome ───────────────────────────────────────────── */
+#main-window {
+  --lwt-accent-color: var(--ra-bg) !important;
+  --lwt-text-color:   var(--ra-text) !important;
+  background-color:   var(--ra-bg) !important;
+}
+
+#navigator-toolbox {
+  background-color: var(--ra-bg) !important;
+  border-bottom:    none !important;
+}
+
+/* ── 3. Tab bar ─────────────────────────────────────────────────── */
+#TabsToolbar {
+  --tab-line-color:                    var(--ra-magenta) !important;
+  --lwt-selected-tab-background-color: var(--ra-bg) !important;
+  background-color: var(--ra-bg) !important;
+  padding-inline:   6px !important;
+  padding-top:      6px !important;
+  min-height:       46px !important;
+}
+
+/* New-tab (+) button */
+#tabs-newtab-button,
+.tabs-newtab-button {
+  color:         var(--ra-dim) !important;
+  border-radius: 5px !important;
+}
+#tabs-newtab-button:hover,
+.tabs-newtab-button:hover {
+  color:            var(--ra-magenta) !important;
+  background-color: rgba(255,45,120,0.12) !important;
+}
+
+/* Tab shell */
+.tabbrowser-tab {
+  font-family:   var(--ra-font-ui) !important;
+  font-size:     13px !important;
+  font-weight:   500 !important;
+  min-height:    40px !important;
+  margin-bottom: 0 !important;
+}
+
+.tab-content {
+  padding-inline: 12px !important;
+  padding-block:  0 !important;
+  min-height:     40px !important;
+}
+
+/* Tab background — visible border + subtle tint. box-shadow is not rendered
+ * on .tab-background in Firefox XUL; border + background are. */
+.tabbrowser-tab .tab-background {
+  border-radius: 7px 7px 0 0 !important;
+  background:    rgba(191,95,255,0.05) !important;   /* barely-there violet tint */
+  border:        1px solid rgba(191,95,255,0.38) !important;
+  border-bottom: none !important;
+  margin-inline: 1px !important;
+  min-height:    40px !important;
+  transition:    background 0.22s ease, border-color 0.22s ease !important;
+}
+
+/* Hover — magenta tint + magenta border */
+.tabbrowser-tab:hover:not([selected]) .tab-background {
+  background:   rgba(255,45,120,0.07) !important;
+  border-color: rgba(255,45,120,0.55) !important;
+}
+
+/* Active — bright border + matching tint, cycling neon via animation.
+ * Animation overrides static border-color/background on each frame. */
+.tabbrowser-tab[selected] .tab-background {
+  background:   rgba(0,245,255,0.07) !important;     /* initial cyan tint */
+  border:       2px solid rgba(0,245,255,0.85) !important;
+  border-bottom: none !important;
+  animation:    aether-tab-outline 9s linear infinite !important;
+}
+
+/* Active tab indicator bar — 4px magenta with bloom (horizontal axis accent) */
+.tabbrowser-tab[selected] .tab-line {
+  background: var(--ra-magenta) !important;
+  height:     4px !important;
+  box-shadow: 0 0 10px var(--ra-magenta),
+              0 0 24px rgba(255,45,120,0.55) !important;
+}
+
+/* Hover — faint cyan bar */
+.tabbrowser-tab:not([selected]):hover .tab-line {
+  background: var(--ra-cyan) !important;
+  height:     2px !important;
+  opacity:    0.45 !important;
+}
+
+/* Loading tab */
+.tabbrowser-tab[busy] .tab-line {
+  background: var(--ra-cyan) !important;
+  height:     2px !important;
+  box-shadow: 0 0 6px var(--ra-cyan) !important;
+}
+
+/* Tab labels */
+.tab-label {
+  color:          var(--ra-muted) !important;   /* #9e9ab8 — readable on void */
+  letter-spacing: 0.025em !important;
+}
+.tabbrowser-tab:hover:not([selected]) .tab-label {
+  color: var(--ra-soft) !important;
+}
+.tabbrowser-tab[selected] .tab-label {
+  color:       var(--ra-text) !important;
+  font-weight: 600 !important;
+}
+.tabbrowser-tab[busy] .tab-label { color: var(--ra-cyan) !important; }
+
+/* Favicon */
+.tab-icon-image,
+.tab-throbber { opacity: 0.85 !important; }
+
+/* Tab close — hidden until hover/active */
+.tab-close-button {
+  color: var(--ra-dimmer) !important; opacity: 0 !important; border-radius: 4px !important;
+}
+.tabbrowser-tab:hover .tab-close-button,
+.tabbrowser-tab[selected] .tab-close-button {
+  opacity: 1 !important; color: var(--ra-dim) !important;
+}
+.tab-close-button:hover {
+  color: var(--ra-magenta) !important;
+  background-color: rgba(255,45,120,0.16) !important;
+}
+
+/* ── 4. Navigation toolbar — seam zone ─────────────────────────── */
+/* Top edge = boundary with tab strip (flowing cyan→violet→magenta seam).
+ * Bottom edge = boundary with page content (solid magenta line + glow).
+ * Nav bar is the only zone with a surface elevation (#12132a) — intentional
+ * contrast anchor so the void tab strip reads correctly above it. */
+#nav-bar {
+  --toolbarbutton-icon-fill:          var(--ra-dim) !important;
+  --toolbarbutton-hover-background:   rgba(255,45,120,0.12) !important;
+  --toolbarbutton-active-background:  rgba(255,45,120,0.24) !important;
+  background-color: var(--ra-surface) !important;
+  border-top:  none !important;
+  /* Top seam: animated gradient border between tab strip and nav bar */
+  box-shadow:
+    /* top flowing seam — 2px inset at top */
+    inset 0 2px 0 rgba(0,245,255,0.70),
+    /* bottom magenta separator */
+    0 1px 0 rgba(255,45,120,0.55),
+    0 2px 14px rgba(255,45,120,0.12) !important;
+  border-bottom: 1px solid rgba(255,45,120,0.45) !important;
+  padding-block: 5px !important;
+}
+
+/* ── 5. URL bar ─────────────────────────────────────────────────── */
+#urlbar {
+  --urlbar-box-bgcolor:           var(--ra-raised) !important;
+  --urlbar-box-hover-bgcolor:     var(--ra-raised) !important;
+  --urlbar-box-focus-bgcolor:     var(--ra-raised) !important;
+  --urlbar-box-text-color:        var(--ra-text) !important;
+  --urlbar-popup-url-color:       var(--ra-cyan) !important;
+  --urlbar-popup-action-color:    var(--ra-violet) !important;
+  font-family:    var(--ra-font-mono) !important;
+  font-size:      13px !important;
+  letter-spacing: 0.04em !important;
+}
+
+#urlbar-background {
+  background-color: var(--ra-raised) !important;
+  border:           1px solid var(--ra-rim) !important;
+  border-radius:    8px !important;
+  box-shadow:       none !important;
+  transition:       border-color 0.22s ease, box-shadow 0.22s ease !important;
+}
+#urlbar[focused] > #urlbar-background {
+  border-color: var(--ra-magenta) !important;
+  box-shadow:   0 0 8px rgba(255,45,120,0.38),
+                0 0 20px rgba(255,45,120,0.14) !important;
+}
+#urlbar:not([focused]):hover > #urlbar-background {
+  border-color: rgba(191,95,255,0.45) !important;
+}
+
+#urlbar-input { color: var(--ra-text) !important; }
+#urlbar-input::placeholder { color: var(--ra-soft) !important; opacity: 1 !important; }
+.urlbar-input-box > #urlbar-scheme { color: var(--ra-muted) !important; }
+
+/* URL dropdown */
+#urlbar-results {
+  background-color: var(--ra-surface) !important;
+  border:           1px solid var(--ra-border) !important;
+  border-top:       none !important;
+  border-radius:    0 0 8px 8px !important;
+  box-shadow:       0 10px 28px rgba(0,0,0,0.70),
+                    0 0 0 1px rgba(255,45,120,0.06) !important;
+}
+.urlbarView-row[selected],
+.urlbarView-row:hover {
+  background-color: rgba(255,45,120,0.12) !important;
+  border-radius:    4px !important;
+}
+.urlbarView-url    { color: var(--ra-cyan)   !important; }
+.urlbarView-title  { color: var(--ra-text)   !important; }
+.urlbarView-action { color: var(--ra-violet) !important; }
+
+/* ── 6. Toolbar buttons ─────────────────────────────────────────── */
+.toolbarbutton-1 {
+  color:         var(--ra-dim) !important;
+  border-radius: 5px !important;
+  transition:    color 0.15s, background-color 0.15s !important;
+}
+.toolbarbutton-1:hover {
+  color:            var(--ra-soft) !important;
+  background-color: rgba(255,45,120,0.12) !important;
+}
+.toolbarbutton-1:active,
+.toolbarbutton-1[open="true"] {
+  color:            var(--ra-magenta) !important;
+  background-color: rgba(255,45,120,0.24) !important;
+}
+
+#unified-extensions-button { color: var(--ra-dim) !important; }
+#unified-extensions-button:hover {
+  color: var(--ra-violet) !important;
+  background-color: rgba(191,95,255,0.14) !important;
+}
+
+/* ── 7. Bookmarks toolbar ───────────────────────────────────────── */
+#PersonalToolbar {
+  background-color: var(--ra-surface) !important;
+  border-bottom:    1px solid var(--ra-border) !important;
+  padding-block:    4px !important;
+}
+toolbarbutton.bookmark-item > .toolbarbutton-text,
+.bookmark-item .toolbarbutton-text {
+  color:          var(--ra-muted) !important;
+  font-family:    var(--ra-font-ui) !important;
+  font-size:      12px !important;
+  letter-spacing: 0.04em !important;
+}
+toolbarbutton.bookmark-item:hover > .toolbarbutton-text,
+.bookmark-item:hover .toolbarbutton-text { color: var(--ra-text) !important; }
+toolbarbutton.bookmark-item:hover,
+.bookmark-item:hover {
+  background-color: rgba(0,245,255,0.08) !important;
+  border-radius: 4px !important;
+}
+
+/* ── 8. Sidebar ─────────────────────────────────────────────────── */
+#sidebar-box {
+  background-color: var(--ra-surface) !important;
+  border-right:     1px solid var(--ra-border) !important;
+  color:            var(--ra-text) !important;
+}
+#sidebar-header {
+  background-color: var(--ra-surface) !important;
+  border-bottom:    1px solid var(--ra-border) !important;
+  color:            var(--ra-muted) !important;
+  font-family:      var(--ra-font-ui) !important;
+  text-transform:   uppercase !important;
+  letter-spacing:   0.16em !important;
+  font-size:        10px !important;
+}
+#sidebar-close-button { color: var(--ra-dim) !important; border-radius: 4px !important; }
+#sidebar-close-button:hover {
+  color: var(--ra-magenta) !important;
+  background-color: rgba(255,45,120,0.12) !important;
+}
+#sidebar-splitter {
+  background-color: var(--ra-border) !important;
+  border: none !important; min-width: 1px !important; max-width: 1px !important;
+}
+
+/* ── 9. Context menus ───────────────────────────────────────────── */
+menupopup {
+  --panel-background:   var(--ra-raised) !important;
+  --panel-color:        var(--ra-text) !important;
+  --panel-border-color: var(--ra-border) !important;
+  background-color: var(--ra-raised) !important;
+  border:           1px solid var(--ra-border) !important;
+  border-radius:    8px !important;
+  padding:          4px !important;
+  box-shadow:       0 8px 32px rgba(0,0,0,0.80),
+                    0 0 0 1px rgba(255,45,120,0.10) !important;
+}
+menuitem, menu {
+  color:         var(--ra-text) !important;
+  font-family:   var(--ra-font-ui) !important;
+  font-size:     13px !important;
+  border-radius: 4px !important;
+  padding-block: 5px !important;
+}
+menuitem[disabled="true"], menu[disabled="true"] { color: var(--ra-dimmer) !important; }
+menuitem:hover, menuitem[_moz-menuactive="true"],
+menu:hover,    menu[_moz-menuactive="true"] {
+  background-color: rgba(255,45,120,0.14) !important;
+  color:            var(--ra-text) !important;
+}
+menuseparator {
+  border-top: 1px solid var(--ra-border) !important;
+  margin-block: 4px !important; margin-inline: 8px !important;
+}
+
+/* ── 10. Find bar ───────────────────────────────────────────────── */
+.browserContainer > .findbar-container > findbar {
+  background-color: var(--ra-surface) !important;
+  border-top:       2px solid var(--ra-violet) !important;
+  color:            var(--ra-text) !important;
+  box-shadow:       0 -2px 14px rgba(191,95,255,0.12) !important;
+}
+.findbar-textbox {
+  background-color: var(--ra-raised) !important;
+  border:           1px solid var(--ra-rim) !important;
+  border-radius:    5px !important;
+  color:            var(--ra-text) !important;
+  font-family:      var(--ra-font-mono) !important;
+  font-size:        13px !important;
+}
+.findbar-textbox:focus {
+  border-color: var(--ra-violet) !important;
+  box-shadow:   0 0 8px rgba(191,95,255,0.32) !important;
+}
+.findbar-textbox[status="notfound"] {
+  border-color: var(--ra-red) !important;
+  background-color: rgba(224,92,111,0.12) !important;
+}
+.found-matches                          { color: var(--ra-cyan)   !important; }
+.findbar-find-status[status="notfound"] { color: var(--ra-red)    !important; }
+.findbar-find-status[status="wrapped"]  { color: var(--ra-yellow) !important; }
+
+/* ── 11. Status panel (hover URL) ───────────────────────────────── */
+#statuspanel {
+  background-color: var(--ra-raised) !important;
+  border:           1px solid var(--ra-border) !important;
+  border-radius:    5px 5px 0 0 !important;
+  color:            var(--ra-cyan) !important;
+  font-family:      var(--ra-font-mono) !important;
+  font-size:        11px !important;
+  letter-spacing:   0.04em !important;
+  max-width:        50vw !important;
+  box-shadow:       0 0 10px rgba(0,245,255,0.14) !important;
+}
+#statuspanel-label {
+  background-color: transparent !important; border: none !important; color: inherit !important;
+}
+
+/* ── 12. Notification bars ──────────────────────────────────────── */
+notification-message {
+  background-color: var(--ra-raised) !important;
+  border-top:       1px solid var(--ra-border) !important;
+  color:            var(--ra-text) !important;
+}
+notification-message[type="info"]    { border-top-color: var(--ra-cyan)   !important; }
+notification-message[type="warning"] { border-top-color: var(--ra-yellow) !important; }
+notification-message[type="error"]   { border-top-color: var(--ra-red)    !important; }
+notification-message[type="success"] { border-top-color: var(--ra-green)  !important; }
+
+/* ── 13. Downloads / panel popups ───────────────────────────────── */
+#downloadsPanel, .panel-arrowcontent {
+  background-color: var(--ra-raised) !important;
+  border:           1px solid var(--ra-border) !important;
+  border-radius:    8px !important;
+  color:            var(--ra-text) !important;
+  box-shadow:       0 8px 24px rgba(0,0,0,0.70) !important;
+}
+.downloadsPanelItem:hover {
+  background-color: rgba(255,45,120,0.10) !important;
+  border-radius:    4px !important;
+}

@@ -1,0 +1,216 @@
+/* ════════════════════════════════════════════════════════════════════
+ * RaBbLE-Aether — Firefox userContent.css
+ * Color source:  RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md
+ * Deployed via:  ansible/roles/apps/tasks/browsers.yml
+ * Scopes: global scrollbars (all sites) + about:* internal pages.
+ * ════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Global scrollbars (all web content) ─────────────────────── */
+@-moz-document url-prefix("") {
+  * {
+    scrollbar-width:  thin !important;
+    scrollbar-color:  #ff2d78 #0a0010 !important;
+  }
+}
+
+/* ── 2. about:newtab + about:home ───────────────────────────────── */
+@-moz-document url("about:newtab"), url("about:home") {
+  body,
+  .outer-wrapper {
+    background-color: #0a0010 !important;
+    color:            #e8e6f0 !important;
+  }
+  /* Pocket / sponsored tiles */
+  .ds-card,
+  .card-outer {
+    background-color: #12132a !important;
+    border:           1px solid #2a2840 !important;
+    border-radius:    8px !important;
+  }
+  .ds-card:hover,
+  .card-outer:hover {
+    border-color: rgba(255,45,120,0.40) !important;
+    box-shadow:   0 0 10px rgba(255,45,120,0.15) !important;
+  }
+  /* Search bar */
+  .search-wrapper input[type="search"],
+  .search-handoff-button {
+    background-color: #1a1b2e !important;
+    border:           1px solid #2a2840 !important;
+    border-radius:    8px !important;
+    color:            #e8e6f0 !important;
+  }
+  .search-wrapper input[type="search"]:focus {
+    border-color: #ff2d78 !important;
+    box-shadow:   0 0 6px rgba(255,45,120,0.30) !important;
+  }
+  /* Top sites */
+  .top-site-outer .tile {
+    background-color: #12132a !important;
+    border:           1px solid #2a2840 !important;
+  }
+  .top-site-outer:hover .tile {
+    border-color: rgba(0,245,255,0.35) !important;
+  }
+  .top-site-label {
+    color: #6b6880 !important;
+  }
+  /* Pane/section headers */
+  .section-title {
+    color:          #6b6880 !important;
+    font-family:    'Exo 2', 'Rajdhani', sans-serif !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.14em !important;
+    font-size:      11px !important;
+  }
+}
+
+/* ── 3. about:config ────────────────────────────────────────────── */
+@-moz-document url("about:config") {
+  body {
+    background-color: #0a0010 !important;
+    color:            #e8e6f0 !important;
+    font-family:      'Exo 2', 'Rajdhani', sans-serif !important;
+  }
+  #about-config-search {
+    background-color: #1a1b2e !important;
+    border:           1px solid #2a2840 !important;
+    border-radius:    6px !important;
+    color:            #e8e6f0 !important;
+    font-family:      'Share Tech Mono', 'Space Mono', monospace !important;
+  }
+  #about-config-search:focus {
+    border-color: #ff2d78 !important;
+    box-shadow:   0 0 6px rgba(255,45,120,0.25) !important;
+  }
+  table {
+    background-color: #0a0010 !important;
+    color:            #e8e6f0 !important;
+  }
+  tr:nth-child(even) {
+    background-color: rgba(18,19,42,0.60) !important;
+  }
+  tr:hover {
+    background-color: rgba(255,45,120,0.08) !important;
+  }
+  td {
+    border-bottom: 1px solid #2a2840 !important;
+    color:         #e8e6f0 !important;
+    font-family:   'Share Tech Mono', 'Space Mono', monospace !important;
+    font-size:     13px !important;
+  }
+  /* Pref type badges */
+  td.cell-value[data-type="boolean"][value="true"]  { color: #50fa7b !important; }
+  td.cell-value[data-type="boolean"][value="false"] { color: #e05c6f !important; }
+  td.cell-value[data-type="number"]                 { color: #00f5ff !important; }
+  td.cell-name { color: #bf5fff !important; }
+  button {
+    background-color: #1a1b2e !important;
+    border:           1px solid #2a2840 !important;
+    border-radius:    4px !important;
+    color:            #e8e6f0 !important;
+    cursor:           pointer !important;
+  }
+  button:hover {
+    border-color:     #ff2d78 !important;
+    background-color: rgba(255,45,120,0.12) !important;
+  }
+}
+
+/* ── 4. about:preferences ───────────────────────────────────────── */
+@-moz-document url("about:preferences"), url-prefix("about:preferences#") {
+  body,
+  #main-window {
+    background-color: #0a0010 !important;
+    color:            #e8e6f0 !important;
+  }
+  .navigation-toolbox {
+    background-color: #12132a !important;
+    border-right:     1px solid #2a2840 !important;
+  }
+  .category[selected],
+  .category:hover {
+    background-color: rgba(255,45,120,0.10) !important;
+    border-radius:    4px !important;
+    color:            #e8e6f0 !important;
+  }
+  .category-name {
+    color:       #6b6880 !important;
+    font-family: 'Exo 2', 'Rajdhani', sans-serif !important;
+  }
+  .category[selected] .category-name {
+    color: #e8e6f0 !important;
+  }
+  groupbox,
+  .groupbox {
+    background-color: #12132a !important;
+    border:           1px solid #2a2840 !important;
+    border-radius:    8px !important;
+  }
+  input[type="text"],
+  input[type="url"] {
+    background-color: #1a1b2e !important;
+    border:           1px solid #2a2840 !important;
+    border-radius:    4px !important;
+    color:            #e8e6f0 !important;
+    font-family:      'Share Tech Mono', monospace !important;
+  }
+  input[type="text"]:focus,
+  input[type="url"]:focus {
+    border-color: #ff2d78 !important;
+    box-shadow:   0 0 4px rgba(255,45,120,0.20) !important;
+  }
+  h1, h2, h3 {
+    color:       #e8e6f0 !important;
+    font-family: 'Exo 2', 'Rajdhani', sans-serif !important;
+  }
+  .header-name {
+    color:          #ff2d78 !important;
+    letter-spacing: 0.10em !important;
+    text-transform: uppercase !important;
+  }
+}
+
+/* ── 5. about:about ─────────────────────────────────────────────── */
+@-moz-document url("about:about") {
+  body {
+    background-color: #0a0010 !important;
+    color:            #e8e6f0 !important;
+    font-family:      'Exo 2', 'Rajdhani', sans-serif !important;
+  }
+  ul { list-style: none !important; }
+  li > a {
+    color:            #00f5ff !important;
+    font-family:      'Share Tech Mono', monospace !important;
+    text-decoration:  none !important;
+  }
+  li > a:hover {
+    color:       #ff2d78 !important;
+    text-shadow: 0 0 6px rgba(255,45,120,0.40) !important;
+  }
+  h1 {
+    color:          #bf5fff !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase !important;
+  }
+}
+
+/* ── 6. about:downloads ─────────────────────────────────────────── */
+@-moz-document url("about:downloads") {
+  body {
+    background-color: #0a0010 !important;
+    color:            #e8e6f0 !important;
+    font-family:      'Exo 2', 'Rajdhani', sans-serif !important;
+  }
+  .download-list-item {
+    background-color: #12132a !important;
+    border:           1px solid #2a2840 !important;
+    border-radius:    6px !important;
+    margin-bottom:    4px !important;
+  }
+  .download-list-item:hover {
+    border-color: rgba(0,245,255,0.30) !important;
+  }
+  .download-title { color: #e8e6f0 !important; }
+  .download-details { color: #6b6880 !important; font-size: 11px !important; }
+}
