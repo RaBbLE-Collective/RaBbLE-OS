@@ -103,6 +103,15 @@
     mode: '0644'
   tags: [apps, theming, gtk]
 
+- name: qt-gtk-theme | deploy GTK3 gtkrc (void color overrides)
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/gtk-3.0/gtkrc"
+    dest: "{{ rabble_home }}/.gtkrc-3.0"
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0644'
+  tags: [apps, theming, gtk]
+
 - name: qt-gtk-theme | create GTK4 config directory
   ansible.builtin.file:
     path: "{{ rabble_home }}/.config/gtk-4.0"

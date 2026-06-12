@@ -1,0 +1,49 @@
+# RaBbLE-Aether GTK3 theme resource file
+# Sets base colors at the theme engine level
+
+gtk-theme-name = "Adwaita-dark"
+gtk-icon-theme-name = "Papirus-Dark"
+gtk-font-name = "Exo 2 10"
+gtk-application-prefer-dark-theme = true
+
+# Color overrides
+style "rabble-void" {
+  bg[NORMAL] = "#0a0010"
+  bg[ACTIVE] = "#12132a"
+  bg[PRELIGHT] = "#1a1b2e"
+  bg[SELECTED] = "#00f5ff"
+  bg[INSENSITIVE] = "#12132a"
+
+  fg[NORMAL] = "#e8e6f0"
+  fg[ACTIVE] = "#e8e6f0"
+  fg[PRELIGHT] = "#e8e6f0"
+  fg[SELECTED] = "#0a0010"
+  fg[INSENSITIVE] = "#9e9ab8"
+
+  base[NORMAL] = "#0a0010"
+  base[ACTIVE] = "#00f5ff"
+  base[PRELIGHT] = "#1a1b2e"
+  base[SELECTED] = "#00f5ff"
+  base[INSENSITIVE] = "#12132a"
+
+  text[NORMAL] = "#e8e6f0"
+  text[ACTIVE] = "#e8e6f0"
+  text[PRELIGHT] = "#e8e6f0"
+  text[SELECTED] = "#0a0010"
+  text[INSENSITIVE] = "#9e9ab8"
+}
+
+class "GtkWidget" style "rabble-void"
+class "GtkButton" style "rabble-void"
+class "GtkEntry" style "rabble-void"
+class "GtkTextView" style "rabble-void"
+class "GtkTreeView" style "rabble-void"
+class "GtkCTreeView" style "rabble-void"
+class "GtkListView" style "rabble-void"
+class "GtkText" style "rabble-void"
+class "GtkMenu" style "rabble-void"
+class "GtkMenuItem" style "rabble-void"
+class "GtkMenuBar" style "rabble-void"
+class "GtkScrollbar" style "rabble-void"
+class "GtkStatusbar" style "rabble-void"
+class "GtkTooltips" style "rabble-void"
