@@ -1,114 +1,138 @@
-/* RaBbLE-Aether GTK3 Theme — Minimal, let GTK3 defaults handle layout */
+/* RaBbLE-Aether GTK3 Theme — Deep void with neon accents */
 
-@define-color theme_bg_color #12132a;
-@define-color theme_fg_color #e8e6f0;
-@define-color theme_base_color #1a1b2e;
-@define-color theme_text_color #e8e6f0;
-@define-color theme_selected_bg_color #00f5ff;
-@define-color theme_selected_fg_color #0a0010;
-@define-color insensitive_fg_color #9e9ab8;
-@define-color borders #bf5fff;
+@define-color void_bg #0a0010;
+@define-color surface_bg #12132a;
+@define-color raised_bg #1a1b2e;
+@define-color text_fg #e8e6f0;
+@define-color text_muted #9e9ab8;
+@define-color accent_cyan #00f5ff;
+@define-color accent_magenta #ff2d78;
+@define-color accent_violet #bf5fff;
+@define-color border_dim rgba(191,95,255,0.3);
 
 * {
   -gtk-icon-theme: "Papirus-Dark";
 }
 
-/* Main window backgrounds */
+/* Force all main areas to deep void */
 window, .background {
-  background-color: @theme_bg_color;
-  color: @theme_fg_color;
+  background-color: @void_bg;
+  color: @text_fg;
 }
 
-/* Header bar — top bar of windows */
+/* Sidebars, panels, main areas — void dark */
+.sidebar, treeview, .view {
+  background-color: @void_bg;
+  color: @text_fg;
+}
+
+/* File list rows */
+.view row {
+  background-color: @void_bg;
+  color: @text_fg;
+}
+
+.view row:selected {
+  background-color: rgba(0,245,255,0.15);
+  color: @text_fg;
+}
+
+.view row:hover {
+  background-color: rgba(0,245,255,0.08);
+}
+
+/* Header bar — surface level, not void */
 headerbar {
-  background-color: #12132a;
-  color: @theme_fg_color;
+  background-color: @surface_bg;
+  color: @text_fg;
+  border-bottom: 1px solid @border_dim;
 }
 
 headerbar:backdrop {
-  background-color: #0f0f24;
-  color: @insensitive_fg_color;
+  background-color: @void_bg;
+  color: @text_muted;
 }
 
-/* Text input — searches, address bars, etc. */
+/* Text inputs */
 entry {
-  background-color: @theme_base_color;
-  color: @theme_text_color;
-  border: 1px solid rgba(191,95,255,0.3);
+  background-color: @raised_bg;
+  color: @text_fg;
+  border: 1px solid @border_dim;
 }
 
 entry:focus {
-  border: 1px solid #00f5ff;
-  box-shadow: inset 0 0 0 1px rgba(0,245,255,0.3);
-}
-
-/* File/folder view backgrounds */
-.view, treeview.view {
-  background-color: @theme_base_color;
-  color: @theme_text_color;
-}
-
-.view:selected, treeview.view:selected {
-  background-color: rgba(0,245,255,0.2);
-  color: @theme_text_color;
-}
-
-/* Scrollbars */
-scrollbar trough {
-  background-color: #0a0010;
-}
-
-scrollbar slider {
-  background-color: #ff2d78;
-  border-radius: 8px;
-}
-
-scrollbar slider:hover {
-  background-color: #bf5fff;
+  background-color: @raised_bg;
+  border: 1px solid @accent_cyan;
+  box-shadow: inset 0 0 0 1px rgba(0,245,255,0.2);
 }
 
 /* Buttons */
 button {
-  background-color: @theme_base_color;
-  color: @theme_fg_color;
-  border: 1px solid rgba(191,95,255,0.3);
+  background-color: @raised_bg;
+  color: @text_fg;
+  border: 1px solid @border_dim;
 }
 
 button:hover {
-  background-color: #222340;
+  background-color: @surface_bg;
   border-color: rgba(0,245,255,0.5);
 }
 
 button:active, button:checked {
-  background-color: rgba(0,245,255,0.15);
-  border-color: #00f5ff;
-  color: @theme_text_color;
+  background-color: rgba(0,245,255,0.1);
+  border-color: @accent_cyan;
+  color: @text_fg;
 }
 
 button:disabled {
   opacity: 0.5;
-  color: @insensitive_fg_color;
+}
+
+/* Scrollbars — neon magenta on void */
+scrollbar trough {
+  background-color: @void_bg;
+  border: 1px solid @border_dim;
+}
+
+scrollbar slider {
+  background-color: @accent_magenta;
+  border-radius: 6px;
+  min-width: 6px;
+  min-height: 6px;
+}
+
+scrollbar slider:hover {
+  background-color: @accent_violet;
 }
 
 /* Menus */
-.menu, menu {
-  background-color: @theme_bg_color;
-  color: @theme_fg_color;
+menu, .menu {
+  background-color: @surface_bg;
+  color: @text_fg;
+  border: 1px solid @border_dim;
 }
 
 menuitem:hover {
   background-color: rgba(255,45,120,0.15);
-  color: @theme_fg_color;
+  color: @text_fg;
 }
 
 /* Tooltips */
-tooltip {
-  background-color: #12132a;
-  color: @theme_fg_color;
-  border: 1px solid rgba(191,95,255,0.3);
+tooltip, tooltip.background {
+  background-color: @surface_bg;
+  color: @text_fg;
+  border: 1px solid @border_dim;
+  border-radius: 4px;
 }
 
 tooltip * {
   background-color: transparent;
-  color: @theme_fg_color;
+  color: @text_fg;
+}
+
+/* Paned separators */
+.paned > separator {
+  background-color: @border_dim;
+  min-width: 1px;
+  min-height: 1px;
 }
