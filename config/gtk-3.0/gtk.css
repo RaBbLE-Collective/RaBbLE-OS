@@ -1,4 +1,10 @@
-/* RaBbLE-Aether GTK3 Theme — Aggressive void override */
+/* RaBbLE-Aether GTK3 Theme — Nuclear void override */
+
+/* OVERRIDE EVERYTHING AT DOCUMENT ROOT LEVEL */
+* {
+  background-color: #0a0010 !important;
+  color: #e8e6f0 !important;
+}
 
 @define-color void_bg #0a0010;
 @define-color surface_bg #12132a;
