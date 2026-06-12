@@ -4,25 +4,44 @@
  * Deployed via:  ansible/roles/apps/tasks/browsers.yml
  *
  * Design ethos mirrors VSCodium RaBbLE-Aether (custom.css):
- *   • Void everywhere — no surface-fill for elevation
- *   • Neon through glows — box-shadow inset rings, not colored backgrounds
- *   • Active tab: cycling neon outline (cyan→violet→magenta, 9s)
- *   • Inactive tabs: faint violet inset ring
- *   • Seam ribbons: magenta separator lines between structural zones
+ *   • OUTLINES carry the look — rotating conic-gradient rings (cyan→violet→
+ *     magenta, 9s) are the dominant visual feature, exactly as in VSCodium.
+ *   • Backgrounds recede — navy (#12132a) is a faint translucent tint over
+ *     void, never a solid block. The rings, not the fills, define structure.
+ *   • Active zones (selected tab, focused URL bar, sidebar) get the full
+ *     rotating ring; boundaries get a flowing horizontal gradient seam.
+ *
+ * Technique (identical to VSCodium): a ::after/::before with inset:0 +
+ * padding + conic-gradient(from var(--aether-angle)) + mask-composite:exclude
+ * paints ONLY the border band; the center is masked out so content shows
+ * through. @property animates --aether-angle 0→360deg → the gradient rotates.
+ * A bright static border sits underneath each ring as graceful fallback.
  * Self-contained — palette tokens inlined (no @import in XUL context).
  * ════════════════════════════════════════════════════════════════════ */
 
-/* ── Keyframes ───────────────────────────────────────────────────── */
-
-/* Cycling neon border on active tab — animates border-color + background tint.
- * box-shadow does not render on .tab-background in Firefox XUL; border does. */
-@keyframes aether-tab-outline {
-  0%,100% { border-color: rgba(0,245,255,0.85);   background: rgba(0,245,255,0.07); }
-  33%     { border-color: rgba(191,95,255,0.85);  background: rgba(191,95,255,0.06); }
-  66%     { border-color: rgba(255,45,120,0.85);  background: rgba(255,45,120,0.07); }
+/* ── @property — registers the animatable sweep angle ───────────────── */
+@property --aether-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
 
-/* Flowing seam: same as VSCodium aether-flow-x */
+/* ── Keyframes ───────────────────────────────────────────────────── */
+
+/* The flowing ring: rotate the conic gradient a full turn every 9s. */
+@keyframes aether-harmony-spin {
+  from { --aether-angle: 0deg; }
+  to   { --aether-angle: 360deg; }
+}
+
+/* Cycling outward bloom that bleeds past the ring edge. */
+@keyframes aether-ring-glow {
+  0%,100% { box-shadow: 0 0 14px rgba(0,245,255,0.28); }
+  33%     { box-shadow: 0 0 14px rgba(191,95,255,0.28); }
+  66%     { box-shadow: 0 0 14px rgba(255,45,120,0.28); }
+}
+
+/* Flowing horizontal seam — slide a wide gradient sideways. */
 @keyframes aether-flow-x {
   from { background-position: 0% center; }
   to   { background-position: 200% center; }
@@ -32,12 +51,15 @@
 :root {
   --ra-bg:       #0a0010;
   --ra-surface:  #12132a;
+  /* Navy, toned down — translucent tint over void so it never reads as a
+   * solid block. The outlines, not this fill, carry the structure. */
+  --ra-surface-soft: rgba(18,19,42,0.55);
   --ra-raised:   #1a1b2e;
   --ra-border:   #2a2840;
   --ra-rim:      #3d3860;
   --ra-text:     #e8e6f0;
   --ra-soft:     #c4c0d8;
-  --ra-muted:    #9e9ab8;   /* raised from original #6b6880 — readable on void */
+  --ra-muted:    #9e9ab8;   /* readable on void */
   --ra-dim:      #6b6880;
   --ra-dimmer:   #3d3860;
   --ra-magenta:  #ff2d78;
@@ -52,6 +74,9 @@
   --focus-outline-color: var(--ra-magenta) !important;
   --focus-outline-width: 2px !important;
 }
+
+/* The conic ring fill — one definition reused by every ::after/::before.
+ * Paint via background, mask the interior away, rotate forever. */
 
 /* ── 2. Window chrome ───────────────────────────────────────────── */
 #main-window {
@@ -102,34 +127,52 @@
   min-height:     40px !important;
 }
 
-/* Tab background — visible border + subtle tint. box-shadow is not rendered
- * on .tab-background in Firefox XUL; border + background are. */
+/* Tab background — faint navy tint + visible static outline (legible shape
+ * even before the ring paints). position:relative anchors the conic ::after. */
 .tabbrowser-tab .tab-background {
   border-radius: 7px 7px 0 0 !important;
-  background:    rgba(191,95,255,0.05) !important;   /* barely-there violet tint */
-  border:        1px solid rgba(191,95,255,0.38) !important;
+  background:    var(--ra-surface-soft) !important;
+  border:        1px solid rgba(191,95,255,0.42) !important;
   border-bottom: none !important;
   margin-inline: 1px !important;
   min-height:    40px !important;
+  position:      relative !important;
   transition:    background 0.22s ease, border-color 0.22s ease !important;
 }
 
-/* Hover — magenta tint + magenta border */
+/* Hover — magenta-leaning outline */
 .tabbrowser-tab:hover:not([selected]) .tab-background {
-  background:   rgba(255,45,120,0.07) !important;
-  border-color: rgba(255,45,120,0.55) !important;
+  border-color: rgba(255,45,120,0.60) !important;
 }
 
-/* Active — bright border + matching tint, cycling neon via animation.
- * Animation overrides static border-color/background on each frame. */
+/* Active tab — bright static base border PLUS the rotating conic ring.
+ * The ::after is a 3-sided ring (bottom clipped) so the tab docks into the
+ * content frame below it — mirrors VSCodium's active-tab outline exactly. */
 .tabbrowser-tab[selected] .tab-background {
-  background:   rgba(0,245,255,0.07) !important;     /* initial cyan tint */
-  border:       2px solid rgba(0,245,255,0.85) !important;
+  background:    var(--ra-surface-soft) !important;
+  border:        1px solid rgba(0,245,255,0.55) !important;
   border-bottom: none !important;
-  animation:    aether-tab-outline 9s linear infinite !important;
+}
+.tabbrowser-tab[selected] .tab-background::after {
+  content:       '' !important;
+  position:      absolute !important;
+  inset:         0 !important;
+  padding:       2px !important;
+  border-radius: 7px 7px 0 0 !important;
+  background: conic-gradient(from var(--aether-angle),
+              #00f5ff, #bf5fff, #ff2d78, #00f5ff) !important;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+  mask:         linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
+  clip-path:     inset(0 0 2px 0) !important;   /* drop the bottom edge */
+  animation:     aether-harmony-spin 9s linear infinite,
+                 aether-ring-glow    9s linear infinite !important;
+  pointer-events: none !important;
+  z-index:       5 !important;
 }
 
-/* Active tab indicator bar — 4px magenta with bloom (horizontal axis accent) */
+/* Active tab indicator bar — 4px magenta with bloom (axis accent) */
 .tabbrowser-tab[selected] .tab-line {
   background: var(--ra-magenta) !important;
   height:     4px !important;
@@ -153,7 +196,7 @@
 
 /* Tab labels */
 .tab-label {
-  color:          var(--ra-muted) !important;   /* #9e9ab8 — readable on void */
+  color:          var(--ra-muted) !important;
   letter-spacing: 0.025em !important;
 }
 .tabbrowser-tab:hover:not([selected]) .tab-label {
@@ -182,26 +225,33 @@
   background-color: rgba(255,45,120,0.16) !important;
 }
 
-/* ── 4. Navigation toolbar — seam zone ─────────────────────────── */
-/* Top edge = boundary with tab strip (flowing cyan→violet→magenta seam).
- * Bottom edge = boundary with page content (solid magenta line + glow).
- * Nav bar is the only zone with a surface elevation (#12132a) — intentional
- * contrast anchor so the void tab strip reads correctly above it. */
+/* ── 4. Navigation toolbar — void zone with a flowing seam ──────── */
+/* Navy is now a faint translucent tint, not a solid anchor. The boundary
+ * with page content is a flowing cyan→violet→magenta seam (animated). */
 #nav-bar {
-  --toolbarbutton-icon-fill:          var(--ra-dim) !important;
+  --toolbarbutton-icon-fill:          var(--ra-muted) !important;   /* lifted from dim for contrast on the soft-navy bar */
   --toolbarbutton-hover-background:   rgba(255,45,120,0.12) !important;
   --toolbarbutton-active-background:  rgba(255,45,120,0.24) !important;
-  background-color: var(--ra-surface) !important;
-  border-top:  none !important;
-  /* Top seam: animated gradient border between tab strip and nav bar */
-  box-shadow:
-    /* top flowing seam — 2px inset at top */
-    inset 0 2px 0 rgba(0,245,255,0.70),
-    /* bottom magenta separator */
-    0 1px 0 rgba(255,45,120,0.55),
-    0 2px 14px rgba(255,45,120,0.12) !important;
-  border-bottom: 1px solid rgba(255,45,120,0.45) !important;
+  background-color: var(--ra-surface-soft) !important;
+  border-top:    none !important;
+  border-bottom: 1px solid rgba(255,45,120,0.40) !important;
+  box-shadow:    0 2px 14px rgba(255,45,120,0.08) !important;
+  position:      relative !important;
   padding-block: 5px !important;
+}
+/* Flowing gradient seam under the nav bar — slides sideways forever.
+ * No mask needed → highest-confidence flowing effect in XUL. */
+#nav-bar::after {
+  content:    '' !important;
+  position:   absolute !important;
+  left: 0; right: 0; bottom: -1px !important;
+  height:     2px !important;
+  background: linear-gradient(90deg,
+              #00f5ff, #bf5fff, #ff2d78, #bf5fff, #00f5ff) !important;
+  background-size: 200% 100% !important;
+  animation:  aether-flow-x 6s linear infinite !important;
+  pointer-events: none !important;
+  z-index:    2 !important;
 }
 
 /* ── 5. URL bar ─────────────────────────────────────────────────── */
@@ -219,18 +269,37 @@
 
 #urlbar-background {
   background-color: var(--ra-raised) !important;
-  border:           1px solid var(--ra-rim) !important;
+  border:           1px solid transparent !important;   /* the conic ring carries the outline */
   border-radius:    8px !important;
   box-shadow:       none !important;
-  transition:       border-color 0.22s ease, box-shadow 0.22s ease !important;
+  position:         relative !important;
+  transition:       box-shadow 0.22s ease !important;
 }
-#urlbar[focused] > #urlbar-background {
-  border-color: var(--ra-magenta) !important;
-  box-shadow:   0 0 8px rgba(255,45,120,0.38),
-                0 0 20px rgba(255,45,120,0.14) !important;
+/* Persistent gradient outline on the URL box — the ring is ALWAYS present.
+ * Idle: static (--aether-angle rests at 0deg) and dimmed. Hover: brighter.
+ * Focus: full opacity + rotates + bloom. Outline first, glow second. */
+#urlbar-background::after {
+  content:       '' !important;
+  position:      absolute !important;
+  inset:         0 !important;
+  padding:       1.5px !important;
+  border-radius: 8px !important;
+  background: conic-gradient(from var(--aether-angle),
+              #00f5ff, #bf5fff, #ff2d78, #00f5ff) !important;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+  mask:         linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
+  opacity:       0.55 !important;          /* subtle but clearly outlined when idle */
+  pointer-events: none !important;
+  z-index:       5 !important;
+  transition:    opacity 0.22s ease !important;
 }
-#urlbar:not([focused]):hover > #urlbar-background {
-  border-color: rgba(191,95,255,0.45) !important;
+#urlbar:not([focused]):hover > #urlbar-background::after { opacity: 0.8 !important; }
+#urlbar[focused] > #urlbar-background::after {
+  opacity:   1 !important;
+  animation: aether-harmony-spin 9s linear infinite,
+             aether-ring-glow    9s linear infinite !important;
 }
 
 #urlbar-input { color: var(--ra-text) !important; }
@@ -239,12 +308,12 @@
 
 /* URL dropdown */
 #urlbar-results {
-  background-color: var(--ra-surface) !important;
-  border:           1px solid var(--ra-border) !important;
+  background-color: var(--ra-raised) !important;
+  border:           1px solid rgba(191,95,255,0.32) !important;   /* neon outline, was dim --ra-border */
   border-top:       none !important;
   border-radius:    0 0 8px 8px !important;
   box-shadow:       0 10px 28px rgba(0,0,0,0.70),
-                    0 0 0 1px rgba(255,45,120,0.06) !important;
+                    0 0 16px rgba(0,245,255,0.08) !important;
 }
 .urlbarView-row[selected],
 .urlbarView-row:hover {
@@ -257,7 +326,7 @@
 
 /* ── 6. Toolbar buttons ─────────────────────────────────────────── */
 .toolbarbutton-1 {
-  color:         var(--ra-dim) !important;
+  color:         var(--ra-muted) !important;   /* lifted from dim for legibility */
   border-radius: 5px !important;
   transition:    color 0.15s, background-color 0.15s !important;
 }
@@ -279,8 +348,8 @@
 
 /* ── 7. Bookmarks toolbar ───────────────────────────────────────── */
 #PersonalToolbar {
-  background-color: var(--ra-surface) !important;
-  border-bottom:    1px solid var(--ra-border) !important;
+  background-color: var(--ra-surface-soft) !important;
+  border-bottom:    1px solid rgba(191,95,255,0.20) !important;
   padding-block:    4px !important;
 }
 toolbarbutton.bookmark-item > .toolbarbutton-text,
@@ -298,15 +367,34 @@ toolbarbutton.bookmark-item:hover,
   border-radius: 4px !important;
 }
 
-/* ── 8. Sidebar ─────────────────────────────────────────────────── */
+/* ── 8. Sidebar — full rotating conic ring ──────────────────────── */
 #sidebar-box {
-  background-color: var(--ra-surface) !important;
-  border-right:     1px solid var(--ra-border) !important;
+  background-color: var(--ra-surface-soft) !important;
+  border-right:     none !important;
   color:            var(--ra-text) !important;
+  position:         relative !important;
+}
+/* The ring frames the whole sidebar; mask keeps the interior clear. */
+#sidebar-box::after {
+  content:       '' !important;
+  position:      absolute !important;
+  inset:         0 !important;
+  padding:       2px !important;
+  border-radius: 8px !important;
+  background: conic-gradient(from var(--aether-angle),
+              #00f5ff, #bf5fff, #ff2d78, #00f5ff) !important;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+  mask:         linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
+  animation:     aether-harmony-spin 9s linear infinite,
+                 aether-ring-glow    9s linear infinite !important;
+  pointer-events: none !important;
+  z-index:       5 !important;
 }
 #sidebar-header {
-  background-color: var(--ra-surface) !important;
-  border-bottom:    1px solid var(--ra-border) !important;
+  background-color: transparent !important;
+  border-bottom:    1px solid rgba(0,245,255,0.15) !important;
   color:            var(--ra-muted) !important;
   font-family:      var(--ra-font-ui) !important;
   text-transform:   uppercase !important;
@@ -319,8 +407,8 @@ toolbarbutton.bookmark-item:hover,
   background-color: rgba(255,45,120,0.12) !important;
 }
 #sidebar-splitter {
-  background-color: var(--ra-border) !important;
-  border: none !important; min-width: 1px !important; max-width: 1px !important;
+  background-color: transparent !important;
+  border: none !important; min-width: 2px !important; max-width: 2px !important;
 }
 
 /* ── 9. Context menus ───────────────────────────────────────────── */
@@ -329,11 +417,11 @@ menupopup {
   --panel-color:        var(--ra-text) !important;
   --panel-border-color: var(--ra-border) !important;
   background-color: var(--ra-raised) !important;
-  border:           1px solid var(--ra-border) !important;
+  border:           1px solid rgba(255,45,120,0.30) !important;
   border-radius:    8px !important;
   padding:          4px !important;
   box-shadow:       0 8px 32px rgba(0,0,0,0.80),
-                    0 0 0 1px rgba(255,45,120,0.10) !important;
+                    0 0 16px rgba(0,245,255,0.10) !important;
 }
 menuitem, menu {
   color:         var(--ra-text) !important;
@@ -355,7 +443,7 @@ menuseparator {
 
 /* ── 10. Find bar ───────────────────────────────────────────────── */
 .browserContainer > .findbar-container > findbar {
-  background-color: var(--ra-surface) !important;
+  background-color: var(--ra-surface-soft) !important;
   border-top:       2px solid var(--ra-violet) !important;
   color:            var(--ra-text) !important;
   box-shadow:       0 -2px 14px rgba(191,95,255,0.12) !important;
