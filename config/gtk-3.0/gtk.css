@@ -1,178 +1,102 @@
-/* RaBbLE-Aether GTK3 Theme — Aggressive void override with Adwaita-dark base */
+/* RaBbLE-Aether GTK3 — Match VSCodium void aesthetic */
 
 @define-color void_bg #0a0010;
 @define-color surface_bg #12132a;
-@define-color raised_bg #1a1b2e;
 @define-color text_fg #e8e6f0;
-@define-color text_muted #9e9ab8;
-@define-color accent_cyan #00f5ff;
-@define-color accent_magenta #ff2d78;
-@define-color accent_violet #bf5fff;
 @define-color border_dim rgba(191,95,255,0.3);
 
-/* Force icon theme */
 * {
   -gtk-icon-theme-name: "Papirus-Dark" !important;
 }
 
-/* AGGRESSIVE: Override ALL backgrounds to void */
-* {
-  background-color: @void_bg !important;
-  background: @void_bg !important;
-}
-
-/* Window and main backgrounds */
-window, window.background, .background, GtkWindow {
+/* Main window — void */
+window, .background {
   background-color: @void_bg !important;
   color: @text_fg !important;
 }
 
-/* Override specific light areas to void */
-.view, treeview, treeview.view, GtkTreeView,
-.sidebar, GtkSidebar,
-GtkFileChooserWidget,
-GtkFileChooserDefault {
+/* All content areas — void like VSCodium editor */
+.view, treeview, GtkTreeView,
+.sidebar, .main,
+GtkFileChooserWidget, GtkFileChooserDefault {
   background-color: @void_bg !important;
   color: @text_fg !important;
 }
 
-/* File list and tree rows */
-treeview row, .view row,
-treeview.view row {
+/* Rows in tree/list views */
+treeview row, .view row {
   background-color: @void_bg !important;
   color: @text_fg !important;
 }
 
-treeview row:selected, treeview row:focus,
-.view row:selected, .view row:focus {
-  background-color: rgba(0,245,255,0.15) !important;
+treeview row:selected {
+  background-color: rgba(0,245,255,0.2) !important;
   color: @text_fg !important;
 }
 
-/* Column headers */
-treeview.view header,
-treeview.view column,
-GtkTreeView header,
-GtkTreeView column {
+/* Header bar — slightly elevated surface */
+headerbar {
   background-color: @surface_bg !important;
   color: @text_fg !important;
-  border: 1px solid @border_dim !important;
 }
 
-/* Header/title bar */
-headerbar, GtkHeaderBar {
-  background-color: @surface_bg !important;
-  color: @text_fg !important;
-  border-bottom: 1px solid @border_dim !important;
-}
-
-/* Text input fields */
-entry, GtkEntry {
-  background-color: @raised_bg !important;
+/* Entry/input fields */
+entry {
+  background-color: @void_bg !important;
   color: @text_fg !important;
   border: 1px solid @border_dim !important;
 }
 
 entry:focus {
-  background-color: @raised_bg !important;
-  border: 1px solid @accent_cyan !important;
-  box-shadow: inset 0 0 0 1px rgba(0,245,255,0.2) !important;
+  border-color: #00f5ff !important;
 }
 
 /* Buttons */
-button, GtkButton {
-  background-color: @raised_bg !important;
+button {
+  background-color: @surface_bg !important;
   color: @text_fg !important;
   border: 1px solid @border_dim !important;
 }
 
 button:hover {
-  background-color: @surface_bg !important;
-  border-color: rgba(0,245,255,0.5) !important;
+  background-color: #1a1b2e !important;
 }
 
-button:active, button:checked {
+button:active {
   background-color: rgba(0,245,255,0.1) !important;
-  border-color: @accent_cyan !important;
-  color: @text_fg !important;
 }
 
-/* Scrollbars */
-scrollbar, GtkScrollbar {
-  background: @void_bg !important;
-}
-
-scrollbar trough, GtkScrollbar trough {
+/* Scrollbars — magenta neon on void */
+scrollbar trough {
   background-color: @void_bg !important;
-  border: 1px solid @border_dim !important;
 }
 
-scrollbar slider, GtkScrollbar slider {
-  background-color: @accent_magenta !important;
-  border-radius: 6px !important;
-  min-width: 6px !important;
-  min-height: 6px !important;
+scrollbar slider {
+  background-color: #ff2d78 !important;
 }
 
 scrollbar slider:hover {
-  background-color: @accent_violet !important;
+  background-color: #bf5fff !important;
 }
 
-/* Menus and menuitems */
-menu, .menu, GtkMenu {
-  background-color: @surface_bg !important;
-  color: @text_fg !important;
-  border: 1px solid @border_dim !important;
-}
-
-menuitem {
+/* Menus */
+menu, .menu {
   background-color: @surface_bg !important;
   color: @text_fg !important;
 }
 
 menuitem:hover {
   background-color: rgba(255,45,120,0.15) !important;
-  color: @text_fg !important;
 }
 
 /* Tooltips */
-tooltip, GtkTooltip {
+tooltip {
   background-color: @surface_bg !important;
   color: @text_fg !important;
   border: 1px solid @border_dim !important;
-  border-radius: 4px !important;
 }
 
 tooltip * {
   background-color: transparent !important;
   color: @text_fg !important;
-}
-
-/* Statusbar */
-statusbar, GtkStatusbar {
-  background-color: @void_bg !important;
-  color: @text_fg !important;
-  border-top: 1px solid @border_dim !important;
-}
-
-/* Separators and dividers */
-separator, GtkSeparator,
-.paned > separator {
-  background-color: @border_dim !important;
-  color: @border_dim !important;
-}
-
-/* Notebook/tabs */
-.notebook, GtkNotebook {
-  background-color: @void_bg !important;
-}
-
-.notebook tab {
-  background-color: @surface_bg !important;
-  color: @text_fg !important;
-}
-
-.notebook tab:active {
-  background-color: rgba(0,245,255,0.1) !important;
-  border: 1px solid @accent_cyan !important;
 }
