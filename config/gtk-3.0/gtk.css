@@ -1,108 +1,286 @@
-/* RaBbLE-Aether GTK3 — VSCodium void + cycling neon borders */
+/* RaBbLE-Aether GTK3 — user override stylesheet
+ * Layered on top of the installed theme (or Adwaita-dark fallback).
+ * Key GTK3 gotcha: the sidebar is GtkPlacesSidebar > GtkScrolledWindow > viewport > GtkListBox.
+ * A global GtkScrolledWindow rule overwrites the sidebar interior — so we must re-apply
+ * #12132a on every element inside .sidebar, not just .sidebar itself.
+ *
+ * Palette:
+ *   #0a0010  bg      — void (main file area)
+ *   #12132a  surface — elevated panels (sidebar, header, menus)
+ *   #1a1b2e  raised  — inputs, interactive
+ *   #ff2d78  magenta — primary neon
+ *   #00f5ff  cyan    — secondary neon (selections, focus)
+ *   #bf5fff  violet  — tertiary neon (borders, hover)
+ *   #e8e6f0  text    — primary
+ *   #6b6880  muted   — secondary/disabled
+ */
 
 @keyframes aether-border-cycle {
-  0% { border-color: #00f5ff; }
-  33% { border-color: #bf5fff; }
-  66% { border-color: #ff2d78; }
+  0%   { border-color: #00f5ff; }
+  33%  { border-color: #bf5fff; }
+  66%  { border-color: #ff2d78; }
   100% { border-color: #00f5ff; }
 }
 
-/* VOID EVERYWHERE */
+/* ── Base: void everywhere ───────────────────────────────────────────────── */
 * {
   -gtk-icon-theme-name: "Papirus-Dark" !important;
-  background-color: #0a0010 !important;
 }
 
-/* Text must be readable */
-* {
-  color: #e8e6f0 !important;
-}
-
-/* Windows */
-window {
+window,
+.background {
   background-color: #0a0010 !important;
   color: #e8e6f0 !important;
 }
 
-/* All views and containers */
-.view, .background, treeview,
-.sidebar, GtkFileChooserWidget,
-GtkBox, GtkPaned, GtkContainer,
-GtkScrolledWindow {
+/* Main content areas — void */
+.view,
+treeview,
+viewport,
+scrolledwindow > viewport,
+GtkIconView,
+ExoIconView,
+ExoDetailedView {
   background-color: #0a0010 !important;
   color: #e8e6f0 !important;
 }
 
-/* Header bar — surface level */
-headerbar {
+/* ── Header bar — surface with violet seam ──────────────────────────────── */
+headerbar,
+.titlebar,
+toolbar {
   background-color: #12132a !important;
   color: #e8e6f0 !important;
-  border-bottom: 1px solid rgba(191,95,255,0.3) !important;
+  border-bottom: 2px solid #bf5fff !important;
 }
 
-/* Tree/list rows — void with cyan selection */
-treeview row, .view row {
+headerbar button,
+.titlebar button,
+toolbar button {
+  background-color: transparent !important;
+  border: 1px solid transparent !important;
+  color: #e8e6f0 !important;
+}
+
+headerbar button:hover,
+.titlebar button:hover,
+toolbar button:hover {
+  background-color: rgba(191,95,255,0.18) !important;
+  border-color: rgba(191,95,255,0.50) !important;
+}
+
+/* ── Path bar breadcrumbs ────────────────────────────────────────────────── */
+.path-bar {
+  background-color: #12132a !important;
+}
+
+.path-bar button {
+  background-color: transparent !important;
+  border: none !important;
+  color: #e8e6f0 !important;
+}
+
+.path-bar button:hover {
+  background-color: rgba(191,95,255,0.18) !important;
+}
+
+/* Rightmost (current) path segment */
+.path-bar button:last-child {
+  color: #00f5ff !important;
+  font-weight: bold !important;
+}
+
+/* ── Sidebar — surface layer
+ * Must target every element in the GtkPlacesSidebar widget tree:
+ *   GtkPlacesSidebar (.sidebar)
+ *     GtkScrolledWindow
+ *       GtkViewport (viewport)
+ *         GtkBox / GtkListBox
+ *           rows (.sidebar-item, row)
+ ─────────────────────────────────────────────────────────────────────────── */
+.sidebar,
+.sidebar scrolledwindow,
+.sidebar viewport,
+.sidebar > scrolledwindow,
+.sidebar > scrolledwindow > viewport,
+GtkPlacesSidebar,
+GtkPlacesSidebar scrolledwindow,
+GtkPlacesSidebar viewport {
+  background-color: #12132a !important;
+  color: #e8e6f0 !important;
+}
+
+/* Sidebar list rows */
+.sidebar row,
+.sidebar .sidebar-item,
+GtkPlacesSidebar row {
+  background-color: #12132a !important;
+  color: #e8e6f0 !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+}
+
+.sidebar row:hover,
+.sidebar .sidebar-item:hover,
+GtkPlacesSidebar row:hover {
+  background-color: rgba(191,95,255,0.20) !important;
+  color: #e8e6f0 !important;
+}
+
+.sidebar row:selected,
+.sidebar .sidebar-item:selected,
+GtkPlacesSidebar row:selected {
+  background-color: rgba(0,245,255,0.20) !important;
+  color: #00f5ff !important;
+}
+
+/* Sidebar section labels (PLACES, DEVICES, etc.) */
+.sidebar .heading label,
+.sidebar .sidebar-section-header,
+GtkPlacesSidebar .sidebar-section-header {
+  color: #6b6880 !important;
+  font-size: smaller !important;
+}
+
+/* ── Paned separator — the primary neon seam between sidebar and file area ─ */
+paned > separator,
+GtkPaned > separator {
+  background-color: #bf5fff !important;
+  min-width: 2px !important;
+  min-height: 2px !important;
+  opacity: 0.75 !important;
+}
+
+paned > separator:hover,
+GtkPaned > separator:hover {
+  background-color: #00f5ff !important;
+  opacity: 1 !important;
+}
+
+/* ── File view rows ──────────────────────────────────────────────────────── */
+.view row,
+treeview row {
   background-color: #0a0010 !important;
   color: #e8e6f0 !important;
 }
 
-treeview row:selected,
-.view row:selected {
-  background-color: rgba(0,245,255,0.15) !important;
-  color: #e8e6f0 !important;
-  border-left: 2px solid #00f5ff !important;
-  animation: aether-border-cycle 9s infinite !important;
+.view row:hover,
+treeview row:hover {
+  background-color: rgba(191,95,255,0.10) !important;
 }
 
-/* Interactive elements — cycling neon borders */
-entry, button, .button {
+.view row:selected,
+treeview row:selected {
+  background-color: rgba(0,245,255,0.20) !important;
+  color: #e8e6f0 !important;
+  border-left: 3px solid #00f5ff !important;
+}
+
+.view row:selected:focus,
+treeview row:selected:focus {
+  color: #00f5ff !important;
+}
+
+/* Icon view selections */
+.view.cell:selected,
+iconview.cell:selected {
+  background-color: rgba(0,245,255,0.22) !important;
+  color: #e8e6f0 !important;
+  border-radius: 4px !important;
+}
+
+/* Column headers (list mode) */
+.view column-header button,
+treeview header button {
+  background-color: #12132a !important;
+  color: #6b6880 !important;
+  border-bottom: 1px solid rgba(191,95,255,0.40) !important;
+}
+
+.view column-header button:hover,
+treeview header button:hover {
+  background-color: rgba(191,95,255,0.12) !important;
+  color: #e8e6f0 !important;
+}
+
+/* ── Menus ───────────────────────────────────────────────────────────────── */
+menu, .menu, .popup {
+  background-color: #12132a !important;
+  color: #e8e6f0 !important;
+  border: 1px solid rgba(191,95,255,0.55) !important;
+}
+
+menuitem {
+  background-color: transparent !important;
+  color: #e8e6f0 !important;
+  padding: 4px 12px !important;
+}
+
+menuitem:hover, menuitem:selected {
+  background-color: rgba(255,45,120,0.18) !important;
+  border-left: 2px solid #ff2d78 !important;
+}
+
+menuitem:disabled, menuitem:disabled > label {
+  color: #6b6880 !important;
+}
+
+/* ── Entries ─────────────────────────────────────────────────────────────── */
+entry {
   background-color: #1a1b2e !important;
   color: #e8e6f0 !important;
-  border: 1px solid rgba(191,95,255,0.4) !important;
+  border: 1px solid rgba(191,95,255,0.40) !important;
 }
 
-entry:focus,
-button:hover,
-button:active {
-  border: 1px solid #00f5ff !important;
-  animation: aether-border-cycle 9s infinite !important;
+entry:focus {
+  border-color: #00f5ff !important;
+  box-shadow: 0 0 0 2px rgba(0,245,255,0.18) !important;
 }
 
-/* Scrollbars */
-scrollbar trough {
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+button {
+  background-color: #1a1b2e !important;
+  color: #e8e6f0 !important;
+  border: 1px solid rgba(191,95,255,0.35) !important;
+}
+
+button:hover {
+  background-color: rgba(191,95,255,0.18) !important;
+  border-color: #bf5fff !important;
+}
+
+button:active, button:checked {
+  background-color: rgba(0,245,255,0.12) !important;
+  border-color: #00f5ff !important;
+  color: #00f5ff !important;
+}
+
+/* ── Scrollbars — magenta glowing thumb ─────────────────────────────────── */
+scrollbar, scrollbar trough {
   background-color: #0a0010 !important;
 }
 
 scrollbar slider {
   background-color: #ff2d78 !important;
   border-radius: 4px !important;
+  min-width: 8px !important;
+  min-height: 8px !important;
+  margin: 2px !important;
 }
 
-scrollbar slider:hover {
-  background-color: #bf5fff !important;
-  animation: aether-border-cycle 6s infinite !important;
-}
+scrollbar slider:hover { background-color: #bf5fff !important; }
+scrollbar slider:active { background-color: #00f5ff !important; }
 
-/* Menus */
-menu, .menu {
-  background-color: #12132a !important;
-  color: #e8e6f0 !important;
-  border: 1px solid rgba(191,95,255,0.3) !important;
-}
-
-menuitem {
-  background-color: #12132a !important;
-  color: #e8e6f0 !important;
-}
-
-menuitem:hover {
-  background-color: rgba(255,45,120,0.15) !important;
-  border-left: 2px solid #ff2d78 !important;
-}
-
-/* Tooltips */
+/* ── Tooltips ────────────────────────────────────────────────────────────── */
 tooltip {
   background-color: #12132a !important;
   color: #e8e6f0 !important;
-  border: 1px solid rgba(191,95,255,0.3) !important;
+  border: 1px solid rgba(191,95,255,0.55) !important;
+}
+
+/* ── Status bar ──────────────────────────────────────────────────────────── */
+statusbar {
+  background-color: #12132a !important;
+  color: #6b6880 !important;
+  border-top: 1px solid rgba(191,95,255,0.25) !important;
 }
