@@ -40,7 +40,6 @@ if (mode == "shutdown" || mode == "reboot")
 font_mono      = "JetBrains Mono 11";
 font_mono_sm   = "JetBrains Mono 10";
 font_mono_md   = "JetBrains Mono 13";
-font_wordmark  = "Orbitron Bold 64";
 
 # ── Scanlines overlay ────────────────────────────────────────────────────────
 scan_img = Image("assets/scanlines.png");
@@ -88,26 +87,15 @@ right_start = entity_cx + Math.Int(entity_size / 2);
 right_w     = screen_w - right_start;
 right_cx    = right_start + Math.Int(right_w / 2);
 
-# ── Wordmark: pre-rendered color-cycle steps (magenta -> violet -> cyan) ─────
+# ── Wordmark: pre-rendered Orbitron Bold color-cycle steps ───────────────────
+# Pango font discovery is unreliable in initrd — PNGs rendered by build-assets.sh
+# step 5 guarantee Orbitron rendering. Naming: wm-step-000.png .. wm-step-047.png.
 wm_steps = 48;
-seg = 16;
 for (i = 0; i < wm_steps; i++) {
-  k = i % seg;
-  t = k / seg;
-  if (i < seg) {
-    r = magenta.r + (violet.r - magenta.r) * t;
-    g = magenta.g + (violet.g - magenta.g) * t;
-    b = magenta.b + (violet.b - magenta.b) * t;
-  } else if (i < 2 * seg) {
-    r = violet.r + (cyan.r - violet.r) * t;
-    g = violet.g + (cyan.g - violet.g) * t;
-    b = violet.b + (cyan.b - violet.b) * t;
-  } else {
-    r = cyan.r + (magenta.r - cyan.r) * t;
-    g = cyan.g + (magenta.g - cyan.g) * t;
-    b = cyan.b + (magenta.b - cyan.b) * t;
-  }
-  wm_img[i] = Image.Text("RaBbLE", r, g, b, 1, font_wordmark);
+  if (i < 10)
+    wm_img[i] = Image("assets/wm-step-00" + i + ".png");
+  else
+    wm_img[i] = Image("assets/wm-step-0" + i + ".png");
 }
 
 wm_w = wm_img[0].GetWidth();
@@ -162,9 +150,8 @@ for (i = 0; i < log_count; i++) {
   tag_img = Image.Text(tag + "  ", tr, tg, tb, 1, font_mono_sm);
   msg_img = Image.Text(log_lines[i].msg, text.r, text.g, text.b, 0.82, font_mono_sm);
 
-  # Centered x per line: compute total width and offset each piece
-  total_w = ts_img.GetWidth() + tag_img.GetWidth() + msg_img.GetWidth();
-  log_lines[i].ts_x  = Math.Int((screen_w - total_w) / 2);
+  # Left-aligned block anchored to the right section start (mirrors wordmark column)
+  log_lines[i].ts_x  = right_start + 20;
   log_lines[i].tag_x = log_lines[i].ts_x + ts_img.GetWidth();
   log_lines[i].msg_x = log_lines[i].tag_x + tag_img.GetWidth();
 

@@ -81,8 +81,11 @@ echo "── extracting $FRAMES frames @ ${FPS}fps, crop ${CROP}px @ ($X,$Y)"
 
 mkdir -p "$THEME_DIR/frames"
 rm -f "$THEME_DIR"/frames/entity-*.png
+# colorkey=0x03000b: removes Boot.html's body background (#03000b) from each frame,
+# producing transparent PNGs so Plymouth composites cleanly over the void background.
+# similarity=0.15 handles WebM codec noise on flat dark regions; blend=0.1 soft-edges.
 ffmpeg -loglevel error -ss 0.5 -i "$VIDEO" \
-  -vf "fps=$FPS,crop=$CROP:$CROP:$X:$Y,scale=$OUT_SIZE:$OUT_SIZE" \
+  -vf "fps=$FPS,crop=$CROP:$CROP:$X:$Y,scale=$OUT_SIZE:$OUT_SIZE,colorkey=0x03000b:0.15:0.1,format=rgba" \
   -frames:v "$FRAMES" "$THEME_DIR/frames/entity-%04d.png"
 
 # Optional size crush if pngquant is available
@@ -150,4 +153,70 @@ EOF
 echo "── baking floor grid"
 (cd "$WORK" && node grid.mjs "$A/floor-grid.png")
 
-echo "── done: $(ls "$THEME_DIR"/frames | wc -l) frames, $(du -sh "$THEME_DIR/frames" | cut -f1), floor-grid.png $(du -sh "$A/floor-grid.png" | cut -f1)"
+# ── 5. Wordmark: 48 Orbitron Bold color-cycle PNGs ───────────────────────────
+# Rendered via Playwright with the font embedded as base64 — guarantees Orbitron
+# appears in Plymouth without relying on Pango font discovery in the initrd.
+# Naming: wm-step-000.png .. wm-step-047.png  (matches rabble-aether.script)
+FONT="$THEME_DIR/fonts/Orbitron-Bold.ttf"
+cat > "$WORK/wm.mjs" <<'EOF'
+import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
+
+const [,,fontPath, outDir] = process.argv;
+const fontB64 = readFileSync(fontPath).toString('base64');
+
+const browser = await chromium.launch();
+const ctx     = await browser.newContext({ viewport: { width: 1024, height: 256 } });
+const page    = await ctx.newPage();
+
+await page.setContent(`<!DOCTYPE html>
+<html><head><style>
+  @font-face {
+    font-family: 'Orbitron';
+    src: url(data:font/truetype;base64,${fontB64}) format('truetype');
+    font-weight: 700;
+  }
+  html, body { margin: 0; padding: 0; background: transparent; }
+  #wm {
+    display: inline-block;
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    font-size: 64px;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 4px 8px;
+  }
+</style></head><body><div id="wm">RaBbLE</div></body></html>`);
+
+await page.evaluate(() => document.fonts.ready);
+
+const steps = 48, seg = 16;
+const mag = [1.0,   0.1765, 0.4706];
+const vio = [0.749, 0.3725, 1.0];
+const cya = [0.0,   0.9608, 1.0];
+const lerp = (a, b, t) => a.map((v, j) => v + (b[j] - v) * t);
+const toRgb = c => `rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)})`;
+
+for (let i = 0; i < steps; i++) {
+  const k = i % seg, t = k / seg;
+  let c;
+  if      (i < seg)     c = lerp(mag, vio, t);
+  else if (i < 2 * seg) c = lerp(vio, cya, t);
+  else                   c = lerp(cya, mag, t);
+
+  await page.evaluate(col => { document.getElementById('wm').style.color = col; }, toRgb(c));
+  const num = String(i).padStart(3, '0');
+  await page.locator('#wm').screenshot({
+    path: `${outDir}/wm-step-${num}.png`,
+    omitBackground: true,
+  });
+}
+
+await browser.close();
+EOF
+
+echo "── rendering 48 Orbitron wordmark steps"
+rm -f "$A"/wm-step-*.png
+(cd "$WORK" && node wm.mjs "$FONT" "$A")
+
+echo "── done: $(ls "$THEME_DIR"/frames | wc -l) frames, $(du -sh "$THEME_DIR/frames" | cut -f1) · floor-grid $(du -sh "$A/floor-grid.png" | cut -f1) · wordmark PNGs $(ls "$A"/wm-step-*.png 2>/dev/null | wc -l)"
