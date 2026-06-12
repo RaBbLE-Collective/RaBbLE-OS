@@ -174,24 +174,69 @@
     mode: '0644'
   tags: [apps, theming, qt]
 
-# ── Icons — papirus + magenta folder tint ─────────────────────────────────────
+# ── Icons — papirus-folders from GitHub + magenta tint ────────────────────────
+# papirus-folders is a bash script — not in Fedora repos — installed from GitHub.
 
-- name: qt-gtk-theme | check if papirus-folders is available
-  ansible.builtin.command: which papirus-folders
-  register: papirus_folders_exists
-  failed_when: false
-  changed_when: false
+- name: qt-gtk-theme | install papirus-folders script from GitHub
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-folders/master/papirus-folders"
+    dest: /usr/local/bin/papirus-folders
+    mode: '0755'
+    force: false
+  become: true
   tags: [apps, theming, icons]
 
-- name: qt-gtk-theme | tint papirus folders magenta
+- name: qt-gtk-theme | tint Papirus-Dark folders magenta
   ansible.builtin.command: papirus-folders --color magenta --theme Papirus-Dark
   become: false
   changed_when: false
-  when: papirus_folders_exists.rc == 0
   tags: [apps, theming, icons]
 
-- name: qt-gtk-theme | warn if papirus-folders not found
-  ansible.builtin.debug:
-    msg: "papirus-folders not found — install papirus-folders package to tint folders magenta"
-  when: papirus_folders_exists.rc != 0
-  tags: [apps, theming, icons]
+# ── Apply GTK theme via gsettings (dconf) ─────────────────────────────────────
+# Needed for apps that read org.gnome.desktop.interface instead of settings.ini.
+# Runs as the user — become: false, DBUS_SESSION_BUS_ADDRESS must be set.
+
+- name: qt-gtk-theme | apply GTK theme via gsettings
+  ansible.builtin.command: >
+    gsettings set org.gnome.desktop.interface gtk-theme 'RaBbLE-Aether'
+  become: false
+  changed_when: false
+  environment:
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_user_uid }}/bus"
+  tags: [apps, theming, gtk]
+
+- name: qt-gtk-theme | apply icon theme via gsettings
+  ansible.builtin.command: >
+    gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark'
+  become: false
+  changed_when: false
+  environment:
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_user_uid }}/bus"
+  tags: [apps, theming, gtk]
+
+- name: qt-gtk-theme | apply cursor theme via gsettings
+  ansible.builtin.command: >
+    gsettings set org.gnome.desktop.interface cursor-theme 'Bibata-Modern-Classic'
+  become: false
+  changed_when: false
+  environment:
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_user_uid }}/bus"
+  tags: [apps, theming, gtk]
+
+- name: qt-gtk-theme | apply font via gsettings
+  ansible.builtin.command: >
+    gsettings set org.gnome.desktop.interface font-name 'Exo 2 10'
+  become: false
+  changed_when: false
+  environment:
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_user_uid }}/bus"
+  tags: [apps, theming, gtk]
+
+- name: qt-gtk-theme | prefer dark theme via gsettings
+  ansible.builtin.command: >
+    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+  become: false
+  changed_when: false
+  environment:
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_user_uid }}/bus"
+  tags: [apps, theming, gtk]

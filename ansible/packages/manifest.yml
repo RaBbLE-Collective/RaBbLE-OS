@@ -701,13 +701,9 @@ packages:
     layer: apps
     ks: false
 
-  - name: papirus-folders
-    category: apps.theming
-    reason: Folder color customization — magenta tint for RaBbLE-Aether theme
-    source: fedora
-    platform: all
-    layer: apps
-    ks: false
+  # papirus-folders: bash script from GitHub — not a dnf package.
+  # Installed directly by qt-gtk-theme.yml via get_url to /usr/local/bin/.
+  # Source: https://github.com/PapirusDevelopmentTeam/papirus-folders
 
   - name: kvantum
     category: apps.theming
@@ -744,10 +740,38 @@ packages:
   - name: nwg-look
     category: apps.theming
     reason: Wayland-native GTK theme selector (lxappearance uses X11 and breaks on Hyprland)
+    source: copr:copr.fedorainfracloud.org:lionheartp:Hyprland
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: papirus-icon-theme-dark
+    category: apps.theming
+    reason: Arc-Dark Papirus variant — supplemental coverage alongside papirus-icon-theme
     source: fedora
     platform: all
     layer: apps
     ks: false
+
+  - name: thunar-archive-plugin
+    category: apps.filemanager
+    reason: Right-click archive extraction support in Thunar
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: thunar-volman
+    category: apps.filemanager
+    reason: Auto-mount and eject removable media in Thunar
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  # papirus-folders: bash script from GitHub (not a dnf package)
+  # Installed by qt-gtk-theme.yml via get_url to /usr/local/bin/
+  # Source: https://github.com/PapirusDevelopmentTeam/papirus-folders
 
   # ═══════════════════════════════════════════════════════════════════════════
   # HARDWARE — ASUS ProArt P16

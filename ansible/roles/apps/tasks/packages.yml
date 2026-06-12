@@ -1,9 +1,25 @@
 ---
 # apps/tasks/packages.yml — GUI applications
 
-- name: apps | install file manager (dolphin)
+- name: apps | install theming stack (GTK + Qt + icons)
   ansible.builtin.dnf:
     name:
+      - papirus-icon-theme         # SVG icon theme — Papirus-Dark used across all apps
+      - papirus-icon-theme-dark    # Arc-Dark variant (bonus coverage)
+      - kvantum                    # Qt SVG theme engine — full Qt5/Qt6 visual control
+      - kvantum-qt5                # Qt5-specific Kvantum backend
+      - qt5ct                      # Qt5 configuration: style=kvantum, icon theme, fonts
+      - qt6ct                      # Qt6 configuration: same
+      - nwg-look                   # Wayland-native GTK theme selector (lxappearance uses X11)
+    state: present
+  tags: [apps, packages, theming]
+
+- name: apps | install file managers
+  ansible.builtin.dnf:
+    name:
+      - Thunar                     # GTK3 file manager — primary file browser (RaBbLE-Aether themed)
+      - thunar-archive-plugin      # Right-click archive extraction in Thunar
+      - thunar-volman              # Auto-mount and eject in Thunar
       - dolphin                    # KDE file manager — runs without full Plasma
       - kf5-kio-gui                # KDE I/O framework GUI (dolphin dep)
       - kdegraphics-thumbnailers   # Image/PDF thumbnails in dolphin
