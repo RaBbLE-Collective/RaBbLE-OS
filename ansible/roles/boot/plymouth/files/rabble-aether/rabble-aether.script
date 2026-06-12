@@ -3,16 +3,17 @@
 #
 # Frame-player port of RaBbLE-Boot.html: the entity animation is pre-captured
 # from the live NeBuLA canvas (see build-assets.sh) and played back here while
-# the boot log, wordmark, progress bar, and prompts are scripted live.
+# the boot log, wordmark, progress bar, floor grid, and prompts are scripted live.
 #
 # Timeline (refresh ticks at ~50/s):
 #   frames 1..77   entity convergence -> eye emergence, played once
 #   frames 78..96  eye idle pulse, ping-ponged until boot completes
-#   ticks  10..165 fake boot log reveals bottom-left
-#   ticks  75..200 wordmark + tagline fade in below the entity
-#   always         real boot progress drives the bar; systemd messages above it
+#   ticks  10..165 boot log scrolls bottom-center (conveyor, ~5 lines visible)
+#   ticks  75..200 wordmark + tagline fade in (right section, Orbitron)
+#   always         floor grid (cyan/magenta perspective), real progress bar
 #
 # Palette: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md only.
+# Layout: see RaBbLE-Grimoire/RaBbLE-OS/layers/RaBbLE-OS-Layer-Boot-Plymouth-EP1.md
 # =============================================================================
 
 # ── Palette (0..1 floats) ────────────────────────────────────────────────────
@@ -39,13 +40,21 @@ if (mode == "shutdown" || mode == "reboot")
 font_mono      = "JetBrains Mono 11";
 font_mono_sm   = "JetBrains Mono 10";
 font_mono_md   = "JetBrains Mono 13";
-font_wordmark  = "JetBrains Mono Bold 64";
+font_wordmark  = "Orbitron Bold 64";
 
 # ── Scanlines overlay ────────────────────────────────────────────────────────
 scan_img = Image("assets/scanlines.png");
 scan_img = scan_img.Scale(screen_w, screen_h);
 scan_sprite = Sprite(scan_img);
 scan_sprite.SetPosition(0, 0, 500);
+
+# ── Floor grid (cyan/magenta perspective, pre-rendered PNG) ──────────────────
+# Ported from NeBuLA AmbientField._bakeGrid: VP at (W/2, H*0.74),
+# 18 radial fan lines (alternating cyan/magenta) + 11 horizontal power lines.
+grid_img = Image("assets/floor-grid.png");
+grid_img = grid_img.Scale(screen_w, screen_h);
+grid_sprite = Sprite(grid_img);
+grid_sprite.SetPosition(0, 0, 3);
 
 # ── Entity frames ────────────────────────────────────────────────────────────
 frame_count = 96;
@@ -59,9 +68,10 @@ for (i = 1; i <= frame_count; i++) {
   entity_frame[i] = Image(fname);
 }
 
+# Entity: left quarter of screen, vertically centered (mirrors Boot.html landscape)
 entity_size = entity_frame[1].GetWidth();
-entity_cx = Math.Int(screen_w / 2);
-entity_cy = Math.Int(screen_h * 0.36);
+entity_cx = Math.Int(screen_w * 0.25);
+entity_cy = Math.Int(screen_h * 0.50);
 entity_x  = entity_cx - Math.Int(entity_size / 2);
 entity_y  = entity_cy - Math.Int(entity_size / 2);
 
@@ -73,21 +83,26 @@ loop_dir = 1;
 entity_sprite = Sprite(entity_frame[cur_frame]);
 entity_sprite.SetPosition(entity_x, entity_y, 10);
 
+# ── Right-section geometry (wordmark + tagline live here) ────────────────────
+right_start = entity_cx + Math.Int(entity_size / 2);
+right_w     = screen_w - right_start;
+right_cx    = right_start + Math.Int(right_w / 2);
+
 # ── Wordmark: pre-rendered color-cycle steps (magenta -> violet -> cyan) ─────
-wm_steps = 48;            # 3 segments x 16 steps
+wm_steps = 48;
 seg = 16;
 for (i = 0; i < wm_steps; i++) {
   k = i % seg;
   t = k / seg;
-  if (i < seg) {          # magenta -> violet
+  if (i < seg) {
     r = magenta.r + (violet.r - magenta.r) * t;
     g = magenta.g + (violet.g - magenta.g) * t;
     b = magenta.b + (violet.b - magenta.b) * t;
-  } else if (i < 2 * seg) { # violet -> cyan
+  } else if (i < 2 * seg) {
     r = violet.r + (cyan.r - violet.r) * t;
     g = violet.g + (cyan.g - violet.g) * t;
     b = violet.b + (cyan.b - violet.b) * t;
-  } else {                # cyan -> magenta
+  } else {
     r = cyan.r + (magenta.r - cyan.r) * t;
     g = cyan.g + (magenta.g - cyan.g) * t;
     b = cyan.b + (magenta.b - cyan.b) * t;
@@ -97,21 +112,21 @@ for (i = 0; i < wm_steps; i++) {
 
 wm_w = wm_img[0].GetWidth();
 wm_h = wm_img[0].GetHeight();
-wm_x = Math.Int((screen_w - wm_w) / 2);
-wm_y = entity_y + entity_size - 14;
+wm_x = right_cx - Math.Int(wm_w / 2);
+wm_y = Math.Int(screen_h * 0.42);
 wm_sprite = Sprite(wm_img[0]);
 wm_sprite.SetPosition(wm_x, wm_y, 20);
 wm_sprite.SetOpacity(0);
 
 tagline_img = Image.Text("b e h a v i o r a l   l e a r n i n g   e n g i n e",
                          violet.r, violet.g, violet.b, 0.78, font_mono);
-tagline_x = Math.Int((screen_w - tagline_img.GetWidth()) / 2);
-tagline_y = wm_y + wm_h + 10;
+tagline_x = right_cx - Math.Int(tagline_img.GetWidth() / 2);
+tagline_y = wm_y + wm_h + 12;
 tagline_sprite = Sprite(tagline_img);
 tagline_sprite.SetPosition(tagline_x, tagline_y, 20);
 tagline_sprite.SetOpacity(0);
 
-# ── Fake boot log (adapted from RaBbLE-World RaBbLE-boot.js) ─────────────────
+# ── Boot log (conveyor: bottom-center, lines scroll up, ~5 visible at once) ──
 log_count = 14;
 log_lines[0].ts  = "[  0.000000]"; log_lines[0].tag  = "INFO";   log_lines[0].msg  = "Initializing cgroup subsystems";
 log_lines[1].ts  = "[  0.000001]"; log_lines[1].tag  = "INFO";   log_lines[1].msg  = "BIOS-provided physical RAM map: ∞ bytes available";
@@ -128,9 +143,8 @@ log_lines[11].ts = "[  0.112551]"; log_lines[11].tag = " OK ";   log_lines[11].m
 log_lines[12].ts = "[  0.122005]"; log_lines[12].tag = "RaBbLE"; log_lines[12].msg = "◈ Session detected · entropy elevated · curious mode engaged";
 log_lines[13].ts = "[  0.138003]"; log_lines[13].tag = " OK ";   log_lines[13].msg = "Network Manager: ACTIVE · connection established";
 
-log_x = Math.Int(screen_w * 0.04);
+log_baseline_y = Math.Int(screen_h * 0.80);
 line_h = 22;
-log_y0 = Math.Int(screen_h * 0.97) - log_count * line_h;
 
 for (i = 0; i < log_count; i++) {
   tag = log_lines[i].tag;
@@ -148,15 +162,20 @@ for (i = 0; i < log_count; i++) {
   tag_img = Image.Text(tag + "  ", tr, tg, tb, 1, font_mono_sm);
   msg_img = Image.Text(log_lines[i].msg, text.r, text.g, text.b, 0.82, font_mono_sm);
 
-  y = log_y0 + i * line_h;
+  # Centered x per line: compute total width and offset each piece
+  total_w = ts_img.GetWidth() + tag_img.GetWidth() + msg_img.GetWidth();
+  log_lines[i].ts_x  = Math.Int((screen_w - total_w) / 2);
+  log_lines[i].tag_x = log_lines[i].ts_x + ts_img.GetWidth();
+  log_lines[i].msg_x = log_lines[i].tag_x + tag_img.GetWidth();
+
   log_lines[i].ts_sprite = Sprite(ts_img);
-  log_lines[i].ts_sprite.SetPosition(log_x, y, 30);
+  log_lines[i].ts_sprite.SetPosition(log_lines[i].ts_x, log_baseline_y, 30);
   log_lines[i].ts_sprite.SetOpacity(0);
   log_lines[i].tag_sprite = Sprite(tag_img);
-  log_lines[i].tag_sprite.SetPosition(log_x + ts_img.GetWidth(), y, 30);
+  log_lines[i].tag_sprite.SetPosition(log_lines[i].tag_x, log_baseline_y, 30);
   log_lines[i].tag_sprite.SetOpacity(0);
   log_lines[i].msg_sprite = Sprite(msg_img);
-  log_lines[i].msg_sprite.SetPosition(log_x + ts_img.GetWidth() + tag_img.GetWidth(), y, 30);
+  log_lines[i].msg_sprite.SetPosition(log_lines[i].msg_x, log_baseline_y, 30);
   log_lines[i].msg_sprite.SetOpacity(0);
   log_lines[i].reveal_tick = 10 + i * 11;
 }
@@ -165,7 +184,7 @@ for (i = 0; i < log_count; i++) {
 bar_w = Math.Int(screen_w * 0.34);
 bar_h = 6;
 bar_x = Math.Int((screen_w - bar_w) / 2);
-bar_y = Math.Int(screen_h * 0.84);
+bar_y = Math.Int(screen_h * 0.88);
 
 track_src = Image("assets/bar-track.png");
 fill_src  = Image("assets/bar-fill.png");
@@ -307,6 +326,9 @@ fun refresh_callback() {
   }
   fade = global.fade_master;
 
+  # floor grid fades with everything on completion
+  grid_sprite.SetOpacity(0.85 * fade);
+
   # entity dims while a password dialog is up
   entity_opacity = fade;
   if (global.dialog.up == 1)
@@ -324,13 +346,37 @@ fun refresh_callback() {
   wm_sprite.SetOpacity(wm_opacity * fade);
   tagline_sprite.SetOpacity(wm_opacity * 0.9 * fade);
 
-  # fake boot log reveal (skipped on shutdown)
+  # boot log conveyor: lines appear at baseline, scroll up, fade out past position 5
   if (quiet_mode == 0) {
+    visible_count = 0;
+    for (i = 0; i < log_count; i++) {
+      if (global.tick >= log_lines[i].reveal_tick)
+        visible_count = visible_count + 1;
+    }
+
     for (i = 0; i < log_count; i++) {
       if (global.tick >= log_lines[i].reveal_tick) {
-        log_lines[i].ts_sprite.SetOpacity(0.9 * fade);
-        log_lines[i].tag_sprite.SetOpacity(fade);
-        log_lines[i].msg_sprite.SetOpacity(0.82 * fade);
+        # lines_after=0 means newest (at baseline); higher = older (scrolled up)
+        lines_after = visible_count - (i + 1);
+        y = log_baseline_y - lines_after * line_h;
+        log_lines[i].ts_sprite.SetPosition(log_lines[i].ts_x, y, 30);
+        log_lines[i].tag_sprite.SetPosition(log_lines[i].tag_x, y, 30);
+        log_lines[i].msg_sprite.SetPosition(log_lines[i].msg_x, y, 30);
+
+        age      = global.tick - log_lines[i].reveal_tick;
+        enter_op = age / 8;
+        if (enter_op > 1) enter_op = 1;
+
+        exit_op = 1;
+        if (lines_after > 5) {
+          exit_op = 1 - (lines_after - 5) * 0.33;
+          if (exit_op < 0) exit_op = 0;
+        }
+
+        line_op = enter_op * exit_op;
+        log_lines[i].ts_sprite.SetOpacity(line_op * 0.9 * fade);
+        log_lines[i].tag_sprite.SetOpacity(line_op * fade);
+        log_lines[i].msg_sprite.SetOpacity(line_op * 0.82 * fade);
       }
     }
   }

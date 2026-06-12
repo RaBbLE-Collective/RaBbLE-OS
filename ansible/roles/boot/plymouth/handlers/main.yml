@@ -1,4 +1,8 @@
 ---
+- name: rebuild font cache
+  ansible.builtin.command: fc-cache -f /usr/share/fonts/rabble-fonts
+  become: true
+
 - name: rebuild initrd
   ansible.builtin.command: dracut --force
   become: true

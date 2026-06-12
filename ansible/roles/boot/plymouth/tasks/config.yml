@@ -5,6 +5,27 @@
 # files/rabble-aether/frames/ by files/rabble-aether/build-assets.sh; Ansible
 # only deploys what is committed — it never runs the capture.
 
+- name: Create rabble system fonts directory
+  ansible.builtin.file:
+    path: /usr/share/fonts/rabble-fonts
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [boot, plymouth, config]
+
+- name: Install Orbitron Bold font
+  ansible.builtin.copy:
+    src: rabble-aether/fonts/Orbitron-Bold.ttf
+    dest: /usr/share/fonts/rabble-fonts/Orbitron-Bold.ttf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: [rebuild font cache, rebuild initrd]
+  tags: [boot, plymouth, config]
+
 - name: Deploy rabble-aether Plymouth theme
   ansible.builtin.copy:
     src: rabble-aether/
@@ -21,9 +42,12 @@
   ansible.builtin.copy:
     dest: /etc/dracut.conf.d/90-rabble-plymouth-fonts.conf
     content: |
-      # rabble-aether Plymouth theme fonts — deployed by Ansible (boot/plymouth)
-      # Pango falls back to DejaVu Sans if these are ever missing.
-      install_items+=" /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Bold.otf /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Regular.otf "
+      # rabble-aether Plymouth theme — fonts + GPU driver for seamless DRM splash
+      # add_drivers: forces amdgpu into initrd so Plymouth starts in DRM mode from
+      # frame 1, eliminating the simpledrm→KMS transition black flash.
+      # Pango falls back to DejaVu Sans if font paths are ever missing.
+      install_items+=" /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Bold.otf /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Regular.otf /usr/share/fonts/rabble-fonts/Orbitron-Bold.ttf "
+      add_drivers+=" amdgpu "
     owner: root
     group: root
     mode: "0644"

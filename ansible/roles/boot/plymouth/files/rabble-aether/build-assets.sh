@@ -104,4 +104,50 @@ ffmpeg -loglevel error -f lavfi -i "color=c=black@0.0:s=14x14,format=rgba" \
 ffmpeg -loglevel error -f lavfi -i "color=c=black@0.0:s=8x8,format=rgba" \
   -vf "geq=r=26:g=27:b=46:a=230" -frames:v 1 -y "$A/panel.png"
 
-echo "── done: $(ls "$THEME_DIR"/frames | wc -l) frames, $(du -sh "$THEME_DIR/frames" | cut -f1)"
+# ── 4. Floor grid (cyan/magenta perspective, transparent PNG) ─────────────────
+# Ported from NeBuLA AmbientField._bakeGrid: VP at (W/2, H*0.74), 18 radial
+# fan lines alternating cyan/magenta + 11 horizontal power-curved lines.
+cat > "$WORK/grid.mjs" <<'EOF'
+import { chromium } from 'playwright';
+const browser = await chromium.launch();
+const ctx     = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+const page    = await ctx.newPage();
+await page.setContent('<html style="margin:0;padding:0;background:transparent"><body style="margin:0;padding:0;background:transparent"></body></html>');
+await page.addScriptTag({ content: `
+  const cv = document.createElement('canvas');
+  cv.width = 1920; cv.height = 1080;
+  document.body.appendChild(cv);
+  const c  = cv.getContext('2d');
+  const W  = 1920, H = 1080;
+  const vx = W / 2, vy = H * 0.74;
+  // Radial fan lines (18) — alternating cyan / magenta, fade to transparent at VP
+  for (let i = 0; i <= 18; i++) {
+    const tx = i / 18, x = vx + (tx - 0.5) * W * 3.2;
+    const col = (i % 2 === 0) ? [0, 245, 255] : [255, 45, 120];
+    c.beginPath(); c.moveTo(x, H); c.lineTo(vx, vy);
+    const g = c.createLinearGradient(x, H, vx, vy);
+    g.addColorStop(0, 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',0.28)');
+    g.addColorStop(1, 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',0)');
+    c.strokeStyle = g; c.lineWidth = 1.2; c.stroke();
+  }
+  // Horizontal power-curved lines (11) — alternating magenta / cyan, edge-fade
+  for (let j = 0; j <= 11; j++) {
+    const ty = Math.pow(j / 11, 1.65), y = vy + (H - vy) * ty, sp = ty * W * 1.6;
+    const col = (j % 2 === 0) ? [255, 45, 120] : [0, 245, 255];
+    c.beginPath(); c.moveTo(vx - sp, y); c.lineTo(vx + sp, y);
+    const g2 = c.createLinearGradient(vx - sp, y, vx + sp, y);
+    g2.addColorStop(0,    'transparent');
+    g2.addColorStop(0.2,  'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',0.22)');
+    g2.addColorStop(0.8,  'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',0.22)');
+    g2.addColorStop(1,    'transparent');
+    c.strokeStyle = g2; c.lineWidth = 0.9; c.stroke();
+  }
+`});
+await page.screenshot({ path: process.argv[2], omitBackground: true });
+await browser.close();
+EOF
+
+echo "── baking floor grid"
+(cd "$WORK" && node grid.mjs "$A/floor-grid.png")
+
+echo "── done: $(ls "$THEME_DIR"/frames | wc -l) frames, $(du -sh "$THEME_DIR/frames" | cut -f1), floor-grid.png $(du -sh "$A/floor-grid.png" | cut -f1)"
