@@ -1,103 +1,108 @@
-/* RaBbLE-Aether GTK3 — Match VSCodium void aesthetic */
+/* RaBbLE-Aether GTK3 — VSCodium void + cycling neon borders */
 
-@define-color void_bg #0a0010;
-@define-color surface_bg #12132a;
-@define-color text_fg #e8e6f0;
-@define-color border_dim rgba(191,95,255,0.3);
+@keyframes aether-border-cycle {
+  0% { border-color: #00f5ff; }
+  33% { border-color: #bf5fff; }
+  66% { border-color: #ff2d78; }
+  100% { border-color: #00f5ff; }
+}
 
+/* VOID EVERYWHERE */
 * {
   -gtk-icon-theme-name: "Papirus-Dark" !important;
+  background-color: #0a0010 !important;
 }
 
-/* Main window — void */
-window, .background {
-  background-color: @void_bg !important;
-  color: @text_fg !important;
+/* Text must be readable */
+* {
+  color: #e8e6f0 !important;
 }
 
-/* All content areas — void like VSCodium editor */
-.view, treeview, GtkTreeView,
-.sidebar, .main,
-GtkFileChooserWidget, GtkFileChooserDefault,
-GtkBox, GtkPaned, GtkContainer {
-  background-color: @void_bg !important;
-  color: @text_fg !important;
+/* Windows */
+window {
+  background-color: #0a0010 !important;
+  color: #e8e6f0 !important;
 }
 
-/* Rows in tree/list views */
-treeview row, .view row {
-  background-color: @void_bg !important;
-  color: @text_fg !important;
+/* All views and containers */
+.view, .background, treeview,
+.sidebar, GtkFileChooserWidget,
+GtkBox, GtkPaned, GtkContainer,
+GtkScrolledWindow {
+  background-color: #0a0010 !important;
+  color: #e8e6f0 !important;
 }
 
-treeview row:selected {
-  background-color: rgba(0,245,255,0.2) !important;
-  color: @text_fg !important;
-}
-
-/* Header bar — slightly elevated surface */
+/* Header bar — surface level */
 headerbar {
-  background-color: @surface_bg !important;
-  color: @text_fg !important;
+  background-color: #12132a !important;
+  color: #e8e6f0 !important;
+  border-bottom: 1px solid rgba(191,95,255,0.3) !important;
 }
 
-/* Entry/input fields */
-entry {
-  background-color: @void_bg !important;
-  color: @text_fg !important;
-  border: 1px solid @border_dim !important;
+/* Tree/list rows — void with cyan selection */
+treeview row, .view row {
+  background-color: #0a0010 !important;
+  color: #e8e6f0 !important;
 }
 
-entry:focus {
-  border-color: #00f5ff !important;
+treeview row:selected,
+.view row:selected {
+  background-color: rgba(0,245,255,0.15) !important;
+  color: #e8e6f0 !important;
+  border-left: 2px solid #00f5ff !important;
+  animation: aether-border-cycle 9s infinite !important;
 }
 
-/* Buttons */
-button {
-  background-color: @surface_bg !important;
-  color: @text_fg !important;
-  border: 1px solid @border_dim !important;
-}
-
-button:hover {
+/* Interactive elements — cycling neon borders */
+entry, button, .button {
   background-color: #1a1b2e !important;
+  color: #e8e6f0 !important;
+  border: 1px solid rgba(191,95,255,0.4) !important;
 }
 
+entry:focus,
+button:hover,
 button:active {
-  background-color: rgba(0,245,255,0.1) !important;
+  border: 1px solid #00f5ff !important;
+  animation: aether-border-cycle 9s infinite !important;
 }
 
-/* Scrollbars — magenta neon on void */
+/* Scrollbars */
 scrollbar trough {
-  background-color: @void_bg !important;
+  background-color: #0a0010 !important;
 }
 
 scrollbar slider {
   background-color: #ff2d78 !important;
+  border-radius: 4px !important;
 }
 
 scrollbar slider:hover {
   background-color: #bf5fff !important;
+  animation: aether-border-cycle 6s infinite !important;
 }
 
 /* Menus */
 menu, .menu {
-  background-color: @surface_bg !important;
-  color: @text_fg !important;
+  background-color: #12132a !important;
+  color: #e8e6f0 !important;
+  border: 1px solid rgba(191,95,255,0.3) !important;
+}
+
+menuitem {
+  background-color: #12132a !important;
+  color: #e8e6f0 !important;
 }
 
 menuitem:hover {
   background-color: rgba(255,45,120,0.15) !important;
+  border-left: 2px solid #ff2d78 !important;
 }
 
 /* Tooltips */
 tooltip {
-  background-color: @surface_bg !important;
-  color: @text_fg !important;
-  border: 1px solid @border_dim !important;
-}
-
-tooltip * {
-  background-color: transparent !important;
-  color: @text_fg !important;
+  background-color: #12132a !important;
+  color: #e8e6f0 !important;
+  border: 1px solid rgba(191,95,255,0.3) !important;
 }
