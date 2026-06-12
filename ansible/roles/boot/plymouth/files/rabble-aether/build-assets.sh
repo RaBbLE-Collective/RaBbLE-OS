@@ -194,70 +194,69 @@ EOF
 echo "── baking floor grid"
 (cd "$WORK" && node grid.mjs "$A/floor-grid.png")
 
-# ── 5. Wordmark: 48 Orbitron Bold color-cycle PNGs ───────────────────────────
-# Rendered via Playwright with the font embedded as base64 — guarantees Orbitron
-# appears in Plymouth without relying on Pango font discovery in the initrd.
+# ── 5. Wordmark: 48 Orbitron 900 color-cycle PNGs from live Aether CSS ───────
+# Loads a minimal page that imports aether.css from the dev server, then
+# applies .entity-wordmark.rabble-brand-flow exactly as the landing page does.
+# 48 frames are captured across the brand-harmony 7s animation cycle via
+# negative animation-delay, giving pixel-perfect match with the website.
+# Prerequisite: dev server at $RABBLE_BOOT_URL (default http://localhost:8080)
 # Naming: wm-step-000.png .. wm-step-047.png  (matches rabble-aether.script)
-FONT="$THEME_DIR/fonts/Orbitron-Bold.ttf"
 cat > "$WORK/wm.mjs" <<'EOF'
 import { chromium } from 'playwright';
-import { readFileSync } from 'node:fs';
 
-const [,,fontPath, outDir] = process.argv;
-const fontB64 = readFileSync(fontPath).toString('base64');
+const [,,baseUrl, outDir] = process.argv;
+const STEPS = 48;
+const ANIM_DURATION = 7; // brand-harmony duration in seconds
 
 const browser = await chromium.launch();
-const ctx     = await browser.newContext({ viewport: { width: 1024, height: 256 } });
-const page    = await ctx.newPage();
+const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+const page = await ctx.newPage();
 
+// Minimal isolated page — imports Aether CSS (Google Fonts + all CSS vars) but
+// has no body background, so omitBackground produces transparent PNGs.
 await page.setContent(`<!DOCTYPE html>
-<html><head><style>
-  @font-face {
-    font-family: 'Orbitron';
-    src: url(data:font/truetype;base64,${fontB64}) format('truetype');
-    font-weight: 700;
-  }
-  html, body { margin: 0; padding: 0; background: transparent; }
-  #wm {
-    display: inline-block;
-    font-family: 'Orbitron', monospace;
-    font-weight: 700;
-    font-size: 64px;
-    line-height: 1;
-    white-space: nowrap;
-    padding: 4px 8px;
-  }
-</style></head><body><div id="wm">RaBbLE</div></body></html>`);
+<html>
+<head>
+  <link rel="stylesheet" href="${baseUrl}/world/css/aether.css">
+  <style>
+    html, body { margin: 0; padding: 0; background: transparent !important; display: inline-block; }
+    #wm-el {
+      display: inline-block;
+      font-size: 72px;
+      line-height: 1;
+      white-space: nowrap;
+      padding: 6px 12px;
+      animation-play-state: paused;
+    }
+  </style>
+</head>
+<body>
+  <span class="entity-wordmark rabble-brand-flow" id="wm-el">RaBbLE</span>
+</body>
+</html>`, { waitUntil: 'networkidle' });
 
 await page.evaluate(() => document.fonts.ready);
 
-const steps = 48, seg = 16;
-const mag = [1.0,   0.1765, 0.4706];
-const vio = [0.749, 0.3725, 1.0];
-const cya = [0.0,   0.9608, 1.0];
-const lerp = (a, b, t) => a.map((v, j) => v + (b[j] - v) * t);
-const toRgb = c => `rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)})`;
+const el = page.locator('#wm-el');
 
-for (let i = 0; i < steps; i++) {
-  const k = i % seg, t = k / seg;
-  let c;
-  if      (i < seg)     c = lerp(mag, vio, t);
-  else if (i < 2 * seg) c = lerp(vio, cya, t);
-  else                   c = lerp(cya, mag, t);
+for (let i = 0; i < STEPS; i++) {
+  // Jump animation to time (i/STEPS * ANIM_DURATION) via negative delay
+  const t = (i / STEPS) * ANIM_DURATION;
+  await page.evaluate(delay => {
+    const el = document.getElementById('wm-el');
+    el.style.animationDelay     = `-${delay}s`;
+    el.style.animationPlayState = 'paused';
+  }, t);
 
-  await page.evaluate(col => { document.getElementById('wm').style.color = col; }, toRgb(c));
   const num = String(i).padStart(3, '0');
-  await page.locator('#wm').screenshot({
-    path: `${outDir}/wm-step-${num}.png`,
-    omitBackground: true,
-  });
+  await el.screenshot({ path: `${outDir}/wm-step-${num}.png`, omitBackground: true });
 }
 
 await browser.close();
 EOF
 
-echo "── rendering 48 Orbitron wordmark steps"
+echo "── rendering 48 Orbitron-900 wordmark steps (live Aether CSS)"
 rm -f "$A"/wm-step-*.png
-(cd "$WORK" && node wm.mjs "$FONT" "$A")
+(cd "$WORK" && node wm.mjs "$URL" "$A")
 
 echo "── done: $(ls "$THEME_DIR"/frames | wc -l) frames, $(du -sh "$THEME_DIR/frames" | cut -f1) · floor-grid $(du -sh "$A/floor-grid.png" | cut -f1) · wordmark PNGs $(ls "$A"/wm-step-*.png 2>/dev/null | wc -l)"
