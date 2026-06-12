@@ -1,10 +1,14 @@
 /* RaBbLE Aether — VSCodium visual injection
- * Full Aether language: harmony borders, flowing scan edges, rounded tabs,
- * neon glow cycling. Mirrors rabble-border-harmony from aether.css.
- * Self-contained — tokens inlined, no @import.
+ * Design language:
+ *   Panels (activitybar, sidebar): full conic-gradient ring border — all 4 sides
+ *   connected at corners, gradient rotates continuously. Same technique as
+ *   .rabble-border-harmony in aether.css.
+ *   Seam ribbons (tabs top, panel top): single-pass 200% linear gradient,
+ *   scrolling horizontally. Same technique as .rabble-harmony-line in aether.css.
+ * Self-contained — tokens inlined, no @import (blocked by Electron policy).
  */
 
-/* ══ @property — enables smooth conic-gradient angle animation ══════════════ */
+/* ══ @property ═══════════════════════════════════════════════════════════════ */
 @property --aether-angle {
   syntax: '<angle>';
   initial-value: 0deg;
@@ -13,13 +17,13 @@
 
 /* ══ Keyframes ═══════════════════════════════════════════════════════════════ */
 
-/* Rotating conic-gradient — matches rabble-border-harmony */
+/* Conic ring rotation — matches harmony-spin */
 @keyframes aether-harmony-spin {
   from { --aether-angle: 0deg; }
   to   { --aether-angle: 360deg; }
 }
 
-/* Cycling glow: cyan → violet → magenta — matches harmony-glow */
+/* Cycling glow — matches harmony-glow */
 @keyframes aether-glow-cycle {
   0%   { box-shadow: 0 0 12px rgba(0,245,255,0.35), 0 0 24px rgba(0,245,255,0.12); }
   33%  { box-shadow: 0 0 12px rgba(191,95,255,0.35), 0 0 24px rgba(191,95,255,0.12); }
@@ -27,21 +31,17 @@
   100% { box-shadow: 0 0 12px rgba(0,245,255,0.35), 0 0 24px rgba(0,245,255,0.12); }
 }
 
-/* Flowing neon ribbon — vertical (within-bounds edge, survives ancestor clip).
- * Period = 240px; position travels one full period for a seamless loop. */
-@keyframes aether-flow-y {
-  to { background-position: 0 240px; }
-}
-
-/* Flowing neon ribbon — horizontal */
+/* Horizontal ribbon scroll — matches harmony-scroll exactly */
 @keyframes aether-flow-x {
-  to { background-position: 240px 0; }
+  from { background-position: 0% center; }
+  to   { background-position: 100% center; }
 }
 
-/* ══ Harmony border mixin — applied to floating overlays ═════════════════════
- * Technique from .rabble-border-harmony in aether.css:
- *   ::before fills element with conic-gradient, mask clips to 1px border ring.
- */
+/* Seam glow — breathes between cyan and magenta */
+@keyframes aether-seam-glow {
+  0%,100% { box-shadow: 0 0 7px rgba(0,245,255,0.50); }
+  50%     { box-shadow: 0 0 7px rgba(255,45,120,0.50); }
+}
 
 /* ══ Scrollbar ═══════════════════════════════════════════════════════════════ */
 
@@ -58,72 +58,111 @@
 ::-webkit-scrollbar-track { background: #0a0010; }
 ::-webkit-scrollbar-corner { background: #0a0010; }
 
-/* ══ Tabs — rounded top, synthwave feel ══════════════════════════════════════ */
+/* ══ Tabs — rounded top corners + inset ring for visibility ═════════════════ */
 
-.monaco-workbench .part.editor .tabs-container .tab {
+.monaco-workbench .part.editor .tabs-container .tab,
+.monaco-workbench .part.editor .editor-group-container .tabs-container .tab {
     border-radius: 6px 6px 0 0 !important;
     margin: 0 1px !important;
-    transition: background 0.2s ease !important;
+    transition: background 0.2s ease, box-shadow 0.2s ease !important;
+    box-shadow: inset 0 0 0 1px rgba(191,95,255,0.12) !important;
+}
+.monaco-workbench .part.editor .tabs-container .tab:hover,
+.monaco-workbench .part.editor .editor-group-container .tabs-container .tab:hover {
+    box-shadow: inset 0 0 0 1px rgba(255,45,120,0.30) !important;
+}
+.monaco-workbench .part.editor .tabs-container .tab.active,
+.monaco-workbench .part.editor .editor-group-container .tabs-container .tab.active {
+    box-shadow: inset 0 0 0 1px rgba(255,45,120,0.40),
+                0 0 10px rgba(255,45,120,0.12) !important;
 }
 
-/* ══ Flowing neon separators ═════════════════════════════════════════════════
- * The ribbon lives INSIDE the element's right/top edge (not escaping with a
- * negative offset), so VSCode's grid-view ancestors — which clip overflow —
- * can't cut it off. Continuous cyan→violet→magenta gradient, always flowing.
+/* ══ Tab strip top ribbon ════════════════════════════════════════════════════
+ * Flowing gradient across the FULL width of the tabs container — replaces the
+ * solid tab.activeBorderTop (set transparent in the color theme JSON).
+ * Uses same technique as .rabble-harmony-line::after but horizontal.
  */
 
-/* Activity bar → sidebar seam (leftmost vertical ribbon) */
+.monaco-workbench .part.editor .editor-group-container .tabs-and-actions-container {
+    position: relative !important;
+}
+.monaco-workbench .part.editor .editor-group-container .tabs-and-actions-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        #00f5ff, #bf5fff, #ff2d78, #bf5fff, #00f5ff
+    );
+    background-size: 200% 100%;
+    animation: aether-flow-x 8s linear infinite,
+               aether-seam-glow 8s linear infinite;
+    pointer-events: none;
+    z-index: 50;
+}
+
+/* ══ Activitybar — full conic ring border (all 4 sides connected) ════════════
+ * Same technique as .rabble-border-harmony: conic-gradient fills the element,
+ * mask-composite:exclude clips it to a 2px ring at the perimeter.
+ * Gradient rotates continuously so corners flow seamlessly into each other.
+ */
+
 .monaco-workbench .activitybar.left {
     position: relative !important;
 }
-.monaco-workbench .activitybar.left::after {
+.monaco-workbench .activitybar.left::before {
     content: '';
     position: absolute;
-    top: 0;
-    right: 0;
-    width: 3px;
-    height: 100%;
-    background: repeating-linear-gradient(
-        180deg,
-        #00f5ff   0px,
-        #bf5fff  60px,
-        #ff2d78 120px,
-        #bf5fff 180px,
-        #00f5ff 240px
+    inset: 0;
+    padding: 2px;
+    background: conic-gradient(
+        from var(--aether-angle),
+        #00f5ff, #bf5fff, #ff2d78, #00f5ff
     );
-    box-shadow: 0 0 8px rgba(0,245,255,0.55), 0 0 14px rgba(255,45,120,0.40);
-    animation: aether-flow-y 4s linear infinite;
+    animation: aether-harmony-spin 9s linear infinite;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
     pointer-events: none;
     z-index: 30;
 }
 
-/* Sidebar → editor seam (vertical ribbon between file tree and editor) */
+/* ══ Sidebar — full conic ring border (all 4 sides + top) ═══════════════════
+ * Same conic ring as activitybar. Both elements share the same animation
+ * timing so their adjacent edges flow in phase — right edge of activitybar
+ * meets left edge of sidebar with matching colors.
+ */
+
 .monaco-workbench .part.sidebar.left {
     position: relative !important;
 }
-.monaco-workbench .part.sidebar.left::after {
+.monaco-workbench .part.sidebar.left::before {
     content: '';
     position: absolute;
-    top: 0;
-    right: 0;
-    width: 3px;
-    height: 100%;
-    background: repeating-linear-gradient(
-        180deg,
-        #00f5ff   0px,
-        #bf5fff  60px,
-        #ff2d78 120px,
-        #bf5fff 180px,
-        #00f5ff 240px
+    inset: 0;
+    padding: 2px;
+    background: conic-gradient(
+        from var(--aether-angle),
+        #00f5ff, #bf5fff, #ff2d78, #00f5ff
     );
-    box-shadow: 0 0 8px rgba(0,245,255,0.55), 0 0 14px rgba(255,45,120,0.40);
-    animation: aether-flow-y 4s linear infinite;
-    animation-delay: -2s;
+    animation: aether-harmony-spin 9s linear infinite;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
     pointer-events: none;
     z-index: 30;
 }
 
-/* Editor → panel seam (horizontal ribbon along panel top) */
+/* ══ Panel top ribbon ════════════════════════════════════════════════════════
+ * Horizontal flowing ribbon at the top of the bottom panel.
+ * Matches the tab strip ribbon: same gradient, same animation speed.
+ */
+
 .monaco-workbench .part.panel.bottom {
     position: relative !important;
 }
@@ -133,17 +172,14 @@
     top: 0;
     left: 0;
     width: 100%;
-    height: 3px;
-    background: repeating-linear-gradient(
+    height: 2px;
+    background: linear-gradient(
         90deg,
-        #00f5ff   0px,
-        #bf5fff  60px,
-        #ff2d78 120px,
-        #bf5fff 180px,
-        #00f5ff 240px
+        #00f5ff, #bf5fff, #ff2d78, #bf5fff, #00f5ff
     );
-    box-shadow: 0 0 8px rgba(0,245,255,0.55), 0 0 14px rgba(255,45,120,0.40);
-    animation: aether-flow-x 4s linear infinite;
+    background-size: 200% 100%;
+    animation: aether-flow-x 8s linear infinite,
+               aether-seam-glow 8s linear infinite;
     pointer-events: none;
     z-index: 30;
 }
@@ -167,7 +203,6 @@
     box-shadow: 0 8px 48px rgba(0,0,0,0.80) !important;
     animation: aether-glow-cycle 9s linear infinite !important;
 }
-
 .monaco-workbench .quick-input-widget::before {
     content: '';
     position: absolute;
@@ -196,7 +231,6 @@
     border: none !important;
     box-shadow: 0 4px 24px rgba(0,0,0,0.70) !important;
 }
-
 .monaco-workbench .notifications-toasts .notification-toast::before {
     content: '';
     position: absolute;
@@ -226,7 +260,6 @@
     box-shadow: 0 8px 40px rgba(0,0,0,0.80) !important;
     animation: aether-glow-cycle 9s linear infinite !important;
 }
-
 .monaco-workbench .context-view.monaco-menu-container::before {
     content: '';
     position: absolute;
@@ -246,7 +279,7 @@
     z-index: 1;
 }
 
-/* ══ Suggest / hover widgets — glow cycle ════════════════════════════════════ */
+/* ══ Suggest / hover widgets ═════════════════════════════════════════════════ */
 
 .monaco-workbench .overlayWidgets .suggest-widget {
     border-radius: 6px !important;
@@ -255,7 +288,7 @@
     animation: aether-glow-cycle 9s linear infinite !important;
 }
 
-/* ══ Sidebar section headers — cyan micro-accent ════════════════════════════ */
+/* ══ Sidebar section headers ═════════════════════════════════════════════════ */
 
 .monaco-workbench .part.sidebar .pane-header {
     border-bottom: 1px solid rgba(0,245,255,0.15) !important;
