@@ -81,17 +81,58 @@ echo "── extracting $FRAMES frames @ ${FPS}fps, crop ${CROP}px @ ($X,$Y)"
 
 mkdir -p "$THEME_DIR/frames"
 rm -f "$THEME_DIR"/frames/entity-*.png
-# colorkey=0x03000b: removes Boot.html's body background (#03000b) from each frame,
-# producing transparent PNGs so Plymouth composites cleanly over the void background.
-# similarity=0.15 handles WebM codec noise on flat dark regions; blend=0.1 soft-edges.
+# Extract opaque frames first — transparency applied by the Python step below.
 ffmpeg -loglevel error -ss 0.5 -i "$VIDEO" \
-  -vf "fps=$FPS,crop=$CROP:$CROP:$X:$Y,scale=$OUT_SIZE:$OUT_SIZE,colorkey=0x03000b:0.15:0.1,format=rgba" \
+  -vf "fps=$FPS,crop=$CROP:$CROP:$X:$Y,scale=$OUT_SIZE:$OUT_SIZE" \
   -frames:v "$FRAMES" "$THEME_DIR/frames/entity-%04d.png"
 
-# Optional size crush if pngquant is available
-if command -v pngquant >/dev/null; then
-  pngquant --force --ext .png --quality=60-80 "$THEME_DIR"/frames/entity-*.png || true
-fi
+# ── 2b. Alpha pass: background key + radial vignette ─────────────────────────
+# The entity canvas bakes in its background (~#02000b). ffmpeg colorkey is too
+# coarse here (no clean dist gap between bg and dim particles). Instead:
+#   - Background key (SOFT_IN=5, SOFT_OUT=18): removes bg + compression noise,
+#     lets dim halos fade naturally.
+#   - Radial vignette (R_FULL=215, R_ZERO=255): cosine fade to transparent at
+#     the frame edges so the sprite integrates into the Plymouth void with no
+#     visible square or circle boundary.
+# All real content is within r=215 (verified on entity-0022..0048 frames).
+python3 - "$THEME_DIR/frames" <<'PYEOF'
+import os, sys, math
+from PIL import Image
+
+FRAME_DIR = sys.argv[1]
+SIZE = 512
+CX, CY = SIZE // 2, SIZE // 2
+BG = (2, 0, 11)      # measured background: #02000b
+SOFT_IN, SOFT_OUT = 5, 18
+R_FULL, R_ZERO = 215, 255
+
+# Pre-compute radial mask
+radial = [[0.0]*SIZE for _ in range(SIZE)]
+for y in range(SIZE):
+    for x in range(SIZE):
+        r = math.sqrt((x-CX)**2 + (y-CY)**2)
+        if r <= R_FULL:
+            radial[y][x] = 1.0
+        elif r >= R_ZERO:
+            radial[y][x] = 0.0
+        else:
+            t = (r - R_FULL) / (R_ZERO - R_FULL)
+            radial[y][x] = 0.5 * (1.0 + math.cos(math.pi * t))
+
+frames = sorted(f for f in os.listdir(FRAME_DIR) if f.startswith('entity-') and f.endswith('.png'))
+for fname in frames:
+    path = os.path.join(FRAME_DIR, fname)
+    img = Image.open(path).convert('RGBA')
+    data = img.load()
+    for y in range(SIZE):
+        for x in range(SIZE):
+            r, g, b, a = data[x, y]
+            d = math.sqrt((r-BG[0])**2 + (g-BG[1])**2 + (b-BG[2])**2)
+            key = 0.0 if d <= SOFT_IN else (1.0 if d >= SOFT_OUT else (d-SOFT_IN)/(SOFT_OUT-SOFT_IN))
+            data[x, y] = (r, g, b, int(a * key * radial[y][x]))
+    img.save(path, 'PNG', optimize=False)
+print(f'alpha pass: {len(frames)} frames processed')
+PYEOF
 
 # ── 3. Static overlay assets ─────────────────────────────────────────────────
 # Palette: #0a0010 void · #2a2840 border · #ff2d78 magenta · #00f5ff cyan
