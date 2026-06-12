@@ -118,6 +118,7 @@
     position: absolute;
     inset: 0;
     padding: 2px;
+    border-radius: 8px;
     background: conic-gradient(
         from var(--aether-angle),
         #00f5ff, #bf5fff, #ff2d78, #00f5ff
@@ -145,6 +146,7 @@
     position: absolute;
     inset: 0;
     padding: 2px;
+    border-radius: 8px;
     background: conic-gradient(
         from var(--aether-angle),
         #00f5ff, #bf5fff, #ff2d78, #00f5ff
