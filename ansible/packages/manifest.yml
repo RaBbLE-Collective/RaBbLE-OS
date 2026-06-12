@@ -689,6 +689,59 @@ packages:
     # See: RaBbLE-OS-KnownIssues.md
 
   # ═══════════════════════════════════════════════════════════════════════════
+  # APPS — THEMING & ICONS
+  # Qt/GTK theming, icon themes, folder customization
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - name: papirus-icon-theme
+    category: apps.theming
+    reason: Icon theme for RaBbLE-Aether — consistent visual language across Qt/GTK apps
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: papirus-folders
+    category: apps.theming
+    reason: Folder color customization — magenta tint for RaBbLE-Aether theme
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: kvantum
+    category: apps.theming
+    reason: Qt theme engine — enables RaBbLE-Aether Kvantum theme for Qt5/Qt6 apps
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: kvantum-qt5
+    category: apps.theming
+    reason: Qt5 plugin for Kvantum theme engine
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: qt5ct
+    category: apps.theming
+    reason: Qt5 configuration utility — sets style, icon theme, fonts
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: qt6ct
+    category: apps.theming
+    reason: Qt6 configuration utility — sets style, icon theme, fonts
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  # ═══════════════════════════════════════════════════════════════════════════
   # HARDWARE — ASUS ProArt P16
   # Platform: asus_proart_p16 only — filtered by Ansible inventory group.
   # Requires RPM Fusion repos enabled before NVIDIA packages can install.
