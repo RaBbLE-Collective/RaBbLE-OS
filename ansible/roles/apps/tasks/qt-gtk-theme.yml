@@ -94,6 +94,15 @@
     mode: '0644'
   tags: [apps, theming, gtk]
 
+- name: qt-gtk-theme | deploy GTK3 settings.ini (dark theme + Papirus icons)
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/gtk-3.0/settings.ini"
+    dest: "{{ rabble_home }}/.config/gtk-3.0/settings.ini"
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0644'
+  tags: [apps, theming, gtk]
+
 - name: qt-gtk-theme | create GTK4 config directory
   ansible.builtin.file:
     path: "{{ rabble_home }}/.config/gtk-4.0"
