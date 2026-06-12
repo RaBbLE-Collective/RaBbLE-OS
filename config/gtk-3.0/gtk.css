@@ -1,4 +1,4 @@
-/* RaBbLE-Aether GTK3 Theme — Deep void with neon accents */
+/* RaBbLE-Aether GTK3 Theme — Aggressive void override */
 
 @define-color void_bg #0a0010;
 @define-color surface_bg #12132a;
@@ -10,129 +10,169 @@
 @define-color accent_violet #bf5fff;
 @define-color border_dim rgba(191,95,255,0.3);
 
+/* Force icon theme */
 * {
-  -gtk-icon-theme: "Papirus-Dark";
+  -gtk-icon-theme-name: "Papirus-Dark" !important;
 }
 
-/* Force all main areas to deep void */
-window, .background {
-  background-color: @void_bg;
-  color: @text_fg;
+/* AGGRESSIVE: Override ALL backgrounds to void */
+* {
+  background-color: @void_bg !important;
+  background: @void_bg !important;
 }
 
-/* Sidebars, panels, main areas — void dark */
-.sidebar, treeview, .view {
-  background-color: @void_bg;
-  color: @text_fg;
+/* Window and main backgrounds */
+window, window.background, .background, GtkWindow {
+  background-color: @void_bg !important;
+  color: @text_fg !important;
 }
 
-/* File list rows */
-.view row {
-  background-color: @void_bg;
-  color: @text_fg;
+/* Override specific light areas to void */
+.view, treeview, treeview.view, GtkTreeView,
+.sidebar, GtkSidebar,
+GtkFileChooserWidget,
+GtkFileChooserDefault {
+  background-color: @void_bg !important;
+  color: @text_fg !important;
 }
 
-.view row:selected {
-  background-color: rgba(0,245,255,0.15);
-  color: @text_fg;
+/* File list and tree rows */
+treeview row, .view row,
+treeview.view row {
+  background-color: @void_bg !important;
+  color: @text_fg !important;
 }
 
-.view row:hover {
-  background-color: rgba(0,245,255,0.08);
+treeview row:selected, treeview row:focus,
+.view row:selected, .view row:focus {
+  background-color: rgba(0,245,255,0.15) !important;
+  color: @text_fg !important;
 }
 
-/* Header bar — surface level, not void */
-headerbar {
-  background-color: @surface_bg;
-  color: @text_fg;
-  border-bottom: 1px solid @border_dim;
+/* Column headers */
+treeview.view header,
+treeview.view column,
+GtkTreeView header,
+GtkTreeView column {
+  background-color: @surface_bg !important;
+  color: @text_fg !important;
+  border: 1px solid @border_dim !important;
 }
 
-headerbar:backdrop {
-  background-color: @void_bg;
-  color: @text_muted;
+/* Header/title bar */
+headerbar, GtkHeaderBar {
+  background-color: @surface_bg !important;
+  color: @text_fg !important;
+  border-bottom: 1px solid @border_dim !important;
 }
 
-/* Text inputs */
-entry {
-  background-color: @raised_bg;
-  color: @text_fg;
-  border: 1px solid @border_dim;
+/* Text input fields */
+entry, GtkEntry {
+  background-color: @raised_bg !important;
+  color: @text_fg !important;
+  border: 1px solid @border_dim !important;
 }
 
 entry:focus {
-  background-color: @raised_bg;
-  border: 1px solid @accent_cyan;
-  box-shadow: inset 0 0 0 1px rgba(0,245,255,0.2);
+  background-color: @raised_bg !important;
+  border: 1px solid @accent_cyan !important;
+  box-shadow: inset 0 0 0 1px rgba(0,245,255,0.2) !important;
 }
 
 /* Buttons */
-button {
-  background-color: @raised_bg;
-  color: @text_fg;
-  border: 1px solid @border_dim;
+button, GtkButton {
+  background-color: @raised_bg !important;
+  color: @text_fg !important;
+  border: 1px solid @border_dim !important;
 }
 
 button:hover {
-  background-color: @surface_bg;
-  border-color: rgba(0,245,255,0.5);
+  background-color: @surface_bg !important;
+  border-color: rgba(0,245,255,0.5) !important;
 }
 
 button:active, button:checked {
-  background-color: rgba(0,245,255,0.1);
-  border-color: @accent_cyan;
-  color: @text_fg;
+  background-color: rgba(0,245,255,0.1) !important;
+  border-color: @accent_cyan !important;
+  color: @text_fg !important;
 }
 
-button:disabled {
-  opacity: 0.5;
+/* Scrollbars */
+scrollbar, GtkScrollbar {
+  background: @void_bg !important;
 }
 
-/* Scrollbars — neon magenta on void */
-scrollbar trough {
-  background-color: @void_bg;
-  border: 1px solid @border_dim;
+scrollbar trough, GtkScrollbar trough {
+  background-color: @void_bg !important;
+  border: 1px solid @border_dim !important;
 }
 
-scrollbar slider {
-  background-color: @accent_magenta;
-  border-radius: 6px;
-  min-width: 6px;
-  min-height: 6px;
+scrollbar slider, GtkScrollbar slider {
+  background-color: @accent_magenta !important;
+  border-radius: 6px !important;
+  min-width: 6px !important;
+  min-height: 6px !important;
 }
 
 scrollbar slider:hover {
-  background-color: @accent_violet;
+  background-color: @accent_violet !important;
 }
 
-/* Menus */
-menu, .menu {
-  background-color: @surface_bg;
-  color: @text_fg;
-  border: 1px solid @border_dim;
+/* Menus and menuitems */
+menu, .menu, GtkMenu {
+  background-color: @surface_bg !important;
+  color: @text_fg !important;
+  border: 1px solid @border_dim !important;
+}
+
+menuitem {
+  background-color: @surface_bg !important;
+  color: @text_fg !important;
 }
 
 menuitem:hover {
-  background-color: rgba(255,45,120,0.15);
-  color: @text_fg;
+  background-color: rgba(255,45,120,0.15) !important;
+  color: @text_fg !important;
 }
 
 /* Tooltips */
-tooltip, tooltip.background {
-  background-color: @surface_bg;
-  color: @text_fg;
-  border: 1px solid @border_dim;
-  border-radius: 4px;
+tooltip, GtkTooltip {
+  background-color: @surface_bg !important;
+  color: @text_fg !important;
+  border: 1px solid @border_dim !important;
+  border-radius: 4px !important;
 }
 
 tooltip * {
-  background-color: transparent;
-  color: @text_fg;
+  background-color: transparent !important;
+  color: @text_fg !important;
 }
 
-/* Paned separators */
+/* Statusbar */
+statusbar, GtkStatusbar {
+  background-color: @void_bg !important;
+  color: @text_fg !important;
+  border-top: 1px solid @border_dim !important;
+}
+
+/* Separators and dividers */
+separator, GtkSeparator,
 .paned > separator {
-  background-color: @border_dim;
-  min-width: 1px;
-  min-height: 1px;
+  background-color: @border_dim !important;
+  color: @border_dim !important;
+}
+
+/* Notebook/tabs */
+.notebook, GtkNotebook {
+  background-color: @void_bg !important;
+}
+
+.notebook tab {
+  background-color: @surface_bg !important;
+  color: @text_fg !important;
+}
+
+.notebook tab:active {
+  background-color: rgba(0,245,255,0.1) !important;
+  border: 1px solid @accent_cyan !important;
 }
