@@ -21,7 +21,7 @@
 
 - name: qt-gtk-theme | deploy Kvantum theme files
   ansible.builtin.copy:
-    src: "{{ role_path }}/../../config/kvantum/RaBbLE-Aether/"
+    src: "{{ dotfiles_repo_root }}/config/kvantum/RaBbLE-Aether/"
     dest: "{{ rabble_home }}/.config/Kvantum/RaBbLE-Aether/"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"
@@ -51,7 +51,7 @@
 
 - name: qt-gtk-theme | deploy qt5ct configuration
   ansible.builtin.copy:
-    src: "{{ role_path }}/../../config/qt5ct/qt5ct.conf"
+    src: "{{ dotfiles_repo_root }}/config/qt5ct/qt5ct.conf"
     dest: "{{ rabble_home }}/.config/qt5ct/qt5ct.conf"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"
@@ -69,7 +69,7 @@
 
 - name: qt-gtk-theme | deploy qt6ct configuration
   ansible.builtin.copy:
-    src: "{{ role_path }}/../../config/qt6ct/qt6ct.conf"
+    src: "{{ dotfiles_repo_root }}/config/qt6ct/qt6ct.conf"
     dest: "{{ rabble_home }}/.config/qt6ct/qt6ct.conf"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"
@@ -87,7 +87,7 @@
 
 - name: qt-gtk-theme | deploy GTK3 CSS
   ansible.builtin.copy:
-    src: "{{ role_path }}/../../config/gtk-3.0/gtk.css"
+    src: "{{ dotfiles_repo_root }}/config/gtk-3.0/gtk.css"
     dest: "{{ rabble_home }}/.config/gtk-3.0/gtk.css"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"
@@ -105,7 +105,7 @@
 
 - name: qt-gtk-theme | deploy GTK4 CSS
   ansible.builtin.copy:
-    src: "{{ role_path }}/../../config/gtk-4.0/gtk.css"
+    src: "{{ dotfiles_repo_root }}/config/gtk-4.0/gtk.css"
     dest: "{{ rabble_home }}/.config/gtk-4.0/gtk.css"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"
