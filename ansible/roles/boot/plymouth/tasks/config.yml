@@ -1,6 +1,47 @@
 ---
-# boot/plymouth/tasks/config.yml — STUB
-- name: plymouth config — stub
-  ansible.builtin.debug:
-    msg: "spark ~ boot/plymouth >> config stub, no-op // %DORMANT%"
+# boot/plymouth/tasks/config.yml
+# Deploys the rabble-aether boot splash — a frame-player port of the canonical
+# RaBbLE-Boot.html animation. Entity frames are pre-captured into
+# files/rabble-aether/frames/ by files/rabble-aether/build-assets.sh; Ansible
+# only deploys what is committed — it never runs the capture.
+
+- name: Deploy rabble-aether Plymouth theme
+  ansible.builtin.copy:
+    src: rabble-aether/
+    dest: /usr/share/plymouth/themes/rabble-aether/
+    owner: root
+    group: root
+    directory_mode: "0755"
+    mode: "0644"
+  become: true
+  notify: rebuild initrd
+  tags: [boot, plymouth, config]
+
+- name: Include JetBrains Mono in the initrd for Image.Text rendering
+  ansible.builtin.copy:
+    dest: /etc/dracut.conf.d/90-rabble-plymouth-fonts.conf
+    content: |
+      # rabble-aether Plymouth theme fonts — deployed by Ansible (boot/plymouth)
+      # Pango falls back to DejaVu Sans if these are ever missing.
+      install_items+=" /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Bold.otf /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Regular.otf "
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: rebuild initrd
+  tags: [boot, plymouth, config]
+
+- name: Read current Plymouth default theme
+  ansible.builtin.command: plymouth-set-default-theme
+  register: plymouth_current_theme
+  changed_when: false
+  failed_when: false
+  become: true
+  tags: [boot, plymouth, config]
+
+- name: Set rabble-aether as the default Plymouth theme
+  ansible.builtin.command: plymouth-set-default-theme rabble-aether
+  when: (plymouth_current_theme.stdout | trim) != 'rabble-aether'
+  become: true
+  notify: rebuild initrd
   tags: [boot, plymouth, config]

@@ -5,6 +5,7 @@
     name:
       - plymouth
       - plymouth-plugin-script
+      - plymouth-plugin-label
     state: present
   become: true
   tags: [boot, plymouth, packages]

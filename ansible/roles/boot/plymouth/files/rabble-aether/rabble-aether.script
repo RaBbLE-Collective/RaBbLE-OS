@@ -1,0 +1,375 @@
+# =============================================================================
+# rabble-aether.script — RaBbLE-OS Plymouth boot splash
+#
+# Frame-player port of RaBbLE-Boot.html: the entity animation is pre-captured
+# from the live NeBuLA canvas (see build-assets.sh) and played back here while
+# the boot log, wordmark, progress bar, and prompts are scripted live.
+#
+# Timeline (refresh ticks at ~50/s):
+#   frames 1..77   entity convergence -> eye emergence, played once
+#   frames 78..96  eye idle pulse, ping-ponged until boot completes
+#   ticks  10..165 fake boot log reveals bottom-left
+#   ticks  75..200 wordmark + tagline fade in below the entity
+#   always         real boot progress drives the bar; systemd messages above it
+#
+# Palette: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md only.
+# =============================================================================
+
+# ── Palette (0..1 floats) ────────────────────────────────────────────────────
+void.r = 0.0392;   void.g = 0.0000;   void.b = 0.0627;   # #0a0010
+magenta.r = 1.0000; magenta.g = 0.1765; magenta.b = 0.4706; # #ff2d78
+cyan.r = 0.0000;   cyan.g = 0.9608;   cyan.b = 1.0000;   # #00f5ff
+violet.r = 0.7490; violet.g = 0.3725; violet.b = 1.0000; # #bf5fff
+text.r = 0.9098;   text.g = 0.9020;   text.b = 0.9412;   # #e8e6f0
+muted.r = 0.4196;  muted.g = 0.4078;  muted.b = 0.5020;  # #6b6880
+green.r = 0.3137;  green.g = 0.9804;  green.b = 0.4824;  # #50fa7b
+yellow.r = 0.9451; yellow.g = 0.9804; yellow.b = 0.5490; # #f1fa8c
+
+Window.SetBackgroundTopColor(void.r, void.g, void.b);
+Window.SetBackgroundBottomColor(void.r, void.g, void.b);
+
+screen_w = Window.GetWidth();
+screen_h = Window.GetHeight();
+
+mode = Plymouth.GetMode();
+quiet_mode = 0;
+if (mode == "shutdown" || mode == "reboot")
+  quiet_mode = 1;
+
+font_mono      = "JetBrains Mono 11";
+font_mono_sm   = "JetBrains Mono 10";
+font_mono_md   = "JetBrains Mono 13";
+font_wordmark  = "JetBrains Mono Bold 64";
+
+# ── Scanlines overlay ────────────────────────────────────────────────────────
+scan_img = Image("assets/scanlines.png");
+scan_img = scan_img.Scale(screen_w, screen_h);
+scan_sprite = Sprite(scan_img);
+scan_sprite.SetPosition(0, 0, 500);
+
+# ── Entity frames ────────────────────────────────────────────────────────────
+frame_count = 96;
+loop_start  = 78;
+
+for (i = 1; i <= frame_count; i++) {
+  if (i < 10)
+    fname = "frames/entity-000" + i + ".png";
+  else
+    fname = "frames/entity-00" + i + ".png";
+  entity_frame[i] = Image(fname);
+}
+
+entity_size = entity_frame[1].GetWidth();
+entity_cx = Math.Int(screen_w / 2);
+entity_cy = Math.Int(screen_h * 0.36);
+entity_x  = entity_cx - Math.Int(entity_size / 2);
+entity_y  = entity_cy - Math.Int(entity_size / 2);
+
+cur_frame = 1;
+if (quiet_mode == 1)
+  cur_frame = loop_start;
+loop_dir = 1;
+
+entity_sprite = Sprite(entity_frame[cur_frame]);
+entity_sprite.SetPosition(entity_x, entity_y, 10);
+
+# ── Wordmark: pre-rendered color-cycle steps (magenta -> violet -> cyan) ─────
+wm_steps = 48;            # 3 segments x 16 steps
+seg = 16;
+for (i = 0; i < wm_steps; i++) {
+  k = i % seg;
+  t = k / seg;
+  if (i < seg) {          # magenta -> violet
+    r = magenta.r + (violet.r - magenta.r) * t;
+    g = magenta.g + (violet.g - magenta.g) * t;
+    b = magenta.b + (violet.b - magenta.b) * t;
+  } else if (i < 2 * seg) { # violet -> cyan
+    r = violet.r + (cyan.r - violet.r) * t;
+    g = violet.g + (cyan.g - violet.g) * t;
+    b = violet.b + (cyan.b - violet.b) * t;
+  } else {                # cyan -> magenta
+    r = cyan.r + (magenta.r - cyan.r) * t;
+    g = cyan.g + (magenta.g - cyan.g) * t;
+    b = cyan.b + (magenta.b - cyan.b) * t;
+  }
+  wm_img[i] = Image.Text("RaBbLE", r, g, b, 1, font_wordmark);
+}
+
+wm_w = wm_img[0].GetWidth();
+wm_h = wm_img[0].GetHeight();
+wm_x = Math.Int((screen_w - wm_w) / 2);
+wm_y = entity_y + entity_size - 14;
+wm_sprite = Sprite(wm_img[0]);
+wm_sprite.SetPosition(wm_x, wm_y, 20);
+wm_sprite.SetOpacity(0);
+
+tagline_img = Image.Text("b e h a v i o r a l   l e a r n i n g   e n g i n e",
+                         violet.r, violet.g, violet.b, 0.78, font_mono);
+tagline_x = Math.Int((screen_w - tagline_img.GetWidth()) / 2);
+tagline_y = wm_y + wm_h + 10;
+tagline_sprite = Sprite(tagline_img);
+tagline_sprite.SetPosition(tagline_x, tagline_y, 20);
+tagline_sprite.SetOpacity(0);
+
+# ── Fake boot log (adapted from RaBbLE-World RaBbLE-boot.js) ─────────────────
+log_count = 14;
+log_lines[0].ts  = "[  0.000000]"; log_lines[0].tag  = "INFO";   log_lines[0].msg  = "Initializing cgroup subsystems";
+log_lines[1].ts  = "[  0.000001]"; log_lines[1].tag  = "INFO";   log_lines[1].msg  = "BIOS-provided physical RAM map: ∞ bytes available";
+log_lines[2].ts  = "[  0.000034]"; log_lines[2].tag  = "INFO";   log_lines[2].msg  = "ACPI: RSDP 0xBF5FFF00 000024 (v02 RaBbLE)";
+log_lines[3].ts  = "[  0.001200]"; log_lines[3].tag  = " OK ";   log_lines[3].msg  = "Reached target Early Initialization";
+log_lines[4].ts  = "[  0.012004]"; log_lines[4].tag  = "INFO";   log_lines[4].msg  = "Calibrating behavioral noise floor...";
+log_lines[5].ts  = "[  0.012006]"; log_lines[5].tag  = " OK ";   log_lines[5].msg  = "Entropy baseline locked: δ = 0.4182 · variance within tolerance";
+log_lines[6].ts  = "[  0.028331]"; log_lines[6].tag  = "INFO";   log_lines[6].msg  = "Loading kernel module: rabble_pattern.ko";
+log_lines[7].ts  = "[  0.028332]"; log_lines[7].tag  = " OK ";   log_lines[7].msg  = "Pattern recognition engine: ONLINE · 14 pattern classes loaded";
+log_lines[8].ts  = "[  0.041007]"; log_lines[8].tag  = "INFO";   log_lines[8].msg  = "Mounting memoryfs on /substrate/memory type memoryfs (rw,relatime)";
+log_lines[9].ts  = "[  0.041009]"; log_lines[9].tag  = " OK ";   log_lines[9].msg  = "Memory substrate: MOUNTED · 047 sessions indexed";
+log_lines[10].ts = "[  0.088003]"; log_lines[10].tag = "INFO";   log_lines[10].msg = "Starting RaBbLE behavioral core...";
+log_lines[11].ts = "[  0.112551]"; log_lines[11].tag = " OK ";   log_lines[11].msg = "RaBbLE behavioral core: RUNNING · process ID 1337";
+log_lines[12].ts = "[  0.122005]"; log_lines[12].tag = "RaBbLE"; log_lines[12].msg = "◈ Session detected · entropy elevated · curious mode engaged";
+log_lines[13].ts = "[  0.138003]"; log_lines[13].tag = " OK ";   log_lines[13].msg = "Network Manager: ACTIVE · connection established";
+
+log_x = Math.Int(screen_w * 0.04);
+line_h = 22;
+log_y0 = Math.Int(screen_h * 0.97) - log_count * line_h;
+
+for (i = 0; i < log_count; i++) {
+  tag = log_lines[i].tag;
+  if (tag == " OK ") {
+    tr = green.r; tg = green.g; tb = green.b;
+  } else if (tag == "WARN") {
+    tr = yellow.r; tg = yellow.g; tb = yellow.b;
+  } else if (tag == "RaBbLE") {
+    tr = violet.r; tg = violet.g; tb = violet.b;
+  } else {
+    tr = cyan.r; tg = cyan.g; tb = cyan.b;
+  }
+
+  ts_img  = Image.Text(log_lines[i].ts + "  ", muted.r, muted.g, muted.b, 0.9, font_mono_sm);
+  tag_img = Image.Text(tag + "  ", tr, tg, tb, 1, font_mono_sm);
+  msg_img = Image.Text(log_lines[i].msg, text.r, text.g, text.b, 0.82, font_mono_sm);
+
+  y = log_y0 + i * line_h;
+  log_lines[i].ts_sprite = Sprite(ts_img);
+  log_lines[i].ts_sprite.SetPosition(log_x, y, 30);
+  log_lines[i].ts_sprite.SetOpacity(0);
+  log_lines[i].tag_sprite = Sprite(tag_img);
+  log_lines[i].tag_sprite.SetPosition(log_x + ts_img.GetWidth(), y, 30);
+  log_lines[i].tag_sprite.SetOpacity(0);
+  log_lines[i].msg_sprite = Sprite(msg_img);
+  log_lines[i].msg_sprite.SetPosition(log_x + ts_img.GetWidth() + tag_img.GetWidth(), y, 30);
+  log_lines[i].msg_sprite.SetOpacity(0);
+  log_lines[i].reveal_tick = 10 + i * 11;
+}
+
+# ── Progress bar ─────────────────────────────────────────────────────────────
+bar_w = Math.Int(screen_w * 0.34);
+bar_h = 6;
+bar_x = Math.Int((screen_w - bar_w) / 2);
+bar_y = Math.Int(screen_h * 0.84);
+
+track_src = Image("assets/bar-track.png");
+fill_src  = Image("assets/bar-fill.png");
+dot_src   = Image("assets/dot.png");
+
+track_sprite = Sprite(track_src.Scale(bar_w, bar_h));
+track_sprite.SetPosition(bar_x, bar_y, 40);
+track_sprite.SetOpacity(0.55);
+
+fill_sprite = Sprite();
+fill_sprite.SetPosition(bar_x, bar_y, 41);
+
+dot_sprite = Sprite(dot_src);
+dot_sprite.SetPosition(bar_x - 7, bar_y + Math.Int(bar_h / 2) - 7, 42);
+dot_sprite.SetOpacity(0);
+
+pct_sprite = Sprite();
+pct_sprite.SetPosition(bar_x + bar_w + 16, bar_y - 4, 40);
+
+ready_img = Image.Text("◈ Boundless and becoming · ready when you are",
+                       violet.r, violet.g, violet.b, 1, font_mono_md);
+ready_sprite = Sprite(ready_img);
+ready_sprite.SetPosition(Math.Int((screen_w - ready_img.GetWidth()) / 2), bar_y + 26, 40);
+ready_sprite.SetOpacity(0);
+
+# ── systemd message line (fsck, etc.) ────────────────────────────────────────
+message_sprite = Sprite();
+message_sprite.SetPosition(bar_x, bar_y - 30, 40);
+
+# ── Password / question dialog ───────────────────────────────────────────────
+panel_src = Image("assets/panel.png");
+dialog.up = 0;
+dialog.panel_sprite = Sprite();
+dialog.prompt_sprite = Sprite();
+dialog.entry_sprite = Sprite();
+
+fun show_dialog(prompt_text, entry_text) {
+  panel_w = Math.Int(screen_w * 0.30);
+  panel_h = 96;
+  panel_x = Math.Int((screen_w - panel_w) / 2);
+  panel_y = Math.Int(screen_h * 0.70);
+
+  global.dialog.panel_sprite.SetImage(panel_src.Scale(panel_w, panel_h));
+  global.dialog.panel_sprite.SetPosition(panel_x, panel_y, 200);
+  global.dialog.panel_sprite.SetOpacity(1);
+
+  prompt_img = Image.Text(prompt_text, cyan.r, cyan.g, cyan.b, 1, font_mono);
+  global.dialog.prompt_sprite.SetImage(prompt_img);
+  global.dialog.prompt_sprite.SetPosition(
+    Math.Int((screen_w - prompt_img.GetWidth()) / 2), panel_y + 20, 201);
+  global.dialog.prompt_sprite.SetOpacity(1);
+
+  entry_img = Image.Text(entry_text, magenta.r, magenta.g, magenta.b, 1, font_mono_md);
+  global.dialog.entry_sprite.SetImage(entry_img);
+  global.dialog.entry_sprite.SetPosition(
+    Math.Int((screen_w - entry_img.GetWidth()) / 2), panel_y + 52, 201);
+  global.dialog.entry_sprite.SetOpacity(1);
+
+  global.dialog.up = 1;
+}
+
+fun display_password_callback(prompt, bullets) {
+  if (prompt == "")
+    prompt = "Passphrase required · RaBbLE is waiting";
+  marks = "";
+  for (i = 0; i < bullets; i++)
+    marks = marks + "* ";
+  if (marks == "")
+    marks = " ";
+  show_dialog(prompt, marks);
+}
+
+fun display_question_callback(prompt, entry) {
+  if (entry == "")
+    entry = " ";
+  show_dialog(prompt, entry);
+}
+
+fun display_normal_callback() {
+  global.dialog.panel_sprite.SetOpacity(0);
+  global.dialog.prompt_sprite.SetOpacity(0);
+  global.dialog.entry_sprite.SetOpacity(0);
+  global.dialog.up = 0;
+}
+
+# ── Boot progress ────────────────────────────────────────────────────────────
+boot_progress = 0;
+shown_progress = 0;
+last_fill_w = -1;
+last_pct = -1;
+done_tick = 0;
+fade_master = 1;
+
+fun progress_callback(duration, progress) {
+  global.boot_progress = progress;
+}
+
+fun message_callback(msg) {
+  if (msg == "") {
+    global.message_sprite.SetOpacity(0);
+    return;
+  }
+  msg_img = Image.Text(msg, muted.r, muted.g, muted.b, 1, font_mono_sm);
+  global.message_sprite.SetImage(msg_img);
+  global.message_sprite.SetOpacity(0.9);
+}
+
+# ── Refresh: the heartbeat ───────────────────────────────────────────────────
+tick = 0;
+
+fun refresh_callback() {
+  global.tick = global.tick + 1;
+
+  # entity frame advance (~12.5 fps against the ~50/s refresh)
+  if ((global.tick % 4) == 0) {
+    if (global.cur_frame < loop_start) {
+      global.cur_frame = global.cur_frame + 1;
+    } else {
+      global.cur_frame = global.cur_frame + global.loop_dir;
+      if (global.cur_frame >= frame_count) {
+        global.cur_frame = frame_count;
+        global.loop_dir = -1;
+      }
+      if (global.cur_frame <= loop_start) {
+        global.cur_frame = loop_start;
+        global.loop_dir = 1;
+      }
+    }
+    entity_sprite.SetImage(entity_frame[global.cur_frame]);
+  }
+
+  # completion: hold 0.8s after progress hits 1.0, then fade everything out
+  if (global.boot_progress >= 0.999 && global.done_tick == 0)
+    global.done_tick = global.tick;
+  if (global.done_tick > 0 && global.tick > global.done_tick + 40) {
+    global.fade_master = global.fade_master - 0.025;
+    if (global.fade_master < 0)
+      global.fade_master = 0;
+  }
+  fade = global.fade_master;
+
+  # entity dims while a password dialog is up
+  entity_opacity = fade;
+  if (global.dialog.up == 1)
+    entity_opacity = 0.30 * fade;
+  entity_sprite.SetOpacity(entity_opacity);
+
+  # wordmark fade-in (ticks 75..200) + color cycle every 3 ticks
+  wm_opacity = (global.tick - 75) / 125;
+  if (quiet_mode == 1)
+    wm_opacity = 0.85;
+  if (wm_opacity < 0) wm_opacity = 0;
+  if (wm_opacity > 1) wm_opacity = 1;
+  cycle = Math.Int(global.tick / 3) % wm_steps;
+  wm_sprite.SetImage(wm_img[cycle]);
+  wm_sprite.SetOpacity(wm_opacity * fade);
+  tagline_sprite.SetOpacity(wm_opacity * 0.9 * fade);
+
+  # fake boot log reveal (skipped on shutdown)
+  if (quiet_mode == 0) {
+    for (i = 0; i < log_count; i++) {
+      if (global.tick >= log_lines[i].reveal_tick) {
+        log_lines[i].ts_sprite.SetOpacity(0.9 * fade);
+        log_lines[i].tag_sprite.SetOpacity(fade);
+        log_lines[i].msg_sprite.SetOpacity(0.82 * fade);
+      }
+    }
+  }
+
+  # progress bar eases toward the real value
+  global.shown_progress = global.shown_progress
+                        + (global.boot_progress - global.shown_progress) * 0.08;
+  w = Math.Int(bar_w * global.shown_progress);
+  if (w > bar_w) w = bar_w;
+  if (w != global.last_fill_w && w > 0) {
+    fill_sprite.SetImage(fill_src.Scale(w, bar_h));
+    global.last_fill_w = w;
+  }
+  fill_sprite.SetOpacity(fade);
+  track_sprite.SetOpacity(0.55 * fade);
+
+  if (w > 2) {
+    dot_sprite.SetPosition(bar_x + w - 7, bar_y + Math.Int(bar_h / 2) - 7, 42);
+    dot_sprite.SetOpacity(fade);
+  } else {
+    dot_sprite.SetOpacity(0);
+  }
+
+  pct = Math.Int(global.shown_progress * 100);
+  if (pct > 100) pct = 100;
+  if (pct != global.last_pct) {
+    pct_sprite.SetImage(Image.Text(pct + "%", muted.r, muted.g, muted.b, 1, font_mono_sm));
+    global.last_pct = pct;
+  }
+  pct_sprite.SetOpacity(fade);
+
+  # ready line once boot is effectively complete
+  if (global.boot_progress >= 0.97)
+    ready_sprite.SetOpacity(fade);
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+Plymouth.SetBootProgressFunction(progress_callback);
+Plymouth.SetMessageFunction(message_callback);
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayQuestionFunction(display_question_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);

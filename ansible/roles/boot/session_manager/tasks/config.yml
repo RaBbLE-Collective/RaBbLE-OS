@@ -2,7 +2,7 @@
 # boot/session_manager/tasks/config.yml
 # System-level session/login configuration (requires become: true).
 # Logind controls hardware events (lid close, power button, suspend).
-# SDDM theme config is handled separately via dotctl.
+# SDDM greeter theme (rabble-aether) is deployed below — pure QML, no assets.
 
 - name: Create logind drop-in directory
   ansible.builtin.file:
@@ -21,4 +21,39 @@
     group: root
     mode: "0644"
   notify: reload logind
+  tags: [boot, sddm, config]
+
+# ── SDDM greeter theme — rabble-aether ───────────────────────────────────────
+# Deliberately no `notify: restart sddm`: restarting SDDM kills the active
+# session. The theme is picked up the next time the greeter starts.
+
+- name: Deploy rabble-aether SDDM theme
+  ansible.builtin.copy:
+    src: sddm-theme/
+    dest: /usr/share/sddm/themes/rabble-aether/
+    owner: root
+    group: root
+    directory_mode: "0755"
+    mode: "0644"
+  become: true
+  tags: [boot, sddm, config]
+
+- name: Create SDDM config drop-in directory
+  ansible.builtin.file:
+    path: /etc/sddm.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [boot, sddm, config]
+
+- name: Activate rabble-aether SDDM theme
+  ansible.builtin.copy:
+    src: 99-rabble-theme.conf
+    dest: /etc/sddm.conf.d/99-rabble-theme.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
   tags: [boot, sddm, config]

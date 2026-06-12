@@ -1,0 +1,11 @@
+[SddmGreeterTheme]
+Name=RaBbLE Aether
+Description=Void and neon login for RaBbLE-OS
+Author=RaBbLE Collective
+License=MIT
+Type=sddm-theme
+Version=0.0.0.0
+MainScript=Main.qml
+Theme-Id=rabble-aether
+Theme-API=2.0
+QtVersion=6

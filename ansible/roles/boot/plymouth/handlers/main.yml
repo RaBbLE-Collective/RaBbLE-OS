@@ -1,3 +1,4 @@
 ---
-# handlers/main.yml — no handlers yet
-# Common handler to add: dracut -f --regenerate-all
+- name: rebuild initrd
+  ansible.builtin.command: dracut --force
+  become: true
