@@ -1,11 +1,11 @@
 /* RaBbLE Aether — VSCodium visual injection
  * Design language:
- *   Panels (activitybar, sidebar, panel, active editor group): full conic-gradient
- *   ring border — all 4 sides connected at corners, gradient rotates continuously.
- *   Technique: inset:0; padding:2px; mask-composite:exclude — ring stays within
- *   element bounds, immune to ancestor overflow:hidden (critical in VSCodium grid).
- *   Ring glow bleeds across adjacent element boundaries for seamless intersections.
- *   Active tab: bright cycling box-shadow outline matching ring colors.
+ *   STATIC PANELS (activitybar, sidebar, editor group, panel):
+ *     Full conic-gradient ring via ::before with inset:0, padding:2px, mask-composite:exclude.
+ *     Ring stays within element bounds, immune to ancestor overflow:hidden.
+ *   INTERACTIVE POPUPS (command palette, context menus, suggest, notifications):
+ *     Box-shadow glow only — no ::before occlusion. Functional integrity over decoration.
+ *   TABS: Active tab gets cycling outline via ::after (3-sided conic ring).
  * Self-contained — no @import (blocked by Electron vscode-file:// policy).
  */
 
@@ -30,19 +30,11 @@
   100% { box-shadow: 0 0 12px rgba(0,245,255,0.35), 0 0 24px rgba(0,245,255,0.12); }
 }
 
-/* (tab outline now handled by ::after conic ring — no keyframe needed here) */
-
 /* Ring glow — cycling outward blur that bleeds across adjacent elements */
 @keyframes aether-ring-glow {
   0%,100% { box-shadow: 0 0 14px rgba(0,245,255,0.30); }
   33%     { box-shadow: 0 0 14px rgba(191,95,255,0.30); }
   66%     { box-shadow: 0 0 14px rgba(255,45,120,0.30); }
-}
-
-/* Horizontal ribbon scroll */
-@keyframes aether-flow-x {
-  from { background-position: 0% center; }
-  to   { background-position: 100% center; }
 }
 
 /* ══ Shared conic ring mixin
@@ -229,99 +221,44 @@
     box-shadow: 0 1px 8px rgba(255,45,120,0.10) !important;
 }
 
-/* ══ Command palette — harmony border ═══════════════════════════════════════ */
+/* ══ Command palette — glow only (no ::before to avoid occlusion) ════════════ */
 
 .monaco-workbench .quick-input-widget {
-    position: relative !important;
     border-radius: 10px !important;
-    overflow: hidden !important;
-    border: none !important;
-    box-shadow: 0 8px 48px rgba(0,0,0,0.80) !important;
+    border: 1px solid rgba(255,45,120,0.40) !important;
+    box-shadow:
+        0 0 16px rgba(0,245,255,0.25),
+        0 8px 32px rgba(0,0,0,0.80) !important;
     animation: aether-glow-cycle 9s linear infinite !important;
-}
-.monaco-workbench .quick-input-widget::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 10px;
-    padding: 1px;
-    background: conic-gradient(
-        from var(--aether-angle),
-        #00f5ff, #bf5fff, #ff2d78, #00f5ff
-    );
-    animation: aether-harmony-spin 9s linear infinite;
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    z-index: 1;
 }
 
 /* ══ Notification toasts ═════════════════════════════════════════════════════ */
 
 .monaco-workbench .notifications-toasts .notification-toast {
-    position: relative !important;
     border-radius: 8px !important;
-    overflow: hidden !important;
-    border: none !important;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.70) !important;
-}
-.monaco-workbench .notifications-toasts .notification-toast::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 8px;
-    padding: 1px;
-    background: conic-gradient(
-        from var(--aether-angle),
-        #00f5ff, #bf5fff, #ff2d78, #00f5ff
-    );
-    animation: aether-harmony-spin 9s linear infinite;
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    z-index: 1;
+    border: 1px solid rgba(255,45,120,0.30) !important;
+    box-shadow:
+        0 0 12px rgba(0,245,255,0.20),
+        0 4px 24px rgba(0,0,0,0.70) !important;
 }
 
-/* ══ Context menu ════════════════════════════════════════════════════════════ */
+/* ══ Context menu — glow only (no ::before to avoid occlusion) ═════════════ */
 
 .monaco-workbench .context-view.monaco-menu-container {
-    position: relative !important;
     border-radius: 8px !important;
-    overflow: hidden !important;
-    border: none !important;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.80) !important;
+    border: 1px solid rgba(255,45,120,0.40) !important;
+    box-shadow:
+        0 0 16px rgba(0,245,255,0.25),
+        0 8px 32px rgba(0,0,0,0.80) !important;
     animation: aether-glow-cycle 9s linear infinite !important;
-}
-.monaco-workbench .context-view.monaco-menu-container::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 8px;
-    padding: 1px;
-    background: conic-gradient(
-        from var(--aether-angle),
-        #00f5ff, #bf5fff, #ff2d78, #00f5ff
-    );
-    animation: aether-harmony-spin 9s linear infinite;
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    z-index: 1;
 }
 
 /* ══ Suggest widget ══════════════════════════════════════════════════════════ */
 
 .monaco-workbench .overlayWidgets .suggest-widget {
     border-radius: 6px !important;
-    overflow: hidden !important;
-    border: 1px solid rgba(42,40,64,0.90) !important;
-    animation: aether-glow-cycle 9s linear infinite !important;
+    border: 1px solid rgba(255,45,120,0.35) !important;
+    box-shadow: 0 0 12px rgba(0,245,255,0.20) !important;
 }
 
 /* ══ Sidebar section headers ═════════════════════════════════════════════════ */
