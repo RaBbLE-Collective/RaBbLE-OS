@@ -1,286 +1,117 @@
-/* RaBbLE-Aether GTK3 — user override stylesheet
- * Layered on top of the installed theme (or Adwaita-dark fallback).
- * Key GTK3 gotcha: the sidebar is GtkPlacesSidebar > GtkScrolledWindow > viewport > GtkListBox.
- * A global GtkScrolledWindow rule overwrites the sidebar interior — so we must re-apply
- * #12132a on every element inside .sidebar, not just .sidebar itself.
+/* RaBbLE-Aether GTK3 — Aether personality layer
+ * Loads AFTER the installed theme (Catppuccin foundation + Aether palette).
+ * GTK3 user stylesheets DO NOT support !important — omit it entirely.
+ * User stylesheet has higher cascade priority than the theme; same-specificity
+ * rules here win automatically. No !important needed or allowed.
  *
- * Palette:
- *   #0a0010  bg      — void (main file area)
- *   #12132a  surface — elevated panels (sidebar, header, menus)
- *   #1a1b2e  raised  — inputs, interactive
- *   #ff2d78  magenta — primary neon
- *   #00f5ff  cyan    — secondary neon (selections, focus)
- *   #bf5fff  violet  — tertiary neon (borders, hover)
- *   #e8e6f0  text    — primary
- *   #6b6880  muted   — secondary/disabled
+ * Aether palette (hardcoded — no @define-color in user stylesheets):
+ *   #0a0010  void bg       #12132a  surface
+ *   #1a1b2e  raised        #2a2840  border_dim
+ *   #ff2d78  magenta       #00f5ff  cyan
+ *   #bf5fff  violet        #e8e6f0  text
+ *   #6b6880  muted         #e05c6f  red
+ *   #50fa7b  green         #f1fa8c  yellow
  */
 
-@keyframes aether-border-cycle {
-  0%   { border-color: #00f5ff; }
-  33%  { border-color: #bf5fff; }
-  66%  { border-color: #ff2d78; }
-  100% { border-color: #00f5ff; }
-}
-
-/* ── Base: void everywhere ───────────────────────────────────────────────── */
-* {
-  -gtk-icon-theme-name: "Papirus-Dark" !important;
-}
-
-window,
-.background {
-  background-color: #0a0010 !important;
-  color: #e8e6f0 !important;
-}
-
-/* Main content areas — void */
-.view,
-treeview,
-viewport,
-scrolledwindow > viewport,
-GtkIconView,
-ExoIconView,
-ExoDetailedView {
-  background-color: #0a0010 !important;
-  color: #e8e6f0 !important;
-}
-
-/* ── Header bar — surface with violet seam ──────────────────────────────── */
-headerbar,
-.titlebar,
-toolbar {
-  background-color: #12132a !important;
-  color: #e8e6f0 !important;
-  border-bottom: 2px solid #bf5fff !important;
-}
-
-headerbar button,
-.titlebar button,
-toolbar button {
-  background-color: transparent !important;
-  border: 1px solid transparent !important;
-  color: #e8e6f0 !important;
-}
-
-headerbar button:hover,
-.titlebar button:hover,
-toolbar button:hover {
-  background-color: rgba(191,95,255,0.18) !important;
-  border-color: rgba(191,95,255,0.50) !important;
-}
-
-/* ── Path bar breadcrumbs ────────────────────────────────────────────────── */
-.path-bar {
-  background-color: #12132a !important;
-}
-
-.path-bar button {
-  background-color: transparent !important;
-  border: none !important;
-  color: #e8e6f0 !important;
-}
-
-.path-bar button:hover {
-  background-color: rgba(191,95,255,0.18) !important;
-}
-
-/* Rightmost (current) path segment */
-.path-bar button:last-child {
-  color: #00f5ff !important;
-  font-weight: bold !important;
-}
-
-/* ── Sidebar — surface layer
- * Must target every element in the GtkPlacesSidebar widget tree:
- *   GtkPlacesSidebar (.sidebar)
- *     GtkScrolledWindow
- *       GtkViewport (viewport)
- *         GtkBox / GtkListBox
- *           rows (.sidebar-item, row)
- ─────────────────────────────────────────────────────────────────────────── */
-.sidebar,
-.sidebar scrolledwindow,
-.sidebar viewport,
-.sidebar > scrolledwindow,
-.sidebar > scrolledwindow > viewport,
-GtkPlacesSidebar,
-GtkPlacesSidebar scrolledwindow,
-GtkPlacesSidebar viewport {
-  background-color: #12132a !important;
-  color: #e8e6f0 !important;
-}
-
-/* Sidebar list rows */
-.sidebar row,
-.sidebar .sidebar-item,
-GtkPlacesSidebar row {
-  background-color: #12132a !important;
-  color: #e8e6f0 !important;
-  padding-top: 2px !important;
-  padding-bottom: 2px !important;
-}
-
-.sidebar row:hover,
-.sidebar .sidebar-item:hover,
-GtkPlacesSidebar row:hover {
-  background-color: rgba(191,95,255,0.20) !important;
-  color: #e8e6f0 !important;
-}
-
-.sidebar row:selected,
-.sidebar .sidebar-item:selected,
-GtkPlacesSidebar row:selected {
-  background-color: rgba(0,245,255,0.20) !important;
-  color: #00f5ff !important;
-}
-
-/* Sidebar section labels (PLACES, DEVICES, etc.) */
-.sidebar .heading label,
-.sidebar .sidebar-section-header,
-GtkPlacesSidebar .sidebar-section-header {
-  color: #6b6880 !important;
-  font-size: smaller !important;
-}
-
-/* ── Paned separator — the primary neon seam between sidebar and file area ─ */
-paned > separator,
-GtkPaned > separator {
-  background-color: #bf5fff !important;
-  min-width: 2px !important;
-  min-height: 2px !important;
-  opacity: 0.75 !important;
-}
-
-paned > separator:hover,
-GtkPaned > separator:hover {
-  background-color: #00f5ff !important;
-  opacity: 1 !important;
-}
-
-/* ── File view rows ──────────────────────────────────────────────────────── */
-.view row,
-treeview row {
-  background-color: #0a0010 !important;
-  color: #e8e6f0 !important;
-}
-
-.view row:hover,
-treeview row:hover {
-  background-color: rgba(191,95,255,0.10) !important;
-}
-
+/* ── Selection — cyan accent (Aether preference over magenta base) ─────────── */
+.view:selected,
+treeview:selected,
 .view row:selected,
-treeview row:selected {
-  background-color: rgba(0,245,255,0.20) !important;
-  color: #e8e6f0 !important;
-  border-left: 3px solid #00f5ff !important;
+treeview row:selected,
+.view.cell:selected,
+iconview.cell:selected {
+  background-color: rgba(0, 245, 255, 0.20);
+  color: #e8e6f0;
 }
 
 .view row:selected:focus,
 treeview row:selected:focus {
-  color: #00f5ff !important;
+  color: #00f5ff;
 }
 
-/* Icon view selections */
-.view.cell:selected,
-iconview.cell:selected {
-  background-color: rgba(0,245,255,0.22) !important;
-  color: #e8e6f0 !important;
-  border-radius: 4px !important;
+/* ── Sidebar — explicit surface elevation ─────────────────────────────────── */
+.sidebar,
+.sidebar scrolledwindow,
+.sidebar viewport {
+  background-color: #12132a;
+  color: #e8e6f0;
 }
 
-/* Column headers (list mode) */
+.sidebar row {
+  background-color: #12132a;
+  color: #e8e6f0;
+}
+
+.sidebar row:hover {
+  background-color: rgba(191, 95, 255, 0.18);
+  color: #e8e6f0;
+}
+
+.sidebar row:selected {
+  background-color: rgba(0, 245, 255, 0.20);
+  color: #00f5ff;
+}
+
+.sidebar .heading label {
+  color: #6b6880;
+  font-size: smaller;
+}
+
+/* ── Paned separator — violet seam ─────────────────────────────────────────── */
+paned > separator {
+  background-color: #bf5fff;
+  min-width: 2px;
+  min-height: 2px;
+  opacity: 0.65;
+}
+
+paned > separator:hover {
+  background-color: #00f5ff;
+  opacity: 1;
+}
+
+/* ── Scrollbars — magenta glowing thumb ─────────────────────────────────────── */
+scrollbar slider {
+  background-color: #ff2d78;
+  border-radius: 4px;
+  min-width: 6px;
+  min-height: 6px;
+  margin: 2px;
+}
+
+scrollbar slider:hover { background-color: #bf5fff; }
+scrollbar slider:active { background-color: #00f5ff; }
+
+/* ── Column headers in list view ─────────────────────────────────────────── */
 .view column-header button,
 treeview header button {
-  background-color: #12132a !important;
-  color: #6b6880 !important;
-  border-bottom: 1px solid rgba(191,95,255,0.40) !important;
+  background-color: #12132a;
+  color: #6b6880;
+  border-bottom: 1px solid rgba(191, 95, 255, 0.35);
 }
 
 .view column-header button:hover,
 treeview header button:hover {
-  background-color: rgba(191,95,255,0.12) !important;
-  color: #e8e6f0 !important;
+  color: #e8e6f0;
+  background-color: rgba(191, 95, 255, 0.10);
 }
 
-/* ── Menus ───────────────────────────────────────────────────────────────── */
-menu, .menu, .popup {
-  background-color: #12132a !important;
-  color: #e8e6f0 !important;
-  border: 1px solid rgba(191,95,255,0.55) !important;
+/* ── Menu hover — magenta stripe ─────────────────────────────────────────── */
+menuitem:hover,
+menuitem:selected {
+  background-color: rgba(255, 45, 120, 0.16);
+  border-left: 2px solid #ff2d78;
 }
 
-menuitem {
-  background-color: transparent !important;
-  color: #e8e6f0 !important;
-  padding: 4px 12px !important;
-}
-
-menuitem:hover, menuitem:selected {
-  background-color: rgba(255,45,120,0.18) !important;
-  border-left: 2px solid #ff2d78 !important;
-}
-
-menuitem:disabled, menuitem:disabled > label {
-  color: #6b6880 !important;
-}
-
-/* ── Entries ─────────────────────────────────────────────────────────────── */
-entry {
-  background-color: #1a1b2e !important;
-  color: #e8e6f0 !important;
-  border: 1px solid rgba(191,95,255,0.40) !important;
-}
-
+/* ── Entry focus — cyan ring ─────────────────────────────────────────────── */
 entry:focus {
-  border-color: #00f5ff !important;
-  box-shadow: 0 0 0 2px rgba(0,245,255,0.18) !important;
+  border-color: #00f5ff;
+  box-shadow: 0 0 0 2px rgba(0, 245, 255, 0.16);
 }
 
-/* ── Buttons ─────────────────────────────────────────────────────────────── */
-button {
-  background-color: #1a1b2e !important;
-  color: #e8e6f0 !important;
-  border: 1px solid rgba(191,95,255,0.35) !important;
-}
-
-button:hover {
-  background-color: rgba(191,95,255,0.18) !important;
-  border-color: #bf5fff !important;
-}
-
-button:active, button:checked {
-  background-color: rgba(0,245,255,0.12) !important;
-  border-color: #00f5ff !important;
-  color: #00f5ff !important;
-}
-
-/* ── Scrollbars — magenta glowing thumb ─────────────────────────────────── */
-scrollbar, scrollbar trough {
-  background-color: #0a0010 !important;
-}
-
-scrollbar slider {
-  background-color: #ff2d78 !important;
-  border-radius: 4px !important;
-  min-width: 8px !important;
-  min-height: 8px !important;
-  margin: 2px !important;
-}
-
-scrollbar slider:hover { background-color: #bf5fff !important; }
-scrollbar slider:active { background-color: #00f5ff !important; }
-
-/* ── Tooltips ────────────────────────────────────────────────────────────── */
-tooltip {
-  background-color: #12132a !important;
-  color: #e8e6f0 !important;
-  border: 1px solid rgba(191,95,255,0.55) !important;
-}
-
-/* ── Status bar ──────────────────────────────────────────────────────────── */
+/* ── Statusbar — muted footer ─────────────────────────────────────────────── */
 statusbar {
-  background-color: #12132a !important;
-  color: #6b6880 !important;
-  border-top: 1px solid rgba(191,95,255,0.25) !important;
+  background-color: #12132a;
+  color: #6b6880;
+  border-top: 1px solid rgba(191, 95, 255, 0.20);
 }

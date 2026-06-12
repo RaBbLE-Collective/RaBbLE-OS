@@ -124,13 +124,10 @@
     mode: '0644'
   tags: [apps, theming, kvantum]
 
-- name: qt-gtk-theme | set Kvantum active theme
-  ansible.builtin.lineinfile:
-    path: "{{ rabble_home }}/.config/Kvantum/kvantum.conf"
-    line: "theme=RaBbLE-Aether"
-    regexp: "^theme="
-    state: present
-    create: true
+- name: qt-gtk-theme | set Kvantum active theme (kvantum.kvconfig)
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/kvantum/kvantum.kvconfig"
+    dest: "{{ rabble_home }}/.config/Kvantum/kvantum.kvconfig"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"
     mode: '0644'
