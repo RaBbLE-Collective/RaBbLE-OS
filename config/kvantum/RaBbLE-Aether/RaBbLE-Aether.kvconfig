@@ -1,0 +1,36 @@
+[%General]
+author=RaBbLE Collective
+comment=Aether — void/neon synthwave
+x11drag=all
+alt_mnemonic=true
+left_tabs=true
+attach_active_tab=true
+composite=true
+menu_shadow_depth=6
+tooltip_shadow_depth=3
+spread_menuitems=true
+scroll_width=6
+scroll_arrows=false
+transient_scrollbar=true
+translucent_windows=true
+
+[GeneralColors]
+window.color=#12132a
+base.color=#1a1b2e
+alt.base.color=#12132a
+button.color=#1a1b2e
+light.color=#222340
+mid.color=#0a0010
+dark.color=#0a0010
+mid.light.color=#1a1b2e
+shadow.color=#0a0010
+highlight.color=#00f5ff
+inactive.highlight.color=#bf5fff
+text.color=#e8e6f0
+window.text.color=#e8e6f0
+button.text.color=#e8e6f0
+disabled.text.color=#9e9ab8
+tooltip.base.color=#12132a
+tooltip.text.color=#e8e6f0
+link.color=#00f5ff
+link.visited.color=#bf5fff

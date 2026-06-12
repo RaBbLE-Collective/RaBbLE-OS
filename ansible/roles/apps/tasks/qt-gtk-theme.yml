@@ -1,0 +1,119 @@
+---
+# apps/tasks/qt-gtk-theme.yml — Kvantum + GTK theming deployment
+#
+# transcribe ~ apps/theming >> RaBbLE-Aether applied to Qt/GTK app layer // %QT_GTK_AETHER%
+#
+# Deploys Kvantum theme (Qt5/Qt6), GTK3/4 CSS, and qt5ct/qt6ct config.
+# All theming files live in config/ and are managed by dotctl.
+# To re-sync: ./RaBbLE-OS-dotctl.sh apply kvantum gtk
+#
+# Requires packages: kvantum, kvantum-qt5, qt5ct, qt6ct, papirus-icon-theme, papirus-folders
+# These must be in ansible/packages/manifest.yml before running this role.
+
+- name: qt-gtk-theme | create Kvantum theme directory
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.config/Kvantum/RaBbLE-Aether"
+    state: directory
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0755'
+  tags: [apps, theming, kvantum]
+
+- name: qt-gtk-theme | deploy Kvantum theme files
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../config/kvantum/RaBbLE-Aether/"
+    dest: "{{ rabble_home }}/.config/Kvantum/RaBbLE-Aether/"
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0644'
+  tags: [apps, theming, kvantum]
+
+- name: qt-gtk-theme | set Kvantum as default theme
+  ansible.builtin.lineinfile:
+    path: "{{ rabble_home }}/.config/Kvantum/kvantum.conf"
+    line: "theme=RaBbLE-Aether"
+    regexp: "^theme="
+    state: present
+    create: true
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0644'
+  tags: [apps, theming, kvantum]
+
+- name: qt-gtk-theme | create qt5ct config directory
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.config/qt5ct"
+    state: directory
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0755'
+  tags: [apps, theming, qt]
+
+- name: qt-gtk-theme | deploy qt5ct configuration
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../config/qt5ct/qt5ct.conf"
+    dest: "{{ rabble_home }}/.config/qt5ct/qt5ct.conf"
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0644'
+  tags: [apps, theming, qt]
+
+- name: qt-gtk-theme | create qt6ct config directory
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.config/qt6ct"
+    state: directory
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0755'
+  tags: [apps, theming, qt]
+
+- name: qt-gtk-theme | deploy qt6ct configuration
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../config/qt6ct/qt6ct.conf"
+    dest: "{{ rabble_home }}/.config/qt6ct/qt6ct.conf"
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0644'
+  tags: [apps, theming, qt]
+
+- name: qt-gtk-theme | create GTK3 config directory
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.config/gtk-3.0"
+    state: directory
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0755'
+  tags: [apps, theming, gtk]
+
+- name: qt-gtk-theme | deploy GTK3 CSS
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../config/gtk-3.0/gtk.css"
+    dest: "{{ rabble_home }}/.config/gtk-3.0/gtk.css"
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0644'
+  tags: [apps, theming, gtk]
+
+- name: qt-gtk-theme | create GTK4 config directory
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.config/gtk-4.0"
+    state: directory
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0755'
+  tags: [apps, theming, gtk]
+
+- name: qt-gtk-theme | deploy GTK4 CSS
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../config/gtk-4.0/gtk.css"
+    dest: "{{ rabble_home }}/.config/gtk-4.0/gtk.css"
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0644'
+  tags: [apps, theming, gtk]
+
+- name: qt-gtk-theme | tint papirus folders magenta
+  ansible.builtin.command: papirus-folders --color magenta --theme Papirus-Dark
+  become: false
+  changed_when: false
+  tags: [apps, theming, icons]
