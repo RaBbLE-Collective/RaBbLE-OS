@@ -3,11 +3,12 @@
 #
 # spark ~ apps/browsers >> RaBbLE-Aether theme wired into Firefox // %FF_AETHER%
 #
-# Theme lives at config/firefox/ — dotctl manages these files (firefox bundle),
-# so the user can re-sync anytime with: ./RaBbLE-OS-dotctl.sh apply firefox
+# Architecture: Aether publishes the Firefox theme CSS; RaBbLE-OS deploys it.
+#   Theme source:  {{ aether_repo_root }}/themes/firefox/
+#   Browser prefs: {{ dotfiles_repo_root }}/config/firefox/user.js  (OS config)
 #
-# Mechanism: userChrome.css + userContent.css + user.js, placed in the Firefox
-# default-release profile's chrome/ directory.
+# Mechanism: userChrome.css + userContent.css from Aether + user.js from OS,
+# placed in the Firefox default-release profile's chrome/ directory.
 # userChrome must be enabled via user.js (toolkit.legacyUserProfileCustomizations).
 # Re-run after a profile reset (profile dir name doesn't change, only contents).
 
@@ -51,18 +52,18 @@
       become: true
       tags: [apps, browsers, firefox]
 
-    - name: firefox | deploy userChrome.css (browser UI)
+    - name: firefox | deploy userChrome.css from Aether (browser UI)
       ansible.builtin.copy:
-        src:   "{{ dotfiles_repo_root }}/config/firefox/userChrome.css"
+        src:   "{{ aether_repo_root }}/themes/firefox/userChrome.css"
         dest:  "{{ ff_profile.path }}/chrome/userChrome.css"
         mode:  '0644'
         owner: "{{ rabble_user }}"
       become: true
       tags: [apps, browsers, firefox]
 
-    - name: firefox | deploy userContent.css (web content + about:*)
+    - name: firefox | deploy userContent.css from Aether (web content + about:*)
       ansible.builtin.copy:
-        src:   "{{ dotfiles_repo_root }}/config/firefox/userContent.css"
+        src:   "{{ aether_repo_root }}/themes/firefox/userContent.css"
         dest:  "{{ ff_profile.path }}/chrome/userContent.css"
         mode:  '0644'
         owner: "{{ rabble_user }}"

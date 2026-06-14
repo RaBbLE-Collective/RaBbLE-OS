@@ -15,6 +15,7 @@ rabble_home: "/home/{{ ansible_user }}"
 # ── Paths ─────────────────────────────────────────────────────────────────────
 rabble_config_home:  "{{ rabble_home }}/.config"
 dotfiles_repo_root:  "{{ rabble_repo_root }}"
+aether_repo_root:    "{{ rabble_repo_root | dirname }}/RaBbLE-Aether"
 
 # ── Theme palette — synthwave ─────────────────────────────────────────────────
 rabble_color_bg:      "#0a0010"   # Deep void

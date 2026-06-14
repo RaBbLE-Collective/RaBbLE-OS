@@ -3,21 +3,26 @@
 #
 # transcribe ~ apps/theming >> RaBbLE-Aether applied to Qt/GTK app layer // %QT_GTK_AETHER%
 #
+# Architecture: Aether publishes theme artifacts; RaBbLE-OS deploys them.
+#   Theme CSS/SVG source: {{ aether_repo_root }}/themes/
+#   App configs (settings, user stylesheet): {{ dotfiles_repo_root }}/config/
+#
 # Deploys:
-#   - GTK3 installed theme to ~/.local/share/themes/RaBbLE-Aether/ (theme engine picks it up)
-#   - GTK3 user stylesheet to ~/.config/gtk-3.0/ (override layer on top of theme)
-#   - GTK3/4 settings.ini (selects RaBbLE-Aether theme, Papirus-Dark icons)
-#   - Kvantum SVG theme + kvconfig for Qt5/Qt6 apps
-#   - qt5ct/qt6ct configs that delegate to Kvantum
+#   - GTK3 installed theme  → ~/.local/share/themes/RaBbLE-Aether/  (from Aether)
+#   - GTK3 user stylesheet  → ~/.config/gtk-3.0/gtk.css              (RaBbLE-OS layer)
+#   - GTK3/4 settings.ini                                             (RaBbLE-OS config)
+#   - GTK4 partial override → ~/.config/gtk-4.0/gtk.css              (from Aether)
+#   - Kvantum SVG theme     → ~/.config/Kvantum/RaBbLE-Aether/       (from Aether)
+#   - qt5ct/qt6ct configs   → ~/.config/qt5ct/ qt6ct/                (RaBbLE-OS config)
 #
 # env.conf sets GTK_THEME=RaBbLE-Aether + QT_QPA_PLATFORMTHEME=qt6ct + QT_STYLE_OVERRIDE=kvantum
-#
 # To re-sync: bash RaBbLE-OS-layerctl.sh apply apps --tags theming
 #
 # Requires packages in manifest.yml:
 #   kvantum, kvantum-qt5, qt5ct, qt6ct, papirus-icon-theme, papirus-folders, nwg-look
 
 # ── GTK3 installed theme (primary — apps select this by name) ─────────────────
+# Source: Aether publishes the canonical GTK3 theme skeleton.
 
 - name: qt-gtk-theme | create installed theme root dir
   ansible.builtin.file:
@@ -37,25 +42,27 @@
     mode: '0755'
   tags: [apps, theming, gtk]
 
-- name: qt-gtk-theme | deploy theme index.theme
+- name: qt-gtk-theme | deploy theme index.theme (from Aether)
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/themes/RaBbLE-Aether/index.theme"
+    src: "{{ aether_repo_root }}/themes/gtk3/index.theme"
     dest: "{{ rabble_home }}/.local/share/themes/RaBbLE-Aether/index.theme"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"
     mode: '0644'
   tags: [apps, theming, gtk]
 
-- name: qt-gtk-theme | deploy installed GTK3 theme CSS
+- name: qt-gtk-theme | deploy installed GTK3 theme CSS (from Aether — synthwave skeleton)
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/themes/RaBbLE-Aether/gtk-3.0/gtk.css"
+    src: "{{ aether_repo_root }}/themes/gtk3/aether-gtk3.css"
     dest: "{{ rabble_home }}/.local/share/themes/RaBbLE-Aether/gtk-3.0/gtk.css"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"
     mode: '0644'
   tags: [apps, theming, gtk]
 
-# ── GTK3 user config (settings + override stylesheet) ─────────────────────────
+# ── GTK3 user config (settings + RaBbLE-OS personality layer) ─────────────────
+# settings.ini and the user stylesheet are RaBbLE-OS configs, not Aether artifacts.
+# The user stylesheet (gtk.css) applies as a cascade layer on top of the Aether theme.
 
 - name: qt-gtk-theme | create GTK3 config directory
   ansible.builtin.file:
@@ -75,7 +82,7 @@
     mode: '0644'
   tags: [apps, theming, gtk]
 
-- name: qt-gtk-theme | deploy GTK3 user override stylesheet
+- name: qt-gtk-theme | deploy GTK3 user personality layer (RaBbLE-OS cascade on Aether theme)
   ansible.builtin.copy:
     src: "{{ dotfiles_repo_root }}/config/gtk-3.0/gtk.css"
     dest: "{{ rabble_home }}/.config/gtk-3.0/gtk.css"
@@ -85,6 +92,7 @@
   tags: [apps, theming, gtk]
 
 # ── GTK4 user config ───────────────────────────────────────────────────────────
+# Source: Aether. libadwaita severely limits theming — partial CSS overrides only.
 
 - name: qt-gtk-theme | create GTK4 config directory
   ansible.builtin.file:
@@ -95,9 +103,9 @@
     mode: '0755'
   tags: [apps, theming, gtk]
 
-- name: qt-gtk-theme | deploy GTK4 override CSS (libadwaita partial; accepts var() tokens)
+- name: qt-gtk-theme | deploy GTK4 override CSS from Aether (libadwaita partial; accepts var() tokens)
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/gtk-4.0/gtk.css"
+    src: "{{ aether_repo_root }}/themes/gtk4/aether-gtk4.css"
     dest: "{{ rabble_home }}/.config/gtk-4.0/gtk.css"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"
@@ -105,6 +113,7 @@
   tags: [apps, theming, gtk]
 
 # ── Kvantum — Qt5/Qt6 SVG theme engine ────────────────────────────────────────
+# Source: Aether. SVG + kvconfig define the Qt widget visual vocabulary.
 
 - name: qt-gtk-theme | create Kvantum theme directory
   ansible.builtin.file:
@@ -115,9 +124,9 @@
     mode: '0755'
   tags: [apps, theming, kvantum]
 
-- name: qt-gtk-theme | deploy Kvantum theme files
+- name: qt-gtk-theme | deploy Kvantum theme files from Aether
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/kvantum/RaBbLE-Aether/"
+    src: "{{ aether_repo_root }}/themes/kvantum/"
     dest: "{{ rabble_home }}/.config/Kvantum/RaBbLE-Aether/"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"
