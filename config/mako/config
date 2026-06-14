@@ -53,7 +53,7 @@ default-timeout=5000
 
 # ── Urgency: critical — red border, no timeout ────────────────────────────────
 [urgency=critical]
-background-color=#1a0010f0
+background-color=#0a0010f0
 text-color=#e8e6f0ff
 border-color=#e05c6fff
 border-size=3
