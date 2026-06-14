@@ -1,10 +1,12 @@
-/* RaBbLE-Aether GTK3 — Aether personality layer
- * Loads AFTER the installed theme (Catppuccin foundation + Aether palette).
- * GTK3 user stylesheets DO NOT support !important — omit it entirely.
- * User stylesheet has higher cascade priority than the theme; same-specificity
- * rules here win automatically. No !important needed or allowed.
+/* RaBbLE-Aether GTK3 — RaBbLE-OS personality layer
+ * Loads AFTER the Aether installed theme (RaBbLE-Aether synthwave skeleton).
+ * GTK3 user stylesheets have higher cascade priority than the installed theme.
+ * Same-specificity rules here win automatically.
+ * No !important — not needed or allowed in GTK3 user stylesheets.
  *
- * Aether palette (hardcoded — no @define-color in user stylesheets):
+ * Palette: RaBbLE-Grimoire/common/RaBbLE-Palette.md
+ * (hardcoded here — GTK3 user stylesheets don’t inherit @define-color from installed themes)
+ *
  *   #0a0010  void bg       #12132a  surface
  *   #1a1b2e  raised        #2a2840  border_dim
  *   #ff2d78  magenta       #00f5ff  cyan
@@ -13,7 +15,7 @@
  *   #50fa7b  green         #f1fa8c  yellow
  */
 
-/* ── Selection — cyan accent (Aether preference over magenta base) ─────────── */
+/* ── Selection — cyan accent (Aether preference over magenta base) ───────────── */
 .view:selected,
 treeview:selected,
 .view row:selected,
@@ -29,7 +31,7 @@ treeview row:selected:focus {
   color: #00f5ff;
 }
 
-/* ── Sidebar — explicit surface elevation ─────────────────────────────────── */
+/* ── Sidebar — explicit surface elevation ──────────────────────────────── */
 .sidebar,
 .sidebar scrolledwindow,
 .sidebar viewport {
@@ -57,7 +59,7 @@ treeview row:selected:focus {
   font-size: smaller;
 }
 
-/* ── Paned separator — violet seam ─────────────────────────────────────────── */
+/* ── Paned separator — violet seam ─────────────────────────────────── */
 paned > separator {
   background-color: #bf5fff;
   min-width: 2px;
@@ -70,7 +72,7 @@ paned > separator:hover {
   opacity: 1;
 }
 
-/* ── Scrollbars — magenta glowing thumb ─────────────────────────────────────── */
+/* ── Scrollbars — magenta glowing thumb ───────────────────────────────── */
 scrollbar slider {
   background-color: #ff2d78;
   border-radius: 4px;
@@ -82,7 +84,7 @@ scrollbar slider {
 scrollbar slider:hover { background-color: #bf5fff; }
 scrollbar slider:active { background-color: #00f5ff; }
 
-/* ── Column headers in list view ─────────────────────────────────────────── */
+/* ── Column headers in list view ──────────────────────────────────── */
 .view column-header button,
 treeview header button {
   background-color: #12132a;
@@ -96,20 +98,20 @@ treeview header button:hover {
   background-color: rgba(191, 95, 255, 0.10);
 }
 
-/* ── Menu hover — magenta stripe ─────────────────────────────────────────── */
+/* ── Menu hover — magenta stripe ──────────────────────────────────── */
 menuitem:hover,
 menuitem:selected {
   background-color: rgba(255, 45, 120, 0.16);
   border-left: 2px solid #ff2d78;
 }
 
-/* ── Entry focus — cyan ring ─────────────────────────────────────────────── */
+/* ── Entry focus — cyan ring ─────────────────────────────────────── */
 entry:focus {
   border-color: #00f5ff;
   box-shadow: 0 0 0 2px rgba(0, 245, 255, 0.16);
 }
 
-/* ── Statusbar — muted footer ─────────────────────────────────────────────── */
+/* ── Statusbar — muted footer ─────────────────────────────────────── */
 statusbar {
   background-color: #12132a;
   color: #6b6880;
