@@ -22,7 +22,7 @@
 
 - name: file_manager | install yazi git plugin
   ansible.builtin.command:
-    cmd: ya pack -a yazi-rs/plugins#git
+    cmd: ya pkg add yazi-rs/plugins#git
     creates: "{{ ansible_env.HOME }}/.local/share/yazi/packages/yazi-rs/plugins"
   tags: [apps, filemanager, yazi]
 
