@@ -1,4 +1,3 @@
----
 # apps/tasks/packages.yml — GUI applications
 
 - name: apps | install theming stack (GTK + Qt + icons)
@@ -14,13 +13,26 @@
     state: present
   tags: [apps, packages, theming]
 
-- name: apps | install file managers
+- name: apps | remove Thunar (replaced by yazi)
   ansible.builtin.dnf:
     name:
-      - Thunar                     # GTK3 file manager — primary file browser (RaBbLE-Aether themed)
-      - thunar-archive-plugin      # Right-click archive extraction in Thunar
-      - thunar-volman              # Auto-mount and eject in Thunar
-      - dolphin                    # KDE file manager — runs without full Plasma
+      - Thunar
+      - thunar-archive-plugin
+      - thunar-volman
+    state: absent
+  tags: [apps, packages, filemanager]
+
+- name: apps | install file managers and preview dependencies
+  ansible.builtin.dnf:
+    name:
+      - yazi                       # Primary TUI file manager — Rust/async, Lua plugins, Aether-themed
+      - imv                        # Image viewer — yazi opener rule for image MIME types
+      - ffmpegthumbnailer          # Video thumbnails in yazi preview pane
+      - poppler-utils              # PDF to image conversion for yazi preview pane
+      - fd-find                    # Fast file finder — yazi fzf-jump plugin dependency
+      - fzf                        # Fuzzy finder — yazi fzf-jump keybind (f key)
+      - unar                       # Archive extractor — yazi opener rule for archives
+      - dolphin                    # GUI bridge — drag-and-drop and Show in Folder
       - kf5-kio-gui                # KDE I/O framework GUI (dolphin dep)
       - kdegraphics-thumbnailers   # Image/PDF thumbnails in dolphin
     state: present

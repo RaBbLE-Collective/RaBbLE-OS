@@ -1,0 +1,102 @@
+# config/yazi/theme.toml — RaBbLE Aether synthwave palette
+# Palette source: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md
+
+[manager]
+cwd = { fg = "#00f5ff" }
+
+hovered         = { fg = "#0a0010", bg = "#ff2d78", bold = true }
+preview_hovered = { underline = true }
+
+find_keyword  = { fg = "#f1fa8c", bold = true }
+find_position = { fg = "#ff2d78", italic = true }
+
+marker_copied   = { fg = "#50fa7b", bg = "#50fa7b" }
+marker_cut      = { fg = "#e05c6f", bg = "#e05c6f" }
+marker_marked   = { fg = "#bf5fff", bg = "#bf5fff" }
+marker_selected = { fg = "#ff2d78", bg = "#ff2d78" }
+
+tab_active   = { fg = "#0a0010", bg = "#ff2d78", bold = true }
+tab_inactive = { fg = "#6b6880", bg = "#12132a" }
+tab_width    = 1
+
+count_copied   = { fg = "#0a0010", bg = "#50fa7b" }
+count_cut      = { fg = "#0a0010", bg = "#e05c6f" }
+count_selected = { fg = "#0a0010", bg = "#ff2d78" }
+
+border_symbol = "│"
+border_style  = { fg = "#2a2840" }
+
+syntect_theme = ""
+
+[status]
+separator_open  = ""
+separator_close = ""
+separator_style = { fg = "#12132a", bg = "#12132a" }
+
+mode_normal = { fg = "#0a0010", bg = "#ff2d78", bold = true }
+mode_select = { fg = "#0a0010", bg = "#50fa7b", bold = true }
+mode_unset  = { fg = "#0a0010", bg = "#f1fa8c", bold = true }
+
+progress_label  = { fg = "#e8e6f0", bold = true }
+progress_normal = { fg = "#ff2d78", bg = "#12132a" }
+progress_error  = { fg = "#e05c6f", bg = "#12132a" }
+
+permissions_t = { fg = "#6b6880" }
+permissions_r = { fg = "#f1fa8c" }
+permissions_w = { fg = "#ff2d78" }
+permissions_x = { fg = "#50fa7b" }
+permissions_s = { fg = "#00f5ff" }
+
+[input]
+border   = { fg = "#ff2d78" }
+title    = { fg = "#ff2d78" }
+value    = { fg = "#e8e6f0" }
+selected = { reversed = true }
+
+[select]
+border   = { fg = "#ff2d78" }
+active   = { fg = "#ff2d78", bold = true }
+inactive = { fg = "#6b6880" }
+
+[tasks]
+border  = { fg = "#ff2d78" }
+title   = { fg = "#ff2d78" }
+hovered = { underline = true }
+
+[which]
+mask            = { bg = "#0a0010" }
+cand            = { fg = "#00f5ff" }
+rest            = { fg = "#6b6880" }
+desc            = { fg = "#e8e6f0" }
+separator       = "  "
+separator_style = { fg = "#2a2840" }
+
+[help]
+on      = { fg = "#ff2d78" }
+run     = { fg = "#00f5ff" }
+hovered = { reversed = true }
+footer  = { fg = "#0a0010", bg = "#6b6880" }
+
+[filetype]
+rules = [
+  # Directories
+  { mime = "inode/directory",              fg = "#ff2d78" },
+  # Images
+  { mime = "image/*",                      fg = "#bf5fff" },
+  # Video
+  { mime = "video/*",                      fg = "#00f5ff" },
+  # Audio
+  { mime = "audio/*",                      fg = "#ff79c6" },
+  # Archives
+  { mime = "application/zip",              fg = "#f1fa8c" },
+  { mime = "application/x-tar",            fg = "#f1fa8c" },
+  { mime = "application/x-7z-compressed",  fg = "#f1fa8c" },
+  { mime = "application/x-rar",            fg = "#f1fa8c" },
+  # Documents
+  { mime = "application/pdf",              fg = "#e05c6f" },
+  # Executables
+  { mime = "application/x-executable",    fg = "#50fa7b" },
+  { mime = "application/x-sharedlib",     fg = "#50fa7b" },
+  # Dotfiles / config
+  { name = ".*",                           fg = "#6b6880" },
+]

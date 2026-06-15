@@ -1,0 +1,56 @@
+# config/yazi/yazi.toml — RaBbLE-OS yazi configuration
+
+[manager]
+ratio          = [1, 3, 4]
+sort_by        = "natural"
+sort_sensitive = false
+sort_reverse   = false
+sort_dir_first = true
+show_hidden    = false
+show_symlink   = true
+
+[opener]
+edit = [
+  { run = 'codium "$@"', desc = "VSCodium", block = false },
+]
+open = [
+  { run = 'xdg-open "$@"', desc = "System default", block = false },
+]
+reveal = [
+  { run = 'dolphin --select "$@"', desc = "Reveal in Dolphin", block = false },
+]
+view_image = [
+  { run = 'imv "$@"', desc = "imv", block = false },
+]
+play_video = [
+  { run = 'mpv "$@"', desc = "mpv", block = false },
+]
+play_audio = [
+  { run = 'mpv "$@"', desc = "mpv", block = false },
+]
+extract = [
+  { run = 'unar "$@"', desc = "unar", block = true },
+]
+
+[open]
+rules = [
+  # Directories
+  { mime = "inode/directory",              use = ["edit", "reveal"] },
+  # Text / code
+  { mime = "text/*",                       use = ["edit", "open"] },
+  { mime = "application/json",             use = ["edit", "open"] },
+  { mime = "application/xml",              use = ["edit", "open"] },
+  # Images
+  { mime = "image/*",                      use = ["view_image", "open"] },
+  # Video
+  { mime = "video/*",                      use = ["play_video", "open"] },
+  # Audio
+  { mime = "audio/*",                      use = ["play_audio", "open"] },
+  # Archives
+  { mime = "application/zip",              use = ["extract", "open"] },
+  { mime = "application/x-tar",            use = ["extract", "open"] },
+  { mime = "application/x-7z-compressed",  use = ["extract", "open"] },
+  { mime = "application/x-rar",            use = ["extract", "open"] },
+  # Fallback
+  { mime = "*",                            use = ["open"] },
+]

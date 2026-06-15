@@ -1,7 +1,8 @@
 ---
 # apps/tasks/main.yml — STUB
-- { ansible.builtin.include_tasks: packages.yml,      tags: [apps, packages]  }
-- { ansible.builtin.include_tasks: config.yml,        tags: [apps, config]    }
-- { ansible.builtin.include_tasks: vscode.yml,        tags: [apps, vscode]    }
-- { ansible.builtin.include_tasks: browsers.yml,      tags: [apps, browsers]  }
-- { ansible.builtin.include_tasks: qt-gtk-theme.yml,  tags: [apps, theming]   }
+- { ansible.builtin.include_tasks: packages.yml,      tags: [apps, packages]    }
+- { ansible.builtin.include_tasks: config.yml,        tags: [apps, config]      }
+- { ansible.builtin.include_tasks: vscode.yml,        tags: [apps, vscode]      }
+- { ansible.builtin.include_tasks: browsers.yml,      tags: [apps, browsers]    }
+- { ansible.builtin.include_tasks: qt-gtk-theme.yml,  tags: [apps, theming]     }
+- { ansible.builtin.include_tasks: file_manager.yml,  tags: [apps, filemanager] }

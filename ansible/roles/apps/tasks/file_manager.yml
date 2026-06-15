@@ -1,0 +1,53 @@
+---
+# apps/tasks/file_manager.yml — yazi (primary TUI FM) + dolphin (GUI bridge)
+
+- name: file_manager | create yazi config directory
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.config/yazi"
+    state: directory
+    mode: '0755'
+  tags: [apps, filemanager, yazi]
+
+- name: file_manager | deploy yazi dotfiles
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/yazi/{{ item }}"
+    dest: "{{ ansible_env.HOME }}/.config/yazi/{{ item }}"
+    mode: '0644'
+  loop:
+    - yazi.toml
+    - theme.toml
+    - keymap.toml
+    - init.lua
+  tags: [apps, filemanager, yazi]
+
+- name: file_manager | install yazi git plugin
+  ansible.builtin.command:
+    cmd: ya pack -a yazi-rs/plugins#git
+    creates: "{{ ansible_env.HOME }}/.local/share/yazi/packages/yazi-rs/plugins"
+  tags: [apps, filemanager, yazi]
+
+# ── xdg-desktop-portal-termfilechooser ──────────────────────────────────────
+# Routes browser file picker requests to yazi in a floating kitty window.
+# STUBBED: package not yet available in Fedora 43 repos.
+# Check: dnf search xdg-desktop-portal-termfilechooser
+# COPR: emersion/xdg-desktop-portal-termfilechooser
+# Uncomment when available on Fedora 43:
+
+# - name: file_manager | enable termfilechooser COPR
+#   community.general.copr:
+#     state: enabled
+#     name: emersion/xdg-desktop-portal-termfilechooser
+#   tags: [apps, filemanager, portal]
+
+# - name: file_manager | install termfilechooser portal
+#   ansible.builtin.dnf:
+#     name: xdg-desktop-portal-termfilechooser
+#     state: present
+#   tags: [apps, filemanager, portal]
+
+# - name: file_manager | deploy termfilechooser config
+#   ansible.builtin.template:
+#     src: termfilechooser.conf.j2
+#     dest: "{{ ansible_env.HOME }}/.config/xdg-desktop-portal/termfilechooser.conf"
+#     mode: '0644'
+#   tags: [apps, filemanager, portal]

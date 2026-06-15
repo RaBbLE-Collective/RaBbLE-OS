@@ -1,4 +1,3 @@
----
 # ansible/packages/manifest.yml
 # =============================================================================
 # RaBbLE-OS — Package Manifest
@@ -631,7 +630,7 @@ packages:
 
   - name: dolphin
     category: apps.files
-    reason: File manager — KDE/Qt, runs without full Plasma, Wayland-native, Super+E keybind
+    reason: GUI bridge — drag-and-drop and "Show in Folder" for XDG portal workflows; transitional until xdg-desktop-portal-termfilechooser is stable on Fedora
     source: fedora
     platform: all
     layer: apps
@@ -648,6 +647,62 @@ packages:
   - name: kdegraphics-thumbnailers
     category: apps.files
     reason: Image/PDF thumbnails in Dolphin — visual file browsing
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: yazi
+    category: apps.files
+    reason: Primary TUI file manager — Rust/async, Lua plugins, ya CLI agent-scriptable, Aether-themed
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: imv
+    category: apps.files
+    reason: Image viewer — yazi opener rule for image MIME types; lightweight, Wayland-native
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: ffmpegthumbnailer
+    category: apps.files
+    reason: Video thumbnails in yazi preview pane
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: poppler-utils
+    category: apps.files
+    reason: PDF to image conversion for yazi preview pane
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: fd-find
+    category: apps.files
+    reason: Fast file finder — yazi fzf-jump plugin dependency
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: fzf
+    category: apps.files
+    reason: Fuzzy finder — yazi fzf-jump keybind (f key)
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  - name: unar
+    category: apps.files
+    reason: Archive extractor — yazi opener rule for zip/tar/rar/7z archives
     source: fedora
     platform: all
     layer: apps
@@ -761,21 +816,9 @@ packages:
     layer: apps
     ks: false
 
-  - name: thunar-archive-plugin
-    category: apps.filemanager
-    reason: Right-click archive extraction support in Thunar
-    source: fedora
-    platform: all
-    layer: apps
-    ks: false
-
-  - name: thunar-volman
-    category: apps.filemanager
-    reason: Auto-mount and eject removable media in Thunar
-    source: fedora
-    platform: all
-    layer: apps
-    ks: false
+  # Thunar removed — replaced by yazi (primary TUI FM)
+  # thunar-archive-plugin and thunar-volman removed with Thunar
+  # Archive extraction handled by unar via yazi opener rules
 
   # papirus-folders: bash script from GitHub (not a dnf package)
   # Installed by qt-gtk-theme.yml via get_url to /usr/local/bin/
