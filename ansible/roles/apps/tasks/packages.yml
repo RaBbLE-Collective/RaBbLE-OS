@@ -22,6 +22,13 @@
     state: absent
   tags: [apps, packages, filemanager]
 
+- name: apps | enable yazi COPR
+  community.general.copr:
+    name: "{{ yazi_copr }}"
+    state: enabled
+  become: true
+  tags: [apps, packages, filemanager, copr]
+
 - name: apps | install file managers and preview dependencies
   ansible.builtin.dnf:
     name:

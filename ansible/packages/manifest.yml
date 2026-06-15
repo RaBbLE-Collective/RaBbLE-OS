@@ -655,7 +655,7 @@ packages:
   - name: yazi
     category: apps.files
     reason: Primary TUI file manager — Rust/async, Lua plugins, ya CLI agent-scriptable, Aether-themed
-    source: fedora
+    source: "copr:lihaohong/yazi"
     platform: all
     layer: apps
     ks: false
