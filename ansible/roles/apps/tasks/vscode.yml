@@ -3,9 +3,9 @@
 #
 # spark ~ apps/vscode >> RaBbLE Aether theme wired into VSCodium // %VSCODE_AETHER%
 #
-# Extension lives at config/vscodium/extensions/RaBbLE-Aether-theme/ — dotctl
-# also manages these files (vscodium + vscodium-theme bundles), so the user
-# can re-sync anytime with: ./RaBbLE-OS-dotctl.sh apply vscodium-theme
+# Theme artifacts (manifest, color theme, custom.css) live in Aether at
+# {{ aether_repo_root }}/themes/vscodium/ — Aether is the canonical theme source.
+# OS keeps only config/vscodium/User/settings.json (the selector that activates it).
 #
 # CSS injection: Ansible inlines custom.css content directly into workbench.desktop.main.css.
 # @import url('file://...') is blocked by Electron's cross-scheme security policy.
@@ -43,7 +43,7 @@
 
 - name: vscode | deploy RaBbLE Aether extension manifest
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/RaBbLE-Aether-theme/package.json"
+    src: "{{ aether_repo_root }}/themes/vscodium/package.json"
     dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/package.json"
     mode: '0644'
     owner: "{{ rabble_user }}"
@@ -52,7 +52,7 @@
 
 - name: vscode | deploy RaBbLE Aether theme assets
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/RaBbLE-Aether-theme/assets/"
+    src: "{{ aether_repo_root }}/themes/vscodium/assets/"
     dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/assets/"
     mode: '0644'
     owner: "{{ rabble_user }}"
@@ -61,7 +61,7 @@
 
 - name: vscode | deploy RaBbLE Aether color theme
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/vscodium/extensions/RaBbLE-Aether-theme/themes/"
+    src: "{{ aether_repo_root }}/themes/vscodium/themes/"
     dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/themes/"
     mode: '0644'
     owner: "{{ rabble_user }}"
@@ -91,7 +91,7 @@
     path: "{{ workbench_css.files[0].path }}"
     marker: "/* {mark} RABBLE-AETHER-INJECTION */"
     insertbefore: BOF
-    block: "{{ lookup('file', dotfiles_repo_root + '/config/vscodium/extensions/RaBbLE-Aether-theme/assets/custom.css') }}"
+    block: "{{ lookup('file', aether_repo_root + '/themes/vscodium/assets/custom.css') }}"
   become: true
   when: workbench_css.matched > 0
   tags: [apps, vscode]

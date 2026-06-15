@@ -1001,7 +1001,7 @@ packages:
     layer: layer/dev
     ks: false
     # VSCodium RPM repo: https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/-/raw/repos/rpm/
-    # Theme deployed by apps/tasks/vscode.yml; re-sync via dotctl apply vscodium vscodium-theme
+    # Theme artifacts deployed from Aether by apps/tasks/vscode.yml; selector via dotctl apply vscodium
 
   - name: gh
     category: layer.dev

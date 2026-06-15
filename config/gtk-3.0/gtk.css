@@ -4,7 +4,7 @@
  * Same-specificity rules here win automatically.
  * No !important — not needed or allowed in GTK3 user stylesheets.
  *
- * Palette: RaBbLE-Grimoire/common/RaBbLE-Palette.md
+ * Palette: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md
  * (hardcoded here — GTK3 user stylesheets don’t inherit @define-color from installed themes)
  *
  *   #0a0010  void bg       #12132a  surface
