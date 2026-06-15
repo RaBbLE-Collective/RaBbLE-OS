@@ -54,6 +54,7 @@ declare -A BUNDLE_SRC=(
   [zsh]="config/shell/zsh"
   [bash]="config/shell/bash"
   [mako]="config/mako"
+  [swayosd]="config/swayosd"
   [claude]="config/claude/themes"
   [vscodium]="config/vscodium/User"
 )
@@ -68,6 +69,7 @@ declare -A BUNDLE_DEST=(
   [zsh]="${HOME}/.config/zsh"
   [bash]="${HOME}"
   [mako]="${HOME}/.config/mako"
+  [swayosd]="${HOME}/.config/swayosd"
   [claude]="${HOME}/.claude/themes"
   [vscodium]="${HOME}/.config/VSCodium/User"
 )
@@ -82,11 +84,12 @@ declare -A BUNDLE_DESC=(
   [zsh]="ZSH config (Powerlevel10k + plugins)"
   [bash]="Bash config, aliases, and .zshenv"
   [mako]="Mako notification daemon config (config/mako/config → ~/.config/mako/config)"
+  [swayosd]="swayOSD volume/brightness overlay — RaBbLE-Aether gradient ring + flowing text"
   [claude]="Claude Code RaBbLE theme (themes only — settings.json is not managed)"
   [vscodium]="VSCodium user settings — activates RaBbLE Aether theme (theme artifacts deploy from Aether via Ansible)"
 )
 
-BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako claude vscodium)
+BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd claude vscodium)
 
 # Post-apply hooks — run after a bundle's files are deployed.
 # Only set for bundles that need more than a file copy (e.g. patching a config key).

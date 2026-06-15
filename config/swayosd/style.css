@@ -1,0 +1,115 @@
+/* RaBbLE-Aether — swayOSD theme  (GTK4)
+ * Palette: ../RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md  (hardcoded — GTK CSS has no @import)
+ *
+ *   #0a0010 void   #12132a surface   #1a1b2e raised   #2a2840 border
+ *   #00f5ff cyan    #bf5fff violet    #ff2d78 magenta   #e8e6f0 text
+ *
+ * Aether language, adapted to GTK4. The VSCodium "gold standard" ring uses
+ * conic-gradient + @property + ::before + mask-composite — NONE of which GTK4 CSS
+ * supports (no conic-gradient, no pseudo-elements, no mask, no background-clip:text).
+ * So the ring is rebuilt with GTK-native primitives:
+ *   - Border  : a cyan→violet→magenta gradient pill drawn as a padding-box ring
+ *               (outer element = gradient, inner = void) so it respects border-radius,
+ *               plus a cycling glow pulse (aether-glow) — the living "harmony" beat.
+ *   - Text    : GTK4 cannot clip a gradient to glyphs, so the cyan→magenta "flow"
+ *               is an animated colour cycle (aether-text-flow) on the label + icon.
+ *   - Progress: a real spatial cyan→magenta gradient fill.
+ */
+
+/* ── Motion ─────────────────────────────────────────────────────────────────── */
+
+/* Ring glow — cycles cyan → violet → magenta, the Aether harmony pulse */
+@keyframes aether-glow {
+  0%, 100% { box-shadow: 0 0 14px 1px rgba(0,245,255,0.45),  0 6px 22px rgba(0,0,0,0.55); }
+  33%      { box-shadow: 0 0 14px 1px rgba(191,95,255,0.45), 0 6px 22px rgba(0,0,0,0.55); }
+  66%      { box-shadow: 0 0 14px 1px rgba(255,45,120,0.45), 0 6px 22px rgba(0,0,0,0.55); }
+}
+
+/* Border flow — colour bands slide around the pill (GTK4 has no conic-gradient or
+ * animatable background-position, but it DOES interpolate between compatible
+ * gradients, so we rotate the stops cyan → violet → magenta through keyframes). */
+@keyframes aether-border-flow {
+  0%, 100% { background-image: linear-gradient(120deg, #00f5ff 0%, #bf5fff 50%, #ff2d78 100%); }
+  33%      { background-image: linear-gradient(120deg, #bf5fff 0%, #ff2d78 50%, #00f5ff 100%); }
+  66%      { background-image: linear-gradient(120deg, #ff2d78 0%, #00f5ff 50%, #bf5fff 100%); }
+}
+
+/* Progress flow — same stop rotation, kept left→right so the fill reads cyan→magenta */
+@keyframes aether-progress-flow {
+  0%, 100% { background-image: linear-gradient(to right, #00f5ff 0%, #bf5fff 55%, #ff2d78 100%); }
+  33%      { background-image: linear-gradient(to right, #bf5fff 0%, #ff2d78 55%, #00f5ff 100%); }
+  66%      { background-image: linear-gradient(to right, #ff2d78 0%, #00f5ff 55%, #bf5fff 100%); }
+}
+
+/* Text flow — cyan → magenta and back, passing through violet */
+@keyframes aether-text-flow {
+  0%, 100% { color: #00f5ff; text-shadow: 0 0 8px rgba(0,245,255,0.55); }
+  50%      { color: #ff2d78; text-shadow: 0 0 8px rgba(255,45,120,0.55); }
+}
+
+/* ── Outer pill = the Aether gradient ring ──────────────────────────────────── */
+window#osd {
+  border-radius: 999px;
+  border: none;
+  /* tri-colour ring source; the 2px margin on #container reveals it as the border */
+  background: linear-gradient(120deg, #00f5ff 0%, #bf5fff 50%, #ff2d78 100%);
+  animation: aether-border-flow 8s linear infinite,
+             aether-glow 9s linear infinite;
+}
+
+/* ── Inner void fill — sits 2px inside, leaving the gradient as a pill border ── */
+window#osd #container {
+  margin: 2px;
+  padding: 14px 18px;
+  border-radius: 999px;
+  background: #0a0010;
+}
+
+/* ── Icon + percentage label — flowing cyan→magenta ─────────────────────────── */
+window#osd image,
+window#osd label {
+  color: #00f5ff;
+  animation: aether-text-flow 6s ease-in-out infinite;
+}
+
+window#osd progressbar:disabled,
+window#osd image:disabled {
+  opacity: 0.4;
+  animation: none;
+}
+
+/* ── Progress bar ───────────────────────────────────────────────────────────── */
+window#osd progressbar,
+window#osd segmentedprogress {
+  min-height: 6px;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+}
+
+/* Track — dim violet rail */
+window#osd trough,
+window#osd segment {
+  min-height: inherit;
+  border-radius: inherit;
+  border: none;
+  background: rgba(191,95,255,0.22);
+}
+
+/* Fill — the cyan→magenta spatial gradient (a real gradient, glyphs can't be) */
+window#osd progress,
+window#osd segment.active {
+  min-height: inherit;
+  border-radius: inherit;
+  border: none;
+  background: linear-gradient(to right, #00f5ff 0%, #bf5fff 55%, #ff2d78 100%);
+  box-shadow: 0 0 8px rgba(255,45,120,0.45);
+  animation: aether-progress-flow 8s linear infinite;
+}
+
+window#osd segment {
+  margin-left: 8px;
+}
+window#osd segment:first-child {
+  margin-left: 0;
+}
