@@ -84,7 +84,7 @@
 
 - name: qt-gtk-theme | deploy GTK3 user personality layer (RaBbLE-OS cascade on Aether theme)
   ansible.builtin.copy:
-    src: "{{ dotfiles_repo_root }}/config/gtk-3.0/gtk.css"
+    content: "{{ lookup('file', dotfiles_repo_root + '/config/gtk-3.0/gtk.css') }}"
     dest: "{{ rabble_home }}/.config/gtk-3.0/gtk.css"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"

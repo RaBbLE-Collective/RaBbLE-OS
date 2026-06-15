@@ -17,6 +17,10 @@
       - lm_sensors    # Hardware sensor readings — temps, fan speeds, voltages
       - lm_sensors-devel
     state: present
+  retries: 3
+  delay: 5
+  register: _sensor_pkg
+  until: _sensor_pkg is not failed
   tags: [monitoring, sensors]
 
 - name: Run sensors-detect (non-interactive, auto-accept)

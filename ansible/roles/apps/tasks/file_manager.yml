@@ -20,9 +20,9 @@
     - init.lua
   tags: [apps, filemanager, yazi]
 
-- name: file_manager | install yazi git plugin
+- name: file_manager | install yazi plugins (includes git)
   ansible.builtin.command:
-    cmd: ya pkg add yazi-rs/plugins#git
+    cmd: ya pkg add yazi-rs/plugins
     creates: "{{ ansible_env.HOME }}/.local/share/yazi/packages/yazi-rs/plugins"
   tags: [apps, filemanager, yazi]
 
