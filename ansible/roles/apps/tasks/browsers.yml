@@ -54,7 +54,7 @@
 
     - name: firefox | deploy userChrome.css from Aether (browser UI)
       ansible.builtin.copy:
-        src:   "{{ aether_repo_root }}/themes/firefox/userChrome.css"
+        content: "{{ lookup('file', aether_repo_root + '/themes/firefox/userChrome.css') }}"
         dest:  "{{ ff_profile.path }}/chrome/userChrome.css"
         mode:  '0644'
         owner: "{{ rabble_user }}"
@@ -63,7 +63,7 @@
 
     - name: firefox | deploy userContent.css from Aether (web content + about:*)
       ansible.builtin.copy:
-        src:   "{{ aether_repo_root }}/themes/firefox/userContent.css"
+        content: "{{ lookup('file', aether_repo_root + '/themes/firefox/userContent.css') }}"
         dest:  "{{ ff_profile.path }}/chrome/userContent.css"
         mode:  '0644'
         owner: "{{ rabble_user }}"
@@ -72,7 +72,7 @@
 
     - name: firefox | deploy user.js (enable userChrome + theme prefs)
       ansible.builtin.copy:
-        src:   "{{ dotfiles_repo_root }}/config/firefox/user.js"
+        content: "{{ lookup('file', dotfiles_repo_root + '/config/firefox/user.js') }}"
         dest:  "{{ ff_profile.path }}/user.js"
         mode:  '0644'
         owner: "{{ rabble_user }}"

@@ -31,3 +31,4 @@ __pycache__/
 #ISOs
 ISO/*
 Codex.md
+.claude/

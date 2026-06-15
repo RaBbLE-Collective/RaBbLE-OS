@@ -21,9 +21,12 @@
   tags: [apps, filemanager, yazi]
 
 - name: file_manager | install yazi plugins (includes git)
-  ansible.builtin.command:
-    cmd: ya pkg add yazi-rs/plugins
-    creates: "{{ ansible_env.HOME }}/.local/share/yazi/packages/yazi-rs/plugins"
+  ansible.builtin.git:
+    repo: https://github.com/yazi-rs/plugins
+    dest: "{{ rabble_home }}/.local/share/yazi/packages/yazi-rs/plugins"
+    depth: 1
+    update: false
+  become: false
   tags: [apps, filemanager, yazi]
 
 # ── xdg-desktop-portal-termfilechooser ──────────────────────────────────────
