@@ -7,9 +7,9 @@ Items graduate to the Roadmap once scoped.
 
 ```bash
 # From terminal — append with today's date
-echo "- [ ] $(date +%Y-%m-%d) | BUG | description here" >> ~/RaBbLE/RaBbLE-OS/ISSUES.md
-echo "- [ ] $(date +%Y-%m-%d) | GRIPE | description here" >> ~/RaBbLE/RaBbLE-OS/ISSUES.md
-echo "- [ ] $(date +%Y-%m-%d) | WISH | description here" >> ~/RaBbLE/RaBbLE-OS/ISSUES.md
+echo "- [ ] $(date +%Y-%m-%d) | BUG | description here" >> ~/RaBbLE-Collective/RaBbLE-OS/ISSUES.md
+echo "- [ ] $(date +%Y-%m-%d) | GRIPE | description here" >> ~/RaBbLE-Collective/RaBbLE-OS/ISSUES.md
+echo "- [ ] $(date +%Y-%m-%d) | WISH | description here" >> ~/RaBbLE-Collective/RaBbLE-OS/ISSUES.md
 ```
 
 **Types:**
