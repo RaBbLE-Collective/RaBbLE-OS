@@ -2,3 +2,8 @@
 - name: rebuild grub config
   ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
   become: true
+
+- name: reload systemd daemon
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  become: true

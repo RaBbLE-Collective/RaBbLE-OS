@@ -2,4 +2,5 @@
 # core/tasks/main.yml
 - { ansible.builtin.include_tasks: packages.yml,    tags: [base, packages]    }
 - { ansible.builtin.include_tasks: config.yml,       tags: [base, config]      }
+- { ansible.builtin.include_tasks: recovery.yml,     tags: [base, config, recovery] }
 - { ansible.builtin.include_tasks: ctl-scripts.yml,  tags: [base, config]      }
