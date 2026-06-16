@@ -40,7 +40,7 @@ SPIN_FRAMES=(▁ ▂ ▄ ▆ █ ▆ ▄ ▂)
 case "$mode" in
     claude) IDLE_GLYPH="✱" ;;
     codex)  IDLE_GLYPH=">_" ;;
-    antigravity) IDLE_GLYPH="⏔" ;;
+    antigravity) IDLE_GLYPH="Λ" ;;
     *)      IDLE_GLYPH="·" ;;
 esac
 NEEDS_INPUT_GLYPH="⚑"
@@ -138,6 +138,18 @@ while true; do
                     fi
                     ;;
             esac
+        fi
+
+        # Antigravity stale-cache safety: if the daemon hasn't refreshed the
+        # cache in >30s (likely crashed/stopped), don't display a stale "busy"
+        # or "ready". Fall back to idle so the bar reflects reality.
+        if [[ "$mode" == "antigravity" && "$class" != *idle* ]]; then
+            now_s _agy_now
+            _agy_cache_age=$(( _agy_now - $(stat -c %Y "$CACHE" 2>/dev/null || echo "$_agy_now") ))
+            if (( _agy_cache_age > 30 )); then
+                class="llm-idle"
+                raw="${raw/\"$cached_class\"/\"$class\"}"
+            fi
         fi
 
         glyph=""

@@ -620,6 +620,36 @@ def render_light(now: float, tcache: dict, live: bool) -> str:
     return _capture(body)
 
 
+def print_antigravity(now: float) -> None:
+    cache = CACHE_DIR / "score-antigravity.json"
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}Antigravity (agy){RESET}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+    if not cache.is_file():
+        print(f"  {MUTED}No cache — start score-status-daemon to populate{RESET}")
+        return
+    age = now - cache.stat().st_mtime
+    try:
+        data = json.loads(cache.read_text())
+    except (OSError, json.JSONDecodeError):
+        print(f"  {MUTED}Cache unreadable{RESET}")
+        return
+    cls = data.get("class", "llm-idle")
+    state_color = MAGENTA if "needs" in cls else (CYAN if "busy" in cls else (GREEN if "ready" in cls else MUTED))
+    for line in data.get("tooltip", "").split("\n"):
+        if line.startswith("═"):
+            continue
+        if not line.strip():
+            continue
+        key, _, val = line.partition(":")
+        if val:
+            print(f"  {MUTED}{key.rstrip()}:{RESET} {state_color if 'Status' in key else TEXT}{val.strip()}{RESET}")
+        else:
+            print(f"  {TEXT}{line}{RESET}")
+    if age > 30:
+        print(f"\n  {YELLOW}⚠ cache is {int(age)}s old — daemon may be down{RESET}")
+
+
 def render_heavy(now: float, mode: str) -> str:
     def body():
         five_h_start, five_h_reset = five_h_window_start(now)
@@ -637,15 +667,18 @@ def render_heavy(now: float, mode: str) -> str:
             print_separator("Codex")
             print_codex(now)
 
-        if mode == "codex":
+        def antigravity_sections():
+            print_antigravity(now)
+
+        if mode == "antigravity":
+            antigravity_sections()
+        elif mode == "codex":
             codex_sections()
-            claude_sections()
         else:
             claude_sections()
             codex_sections()
-
-        total_week = sum(s["total"] for s in sessions_7d)
-        print(f"\n{MUTED}  Weekly total: {fmt_tokens(total_week)} tokens across {len(sessions_7d)} session(s){RESET}\n")
+            total_week = sum(s["total"] for s in sessions_7d)
+            print(f"\n{MUTED}  Weekly total: {fmt_tokens(total_week)} tokens across {len(sessions_7d)} session(s){RESET}\n")
     return _capture(body)
 
 
@@ -720,7 +753,10 @@ def run_live(mode: str):
             if now - heavy_ts > HEAVY_REFRESH_S:
                 heavy = render_heavy(now, mode)
                 heavy_ts = now
-            frame_lines = (render_light(now, tcache, live=True) + heavy).splitlines()
+            if mode == "claude":
+                frame_lines = (render_light(now, tcache, live=True) + heavy).splitlines()
+            else:
+                frame_lines = heavy.splitlines()
             draw()
 
             if old_attrs is None:
@@ -779,7 +815,8 @@ def main():
         return
 
     now = time.time()
-    sys.stdout.write(render_light(now, {}, live=False))
+    if mode == "claude":
+        sys.stdout.write(render_light(now, {}, live=False))
     sys.stdout.write(render_heavy(now, mode))
 
 

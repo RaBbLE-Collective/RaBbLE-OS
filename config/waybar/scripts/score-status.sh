@@ -514,7 +514,7 @@ main() {
                 needs-input) agy_mark="⚑" ;;
                 busy)        agy_mark="$(spin_glyph 4)" ;;
                 ready)       agy_mark="▶" ;;
-                *)           agy_mark="⏔" ;;
+                *)           agy_mark="Λ" ;;
             esac
         fi
 
@@ -526,7 +526,7 @@ main() {
             agy_text="Agy ${agy_mark}"
             (( agy_count > 1 )) && agy_text+="×${agy_count}"
             if (( agy_rate_limited )); then
-                agy_text+=" ⛔"
+                agy_text+=" ⊘"
             fi
         fi
 
@@ -540,7 +540,7 @@ main() {
         fi
         tt2+="${nl}Sessions  : ${agy_conv_count} total / ${agy_recent_count} active (24h)"
         if (( agy_rate_limited )); then
-            tt2+="${nl}Quota     : ⛔ ${agy_quota_info}"
+            tt2+="${nl}Quota     : ⊘ ${agy_quota_info}"
         fi
         tt2+="${nl}Data dir  : ${agy_dir}"
 
