@@ -453,7 +453,7 @@ def parse_codex(now: float) -> dict | None:
     for jl in CODEX_DIR.rglob("*.jsonl"):
         try:
             mtime = jl.stat().st_mtime
-            if mtime < now - 604_800 - 3600:
+            if mtime < now - 2_678_400:  # 31 days — matches Codex quota window
                 continue
             with open(jl) as f:
                 for line in f:
@@ -550,37 +550,78 @@ def print_separator(title: str):
 
 
 def print_codex(now: float):
+    print(f"\n{MAGENTA}  Codex Tracker{RESET}  {MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}{RESET}")
+
+    # Running instances
+    try:
+        import subprocess
+        result = subprocess.run(["pgrep", "-cx", "codex"], capture_output=True, text=True)
+        codex_count = int(result.stdout.strip() or "0")
+    except Exception:
+        codex_count = 0
+
+    if codex_count > 0:
+        print(f"  {CYAN}● {codex_count} instance{'s' if codex_count > 1 else ''} running{RESET}")
+    else:
+        print(f"  {MUTED}○ not running{RESET}")
+
     codex = parse_codex(now)
     if not codex:
+        print(f"\n  {MUTED}No session data found in {CODEX_DIR}{RESET}")
         return
 
     rate = codex["latest"]["rate"]
     primary = rate.get("primary") or {}
+    secondary = rate.get("secondary") or {}
     pct = primary.get("used_percent")
-    reset = primary.get("resets_at")
+    reset_ts = primary.get("resets_at")
     reset_text = ""
-    if reset:
-        left = int(float(reset) - now)
+    if reset_ts:
+        left = int(float(reset_ts) - now)
         reset_text = "now" if left <= 0 else f"{left // 3600}h {(left % 3600) // 60:02d}m"
 
+    # Data age
+    session_age = now - codex["latest"]["ts"]
+    age_note = f"{MUTED}(last session {fmt_age(session_age)}){RESET}" if session_age > 86_400 else ""
+
     print(f"\n{VIOLET}{'─'*60}{RESET}")
-    print(f"{VIOLET}Codex quota{RESET}", end="")
-    if pct is not None:
-        print(f"  {make_bar(float(pct))} {TEXT}{float(pct):>5.1f}%{RESET}", end="")
-    if reset_text:
-        print(f"  {MUTED}(resets in {reset_text}){RESET}", end="")
-    print()
+    plan = rate.get("plan_type") or "unknown"
+    print(f"{VIOLET}Quota{RESET}  {MUTED}plan: {plan}{RESET}  {age_note}")
     print(f"{VIOLET}{'─'*60}{RESET}")
-    plan = rate.get("plan_type")
-    if plan:
-        print(f"  {MUTED}plan: {plan}{RESET}")
-    for label in ("5h", "7d"):
+
+    if pct is not None:
+        color = GREEN if float(pct) < 60 else YELLOW if float(pct) < 85 else MAGENTA
+        bar = make_bar(float(pct))
+        reset_txt = f" · resets in {reset_text}" if reset_text else ""
+        print(f"  {CYAN}primary {RESET} {bar} {color}{float(pct):>5.1f}%{RESET}{MUTED}{reset_txt}{RESET}")
+    else:
+        print(f"  {MUTED}primary  no quota data{RESET}")
+
+    if secondary:
+        sec_pct = secondary.get("used_percent")
+        sec_reset = secondary.get("resets_at")
+        sec_reset_txt = ""
+        if sec_reset:
+            left = int(float(sec_reset) - now)
+            sec_reset_txt = f" · resets in {'now' if left <= 0 else f'{left // 3600}h {(left % 3600) // 60:02d}m'}"
+        if sec_pct is not None:
+            sec_bar = make_bar(float(sec_pct))
+            print(f"  {CYAN}secondary{RESET} {sec_bar} {TEXT}{float(sec_pct):>5.1f}%{RESET}{MUTED}{sec_reset_txt}{RESET}")
+
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}Token usage{RESET}  {MUTED}(from local transcripts){RESET}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+    for label, window_s in (("5h", 18_000), ("7d", 604_800)):
         bucket = codex["tokens"][label]
-        print(
-            f"  {CYAN}{label:<5}{RESET} {TEXT}{fmt_tokens(bucket['total']):>7}{RESET}  "
-            f"{MUTED}↓{fmt_tokens(bucket['input'])} cached {fmt_tokens(bucket['cached'])} "
-            f"↑{fmt_tokens(bucket['output'])} reason {fmt_tokens(bucket['reasoning'])}{RESET}"
-        )
+        total = bucket["total"]
+        if total == 0:
+            print(f"  {CYAN}{label:<5}{RESET} {MUTED}no activity{RESET}")
+        else:
+            print(
+                f"  {CYAN}{label:<5}{RESET} {TEXT}{fmt_tokens(total):>7}{RESET}  "
+                f"{MUTED}↓{fmt_tokens(bucket['input'])} cached {fmt_tokens(bucket['cached'])} "
+                f"↑{fmt_tokens(bucket['output'])} reason {fmt_tokens(bucket['reasoning'])}{RESET}"
+            )
 
 
 # ── Render orchestration ──────────────────────────────────────────────────────
@@ -621,33 +662,140 @@ def render_light(now: float, tcache: dict, live: bool) -> str:
 
 
 def print_antigravity(now: float) -> None:
-    cache = CACHE_DIR / "score-antigravity.json"
-    print(f"\n{VIOLET}{'─'*60}{RESET}")
-    print(f"{VIOLET}Antigravity (agy){RESET}")
-    print(f"{VIOLET}{'─'*60}{RESET}")
-    if not cache.is_file():
-        print(f"  {MUTED}No cache — start score-status-daemon to populate{RESET}")
-        return
-    age = now - cache.stat().st_mtime
+    import subprocess, glob as _glob
+
+    agy_dir = pathlib.Path.home() / ".gemini" / "antigravity-cli"
+    log_dir = agy_dir / "log"
+    conv_dir = agy_dir / "conversations"
+    settings_file = agy_dir / "settings.json"
+
+    print(f"\n{MAGENTA}  Antigravity Tracker{RESET}  {MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}{RESET}")
+
+    # Running instances
     try:
-        data = json.loads(cache.read_text())
-    except (OSError, json.JSONDecodeError):
-        print(f"  {MUTED}Cache unreadable{RESET}")
-        return
-    cls = data.get("class", "llm-idle")
-    state_color = MAGENTA if "needs" in cls else (CYAN if "busy" in cls else (GREEN if "ready" in cls else MUTED))
-    for line in data.get("tooltip", "").split("\n"):
-        if line.startswith("═"):
-            continue
-        if not line.strip():
-            continue
-        key, _, val = line.partition(":")
-        if val:
-            print(f"  {MUTED}{key.rstrip()}:{RESET} {state_color if 'Status' in key else TEXT}{val.strip()}{RESET}")
+        result = subprocess.run(["pgrep", "-cx", "agy"], capture_output=True, text=True)
+        agy_count = int(result.stdout.strip() or "0")
+    except Exception:
+        agy_count = 0
+
+    if agy_count > 0:
+        print(f"  {CYAN}● {agy_count} instance{'s' if agy_count > 1 else ''} running{RESET}")
+    else:
+        print(f"  {MUTED}○ not running{RESET}")
+
+    # Configured model
+    current_model = "unknown"
+    if settings_file.is_file():
+        try:
+            s = json.loads(settings_file.read_text())
+            current_model = s.get("model", "unknown")
+        except Exception:
+            pass
+    is_claude = "claude" in current_model.lower() or "sonnet" in current_model.lower() or "opus" in current_model.lower()
+    model_color = CYAN if is_claude else GREEN
+    print(f"  {MUTED}model:{RESET} {model_color}{current_model}{RESET}")
+
+    # Login status (from logs)
+    not_logged_in = False
+    if log_dir.is_dir():
+        try:
+            logs_24h = sorted(log_dir.glob("cli-*.log"))
+            for lf in reversed(logs_24h[-5:]):
+                content = lf.read_bytes()
+                if b"not logged into Antigravity" in content:
+                    not_logged_in = True
+                    break
+        except Exception:
+            pass
+    if not_logged_in:
+        print(f"  {YELLOW}⚠ not logged into Antigravity service{RESET}")
+
+    # ── Quota section ──────────────────────────────────────────────────────────
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}Quota{RESET}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+
+    # Gemini/Google API quota (from RESOURCE_EXHAUSTED in logs)
+    gemini_rate_limited = False
+    gemini_resets = ""
+    gemini_resets_s = 0
+    if log_dir.is_dir():
+        try:
+            logs = sorted(log_dir.glob("cli-*.log"))
+            for lf in reversed(logs):
+                if now - lf.stat().st_mtime > 86_400:
+                    break
+                content = lf.read_text(errors="replace")
+                import re as _re
+                hits = _re.findall(r"RESOURCE_EXHAUSTED.*?Resets in (\w+)", content)
+                if hits:
+                    gemini_rate_limited = True
+                    gemini_resets = hits[-1]
+                    # Parse "167h43m28s" into seconds
+                    m = _re.match(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?", gemini_resets)
+                    if m:
+                        h, mn, s = (int(x or 0) for x in m.groups())
+                        gemini_resets_s = h * 3600 + mn * 60 + s
+                    break
+        except Exception:
+            pass
+
+    if gemini_rate_limited:
+        bar = make_bar(100.0)
+        reset_str = f"resets in {gemini_resets}" if gemini_resets else "quota hit"
+        print(f"  {CYAN}Gemini API{RESET}  {bar} {MAGENTA}100%{RESET}  {MUTED}⊘ {reset_str}{RESET}")
+    else:
+        print(f"  {CYAN}Gemini API{RESET}  {MUTED}no quota errors in last 24h{RESET}")
+
+    # Claude quota when using Claude models (shared with Claude Code)
+    if is_claude:
+        observations = latest_web_observations(now)
+        if observations:
+            print(f"  {MUTED}{'─'*58}{RESET}")
+            print(f"  {CYAN}Claude API{RESET}  {MUTED}(shared with Claude Code){RESET}")
+            for label in ("5h", "week"):
+                row = observations.get(label)
+                if not row:
+                    continue
+                reset_txt = ""
+                if row.get("resets_at"):
+                    left = int(row["resets_at"] - now)
+                    reset_txt = f" · resets {'now' if left <= 0 else f'{left // 3600}h {(left % 3600) // 60:02d}m'}"
+                print(
+                    f"  {CYAN}  {label:<5}{RESET} {make_bar(row['pct'])} "
+                    f"{TEXT}{row['pct']:>5.1f}%{RESET}{MUTED}{reset_txt}{RESET}"
+                )
         else:
-            print(f"  {TEXT}{line}{RESET}")
-    if age > 30:
-        print(f"\n  {YELLOW}⚠ cache is {int(age)}s old — daemon may be down{RESET}")
+            print(f"  {CYAN}Claude API{RESET}  {MUTED}(no usage meter data){RESET}")
+
+    # ── Sessions section ───────────────────────────────────────────────────────
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}Sessions{RESET}  {MUTED}(conversation history){RESET}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+
+    if conv_dir.is_dir():
+        dbs = sorted(conv_dir.glob("*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+        total = len(dbs)
+        recent_24h = sum(1 for d in dbs if now - d.stat().st_mtime < 86_400)
+        recent_7d  = sum(1 for d in dbs if now - d.stat().st_mtime < 604_800)
+        print(f"  {TEXT}{total} total{RESET}  {CYAN}{recent_24h} today{RESET}  {MUTED}{recent_7d} last 7d{RESET}")
+        if dbs:
+            last_active = now - dbs[0].stat().st_mtime
+            print(f"  {MUTED}last activity: {fmt_age(last_active)}{RESET}")
+        # Show up to 5 most recent conversations with age
+        for db in dbs[:5]:
+            age_s = now - db.stat().st_mtime
+            cid = db.stem[:8]
+            print(f"  {MUTED}  {cid}…  {fmt_age(age_s)}{RESET}")
+    else:
+        print(f"  {MUTED}no conversation data at {conv_dir}{RESET}")
+
+    # Cache staleness warning
+    cache = CACHE_DIR / "score-antigravity.json"
+    if cache.is_file():
+        cache_age = now - cache.stat().st_mtime
+        if cache_age > 30:
+            print(f"\n  {YELLOW}⚠ cache is {int(cache_age)}s old — daemon may be down{RESET}")
 
 
 def render_heavy(now: float, mode: str) -> str:
@@ -664,7 +812,6 @@ def render_heavy(now: float, mode: str) -> str:
             print_section("Last 7 days",   sessions_7d,  604_800, now)
 
         def codex_sections():
-            print_separator("Codex")
             print_codex(now)
 
         def antigravity_sections():

@@ -221,7 +221,7 @@ def snapshot_at_or_before(target_ts):
 
 for path in root.rglob("*.jsonl"):
     try:
-        if path.stat().st_mtime < now - 604800 - 3600:
+        if path.stat().st_mtime < now - 2678400:  # 31 days — matches Codex quota window
             continue
         session_latest = None
         with path.open() as f:
@@ -484,24 +484,19 @@ main() {
         agy_count=$(pgrep -cx agy 2>/dev/null || true)
         agy_count=${agy_count:-0}
 
-        # Parse most-recent CLI log for quota/rate-limit info
+        # Parse all CLI logs from the last 24h for quota/rate-limit info.
+        # Rate limits reset in ~168h so any recent RESOURCE_EXHAUSTED is still
+        # live — checking only the latest log misses errors from earlier sessions.
         local agy_quota_info="" agy_quota_resets="" agy_rate_limited=0
         if [[ -d "$agy_log_dir" ]]; then
-            local latest_log
-            latest_log=$(find "$agy_log_dir" -name 'cli-*.log' 2>/dev/null \
-                | sort | tail -1)
-            if [[ -z "$latest_log" ]]; then
-                latest_log=$(ls -t "$agy_log_dir"/cli-*.log 2>/dev/null | head -1 || true)
-            fi
-            if [[ -n "$latest_log" && -r "$latest_log" ]]; then
-                # Look for rate-limit messages (last occurrence wins)
-                local rl_line
-                rl_line=$(grep -oP 'RESOURCE_EXHAUSTED.*?Resets in \K[0-9a-zA-Z]+' "$latest_log" 2>/dev/null | tail -1 || true)
-                if [[ -n "$rl_line" ]]; then
-                    agy_rate_limited=1
-                    agy_quota_resets="$rl_line"
-                    agy_quota_info="rate-limited, resets in ${agy_quota_resets}"
-                fi
+            local rl_line
+            rl_line=$(find "$agy_log_dir" -name 'cli-*.log' -newermt '-24 hours' 2>/dev/null \
+                | sort | xargs grep -hoP 'RESOURCE_EXHAUSTED.*?Resets in \K[0-9a-zA-Z]+' 2>/dev/null \
+                | tail -1 || true)
+            if [[ -n "$rl_line" ]]; then
+                agy_rate_limited=1
+                agy_quota_resets="$rl_line"
+                agy_quota_info="rate-limited, resets in ${agy_quota_resets}"
             fi
         fi
 
