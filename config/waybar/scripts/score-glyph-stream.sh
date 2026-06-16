@@ -26,6 +26,7 @@ CACHE_DIR="$HOME/.cache/rabble"
 CACHE="$CACHE_DIR/score-${mode}.json"
 CLAUDE_AGG_FILE="$CACHE_DIR/claude-agg-state"
 CODEX_LIVE_STATE_FILE="$CACHE_DIR/codex-live-state"
+ANTIGRAVITY_LIVE_STATE_FILE="$CACHE_DIR/antigravity-live-state"
 WAKE_FIFO="$CACHE_DIR/score-${mode}-wake.fifo"
 
 mkdir -p "$CACHE_DIR" 2>/dev/null || true
@@ -39,15 +40,17 @@ SPIN_FRAMES=(▁ ▂ ▄ ▆ █ ▆ ▄ ▂)
 case "$mode" in
     claude) IDLE_GLYPH="✱" ;;
     codex)  IDLE_GLYPH=">_" ;;
+    antigravity) IDLE_GLYPH="⏔" ;;
     *)      IDLE_GLYPH="·" ;;
 esac
 NEEDS_INPUT_GLYPH="⚑"
 READY_GLYPH="▶"
 
-# Phase-offset the wave so Claude and Codex don't animate in lockstep —
-# matches the offsets score-status.sh's spin_glyph() uses (claude=0, codex=2).
+# Phase-offset the wave so Claude, Codex, and Antigravity don't animate in lockstep —
+# matches the offsets score-status.sh's spin_glyph() uses (claude=0, codex=2, antigravity=4).
 case "$mode" in
     codex) SPIN_OFFSET=2 ;;
+    antigravity) SPIN_OFFSET=4 ;;
     *)     SPIN_OFFSET=0 ;;
 esac
 
@@ -119,6 +122,20 @@ while true; do
                 *busy*)
                     class="llm-ready"
                     raw="${raw/\"$cached_class\"/\"$class\"}"
+                    ;;
+            esac
+        fi
+
+        # Antigravity live override
+        if [[ "$mode" == "antigravity" && -f "$ANTIGRAVITY_LIVE_STATE_FILE" \
+              && "$ANTIGRAVITY_LIVE_STATE_FILE" -nt "$CACHE" ]]; then
+            live="$(<"$ANTIGRAVITY_LIVE_STATE_FILE")"
+            case "$class" in
+                *busy*)
+                    if [[ "$live" == "ready" || "$live" == "needs-input" ]]; then
+                        class="llm-$live"
+                        raw="${raw/\"$cached_class\"/\"$class\"}"
+                    fi
                     ;;
             esac
         fi

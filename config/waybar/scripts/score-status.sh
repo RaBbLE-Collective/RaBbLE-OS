@@ -316,6 +316,10 @@ codex_is_running() {
     pgrep -x "codex" &>/dev/null
 }
 
+antigravity_is_running() {
+    pgrep -x "agy" &>/dev/null
+}
+
 # Traveling-wave glyph for the "busy" mark — rises and falls like a pulse of
 # activity rather than a generic spinner. Waybar can only re-poll this script
 # every few seconds (no way to hit the 5-8Hz a true spin would need), so the
@@ -416,6 +420,35 @@ source_state() {
                 state_label="busy"
             fi
             ;;
+        antigravity)
+            if antigravity_is_running; then
+                state="ready"
+                state_label="ready"
+            fi
+            # Heuristic: recent write to any conversation DB means active work.
+            local agy_dir="$HOME/.gemini/antigravity-cli/conversations"
+            if [[ -d "$agy_dir" ]] && find "$agy_dir" -name "*.db" \
+                    -newermt '-10 seconds' 2>/dev/null | grep -q .; then
+                state="busy"
+                state_label="busy"
+            fi
+            # Live-state override (written by an external hook if ever wired in)
+            local agy_live_file="$CACHE_DIR/antigravity-live-state"
+            if [[ -f "$agy_live_file" ]]; then
+                local agy_age agy_now
+                agy_now=$(date +%s)
+                agy_age=$(( agy_now - $(stat -c %Y "$agy_live_file" 2>/dev/null || echo "$agy_now") ))
+                if (( agy_age < 600 )); then
+                    local agy_live
+                    agy_live="$(< "$agy_live_file")"
+                    case "$agy_live" in
+                        busy)        state="busy";        state_label="busy" ;;
+                        ready)       state="ready";       state_label="ready" ;;
+                        needs-input) state="needs-input"; state_label="needs input" ;;
+                    esac
+                fi
+            fi
+            ;;
     esac
 
     printf '%s %s\n' "$state" "$state_label"
@@ -425,6 +458,108 @@ source_state() {
 
 main() {
     local mode="${1:-summary}"
+
+    # ── Antigravity (agy) mode ────────────────────────────────────────────────
+    if [[ "$mode" == "antigravity" ]]; then
+        local nl=$'\n'
+        local agy_dir="$HOME/.gemini/antigravity-cli"
+        local agy_conv_dir="$agy_dir/conversations"
+        local agy_log_dir="$agy_dir/log"
+        local agy_brain_dir="$agy_dir/brain"
+
+        local agy_state agy_state_label
+        read -r agy_state agy_state_label <<< "$(source_state antigravity)"
+
+        # Count active conversations: brain dirs modified in last 24h
+        local agy_conv_count=0
+        local agy_recent_count=0
+        if [[ -d "$agy_brain_dir" ]]; then
+            agy_conv_count=$(find "$agy_brain_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l || echo 0)
+            agy_recent_count=$(find "$agy_brain_dir" -mindepth 1 -maxdepth 1 -type d \
+                -newermt '-24 hours' 2>/dev/null | wc -l || echo 0)
+        fi
+
+        # Count running agy instances
+        local agy_count
+        agy_count=$(pgrep -cx agy 2>/dev/null || true)
+        agy_count=${agy_count:-0}
+
+        # Parse most-recent CLI log for quota/rate-limit info
+        local agy_quota_info="" agy_quota_resets="" agy_rate_limited=0
+        if [[ -d "$agy_log_dir" ]]; then
+            local latest_log
+            latest_log=$(find "$agy_log_dir" -name 'cli-*.log' 2>/dev/null \
+                | sort | tail -1)
+            if [[ -z "$latest_log" ]]; then
+                latest_log=$(ls -t "$agy_log_dir"/cli-*.log 2>/dev/null | head -1 || true)
+            fi
+            if [[ -n "$latest_log" && -r "$latest_log" ]]; then
+                # Look for rate-limit messages (last occurrence wins)
+                local rl_line
+                rl_line=$(grep -oP 'RESOURCE_EXHAUSTED.*?Resets in \K[0-9a-zA-Z]+' "$latest_log" 2>/dev/null | tail -1 || true)
+                if [[ -n "$rl_line" ]]; then
+                    agy_rate_limited=1
+                    agy_quota_resets="$rl_line"
+                    agy_quota_info="rate-limited, resets in ${agy_quota_resets}"
+                fi
+            fi
+        fi
+
+        # Glyph
+        local agy_mark
+        if [[ "${RABBLE_GLYPH_PLACEHOLDER:-0}" == "1" ]]; then
+            agy_mark="@GLYPH@"
+        else
+            case "$agy_state" in
+                needs-input) agy_mark="⚑" ;;
+                busy)        agy_mark="$(spin_glyph 4)" ;;
+                ready)       agy_mark="▶" ;;
+                *)           agy_mark="⏔" ;;
+            esac
+        fi
+
+        # Bar text
+        local agy_text
+        if [[ "$agy_state" == "idle" ]]; then
+            agy_text="${agy_mark}"
+        else
+            agy_text="Agy ${agy_mark}"
+            (( agy_count > 1 )) && agy_text+="×${agy_count}"
+            if (( agy_rate_limited )); then
+                agy_text+=" ⛔"
+            fi
+        fi
+
+        # Tooltip
+        local tt1=$'═══════════════════ Antigravity ════════════════════'
+        local tt2="Status    : ${agy_state_label}"
+        if (( agy_count > 1 )); then
+            tt2+="  (${agy_count} instances)"
+        elif (( agy_count == 1 )); then
+            tt2+="  (1 instance)"
+        fi
+        tt2+="${nl}Sessions  : ${agy_conv_count} total / ${agy_recent_count} active (24h)"
+        if (( agy_rate_limited )); then
+            tt2+="${nl}Quota     : ⛔ ${agy_quota_info}"
+        fi
+        tt2+="${nl}Data dir  : ${agy_dir}"
+
+        RABBLE_TEXT="$agy_text" \
+        RABBLE_TT1="$tt1" \
+        RABBLE_TT2="$tt2" \
+        RABBLE_CLASS="llm-${agy_state}" \
+        python3 -c "
+import json, os
+parts = [os.environ[k] for k in ('RABBLE_TT1','RABBLE_TT2')]
+print(json.dumps({
+    'text':    os.environ['RABBLE_TEXT'],
+    'tooltip': '\n'.join(parts),
+    'class':   os.environ['RABBLE_CLASS'],
+}, ensure_ascii=False))
+"
+        touch "$CACHE_FILE" 2>/dev/null || true
+        return
+    fi
 
     if [[ "$mode" == "claude" ]]; then
         local nl=$'\n'
