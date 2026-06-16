@@ -20,6 +20,7 @@
     "modules-right": [
         "custom/llm-claude",
         "custom/llm-codex",
+        "custom/llm-antigravity",
         "pulseaudio",
         "network",
         "cpu",
@@ -240,5 +241,11 @@
         "return-type": "json",
         "tooltip": true,
         "on-click": "kitty --class rabble-popup -e python3 $HOME/.config/waybar/scripts/score-usage-detail.py codex --live"
+    },
+    "custom/llm-antigravity": {
+        "exec": "$HOME/.config/waybar/scripts/score-glyph-stream.sh antigravity",
+        "return-type": "json",
+        "tooltip": true,
+        "on-click": "kitty --class rabble-popup -e python3 $HOME/.config/waybar/scripts/score-usage-detail.py antigravity --live"
     }
 }

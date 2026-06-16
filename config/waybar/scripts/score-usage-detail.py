@@ -711,62 +711,84 @@ def print_antigravity(now: float) -> None:
         print(f"  {YELLOW}⚠ not logged into Antigravity service{RESET}")
 
     # ── Quota section ──────────────────────────────────────────────────────────
+    # agy has TWO independent quota pools, neither shared with Claude Code:
+    #   1. Gemini API quota  — hit when a Gemini/Flash model is active
+    #   2. Antigravity service quota — hit when Claude/GPT models are active
+    # We distinguish them by tracking the active model from model_config_manager.go:157
+    # lines immediately before each RESOURCE_EXHAUSTED event.
     print(f"\n{VIOLET}{'─'*60}{RESET}")
     print(f"{VIOLET}Quota{RESET}")
     print(f"{VIOLET}{'─'*60}{RESET}")
 
-    # Gemini/Google API quota (from RESOURCE_EXHAUSTED in logs)
-    gemini_rate_limited = False
-    gemini_resets = ""
+    import re as _re
+
+    def _parse_resets(resets_str: str) -> int:
+        m = _re.match(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?", resets_str)
+        if not m:
+            return 0
+        h, mn, s = (int(x or 0) for x in m.groups())
+        return h * 3600 + mn * 60 + s
+
+    def _fmt_resets(resets_s: int) -> str:
+        if resets_s <= 0:
+            return "may have reset"
+        h, rem = divmod(resets_s, 3600)
+        mn = rem // 60
+        return f"{h}h{mn:02d}m"
+
+    gemini_rl = False
     gemini_resets_s = 0
+    service_rl = False
+    service_resets_s = 0
+    service_model_logged = ""
     if log_dir.is_dir():
         try:
-            logs = sorted(log_dir.glob("cli-*.log"))
-            for lf in reversed(logs):
-                if now - lf.stat().st_mtime > 86_400:
-                    break
-                content = lf.read_text(errors="replace")
-                import re as _re
-                hits = _re.findall(r"RESOURCE_EXHAUSTED.*?Resets in (\w+)", content)
-                if hits:
-                    gemini_rate_limited = True
-                    gemini_resets = hits[-1]
-                    # Parse "167h43m28s" into seconds
-                    m = _re.match(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?", gemini_resets)
-                    if m:
-                        h, mn, s = (int(x or 0) for x in m.groups())
-                        gemini_resets_s = h * 3600 + mn * 60 + s
-                    break
+            cur_mdl = ""  # tracks last seen model label across log lines (chron. order)
+            cur_file_mtime = now
+            for lf in sorted(log_dir.glob("cli-*.log")):
+                lf_mtime = lf.stat().st_mtime
+                if now - lf_mtime > 604_800:  # skip logs older than 7 days (quota window)
+                    continue
+                cur_file_mtime = lf_mtime
+                for line in lf.read_text(errors="replace").splitlines():
+                    mm = _re.search(r'model_config_manager.*label="([^"]+)"', line)
+                    if mm:
+                        cur_mdl = mm.group(1)
+                    m2 = _re.search(r"RESOURCE_EXHAUSTED.*?Resets in (\w+)", line)
+                    if m2:
+                        raw_s = _parse_resets(m2.group(1))
+                        # Adjust for time elapsed since this log was written.
+                        # cur_file_mtime is an approximation of log-write time.
+                        adjusted_s = raw_s - int(now - cur_file_mtime)
+                        mdl_low = cur_mdl.lower()
+                        if "gemini" in mdl_low or "flash" in mdl_low or not cur_mdl:
+                            gemini_rl = True
+                            gemini_resets_s = adjusted_s
+                        else:
+                            service_rl = True
+                            service_resets_s = adjusted_s
+                            service_model_logged = cur_mdl
         except Exception:
             pass
 
-    if gemini_rate_limited:
+    if gemini_rl:
         bar = make_bar(100.0)
-        reset_str = f"resets in {gemini_resets}" if gemini_resets else "quota hit"
-        print(f"  {CYAN}Gemini API{RESET}  {bar} {MAGENTA}100%{RESET}  {MUTED}⊘ {reset_str}{RESET}")
+        reset_str = _fmt_resets(gemini_resets_s)
+        print(f"  {CYAN}Gemini API    {RESET} {bar} {MAGENTA}100%{RESET}  {MUTED}⊘ resets in {reset_str}{RESET}")
     else:
-        print(f"  {CYAN}Gemini API{RESET}  {MUTED}no quota errors in last 24h{RESET}")
+        print(f"  {CYAN}Gemini API    {RESET} {MUTED}no quota errors in last 7 days{RESET}")
 
-    # Claude quota when using Claude models (shared with Claude Code)
-    if is_claude:
-        observations = latest_web_observations(now)
-        if observations:
-            print(f"  {MUTED}{'─'*58}{RESET}")
-            print(f"  {CYAN}Claude API{RESET}  {MUTED}(shared with Claude Code){RESET}")
-            for label in ("5h", "week"):
-                row = observations.get(label)
-                if not row:
-                    continue
-                reset_txt = ""
-                if row.get("resets_at"):
-                    left = int(row["resets_at"] - now)
-                    reset_txt = f" · resets {'now' if left <= 0 else f'{left // 3600}h {(left % 3600) // 60:02d}m'}"
-                print(
-                    f"  {CYAN}  {label:<5}{RESET} {make_bar(row['pct'])} "
-                    f"{TEXT}{row['pct']:>5.1f}%{RESET}{MUTED}{reset_txt}{RESET}"
-                )
-        else:
-            print(f"  {CYAN}Claude API{RESET}  {MUTED}(no usage meter data){RESET}")
+    # Antigravity service quota (Sonnet/Opus/GPT) — agy's own second quota pool,
+    # independent of both Gemini API and Claude Code's Anthropic quota.
+    if service_rl:
+        bar = make_bar(100.0)
+        reset_str = _fmt_resets(service_resets_s)
+        mdl_note = f" ({service_model_logged})" if service_model_logged else ""
+        print(f"  {VIOLET}Service quota {RESET} {bar} {MAGENTA}100%{RESET}  {MUTED}⊘ resets in {reset_str}{RESET}")
+        print(f"    {MUTED}Sonnet/Opus/GPT — Antigravity service{mdl_note}{RESET}")
+    else:
+        print(f"  {VIOLET}Service quota {RESET} {MUTED}no quota errors in last 7 days{RESET}"
+              f"  {MUTED}(Sonnet/Opus/GPT){RESET}")
 
     # ── Sessions section ───────────────────────────────────────────────────────
     print(f"\n{VIOLET}{'─'*60}{RESET}")

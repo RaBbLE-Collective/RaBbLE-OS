@@ -56,8 +56,10 @@ SESS_DIR = os.path.join(CACHE_DIR, "claude-sessions")
 AGG_FILE = os.path.join(CACHE_DIR, "claude-agg-state")
 LEGACY_FILE = os.path.join(CACHE_DIR, "claude-live-state")
 CODEX_STATE_FILE = os.path.join(CACHE_DIR, "codex-live-state")
+ANTIGRAVITY_STATE_FILE = os.path.join(CACHE_DIR, "antigravity-live-state")
 CLAUDE_FIFO = os.path.join(CACHE_DIR, "score-claude-wake.fifo")
 CODEX_FIFO = os.path.join(CACHE_DIR, "score-codex-wake.fifo")
+ANTIGRAVITY_FIFO = os.path.join(CACHE_DIR, "score-antigravity-wake.fifo")
 NOTIFY_OFF_FILE = os.path.join(CACHE_DIR, "score-notifications-off")
 
 LONG_TURN_NOTIFY_S = 180      # Stop after a turn at least this long → notification

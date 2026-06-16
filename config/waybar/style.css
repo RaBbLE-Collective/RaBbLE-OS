@@ -258,7 +258,8 @@ window#waybar.empty {
 
 /* ── LLM Status (Claude Code + Codex usage meters) ──────────────────────── */
 #custom-llm-claude,
-#custom-llm-codex {
+#custom-llm-codex,
+#custom-llm-antigravity {
     font-weight:    500;
     padding:        2px 10px;
     margin:         3px 1px;
@@ -273,6 +274,11 @@ window#waybar.empty {
 #custom-llm-codex {
     color:          @cyan;
     background:     rgba(0, 245, 255, 0.10);
+}
+
+#custom-llm-antigravity {
+    color:          @violet;
+    background:     rgba(191, 95, 255, 0.10);
 }
 
 /* busy: actively working — cool cyan/violet, fast flicker (~6Hz) layered
@@ -311,6 +317,12 @@ window#waybar.empty {
     animation:      flash-magenta 0.5s step-start infinite;
 }
 
+#custom-llm-antigravity.llm-needs-input {
+    color:          @magenta;
+    background:     rgba(255, 45, 120, 0.30);
+    animation:      flash-magenta 0.5s step-start infinite;
+}
+
 #custom-llm-codex.llm-busy {
     color:          @cyan;
     background:     rgba(0, 245, 255, 0.14);
@@ -318,7 +330,19 @@ window#waybar.empty {
                     flicker 0.16s step-start infinite;
 }
 
+#custom-llm-antigravity.llm-busy {
+    color:          @cyan;
+    background:     rgba(0, 245, 255, 0.14);
+    animation:      pulse-antigravity 2s ease-in-out infinite,
+                    flicker 0.16s step-start infinite;
+}
+
 #custom-llm-codex.llm-ready {
+    color:          @green;
+    background:     rgba(80, 250, 123, 0.12);
+}
+
+#custom-llm-antigravity.llm-ready {
     color:          @green;
     background:     rgba(80, 250, 123, 0.12);
 }
@@ -328,8 +352,14 @@ window#waybar.empty {
     background:     rgba(107, 104, 128, 0.06);
 }
 
+#custom-llm-antigravity.llm-idle {
+    color:          @violet;
+    background:     rgba(191, 95, 255, 0.06);
+}
+
 #custom-llm-claude.llm-idle,
-#custom-llm-codex.llm-idle {
+#custom-llm-codex.llm-idle,
+#custom-llm-antigravity.llm-idle {
     padding:        1px 6px;
     margin:         3px 1px;
     opacity:        0.78;
@@ -341,6 +371,10 @@ window#waybar.empty {
 
 #custom-llm-codex:hover {
     background:     rgba(0, 245, 255, 0.20);
+}
+
+#custom-llm-antigravity:hover {
+    background:     rgba(191, 95, 255, 0.20);
 }
 
 @keyframes pulse {
@@ -358,6 +392,12 @@ window#waybar.empty {
 @keyframes pulse-codex {
     0%   { background: rgba(0, 245, 255, 0.10); }
     50%  { background: rgba(80, 250, 123, 0.22); }
+    100% { background: rgba(0, 245, 255, 0.10); }
+}
+
+@keyframes pulse-antigravity {
+    0%   { background: rgba(0, 245, 255, 0.10); }
+    50%  { background: rgba(255, 121, 198, 0.22); }
     100% { background: rgba(0, 245, 255, 0.10); }
 }
 

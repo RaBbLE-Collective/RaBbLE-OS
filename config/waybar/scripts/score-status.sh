@@ -476,7 +476,7 @@ main() {
         if [[ -d "$agy_brain_dir" ]]; then
             agy_conv_count=$(find "$agy_brain_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l || echo 0)
             agy_recent_count=$(find "$agy_brain_dir" -mindepth 1 -maxdepth 1 -type d \
-                -newermt '-24 hours' 2>/dev/null | wc -l || echo 0)
+                -mmin -1440 2>/dev/null | wc -l || echo 0)
         fi
 
         # Count running agy instances
@@ -484,21 +484,36 @@ main() {
         agy_count=$(pgrep -cx agy 2>/dev/null || true)
         agy_count=${agy_count:-0}
 
-        # Parse all CLI logs from the last 24h for quota/rate-limit info.
-        # Rate limits reset in ~168h so any recent RESOURCE_EXHAUSTED is still
-        # live — checking only the latest log misses errors from earlier sessions.
-        local agy_quota_info="" agy_quota_resets="" agy_rate_limited=0
+        # Parse all CLI logs from the last 24h for both agy quota pools.
+        # We track the active model (model_config_manager.go:157) in log order and
+        # classify each RESOURCE_EXHAUSTED hit: Gemini/Flash → Gemini API quota;
+        # Claude/GPT/other → Antigravity service quota (Sonnet/Opus/GPT).
+        local agy_gemini_rl=0 agy_service_rl=0
+        local agy_gemini_resets="" agy_service_resets=""
         if [[ -d "$agy_log_dir" ]]; then
-            local rl_line
-            rl_line=$(find "$agy_log_dir" -name 'cli-*.log' -newermt '-24 hours' 2>/dev/null \
-                | sort | xargs grep -hoP 'RESOURCE_EXHAUSTED.*?Resets in \K[0-9a-zA-Z]+' 2>/dev/null \
-                | tail -1 || true)
-            if [[ -n "$rl_line" ]]; then
-                agy_rate_limited=1
-                agy_quota_resets="$rl_line"
-                agy_quota_info="rate-limited, resets in ${agy_quota_resets}"
-            fi
+            local quota_raw
+            quota_raw=$(find "$agy_log_dir" -name 'cli-*.log' -mmin -10080 2>/dev/null \
+                | sort | xargs awk '
+                /model_config_manager.*label=/ {
+                    match($0, /label="([^"]+)"/, a); mdl = a[1]
+                }
+                /RESOURCE_EXHAUSTED.*Resets in/ {
+                    match($0, /Resets in ([0-9a-zA-Z]+)/, a)
+                    mdl_low = tolower(mdl)
+                    if (mdl_low ~ /gemini|flash/ || mdl == "")
+                        gemini = a[1]
+                    else
+                        service = a[1]
+                }
+                END { print gemini "|" service }
+                ' 2>/dev/null || echo "|")
+            agy_gemini_resets="${quota_raw%%|*}"
+            agy_service_resets="${quota_raw##*|}"
+            [[ -n "$agy_gemini_resets" ]] && agy_gemini_rl=1
+            [[ -n "$agy_service_resets" ]] && agy_service_rl=1
         fi
+        local agy_rate_limited=0
+        (( agy_gemini_rl || agy_service_rl )) && agy_rate_limited=1
 
         # Glyph
         local agy_mark
@@ -513,14 +528,16 @@ main() {
             esac
         fi
 
-        # Bar text
+        # Bar text — show ⊘ for each quota pool that is exhausted
         local agy_text
         if [[ "$agy_state" == "idle" ]]; then
             agy_text="${agy_mark}"
         else
             agy_text="Agy ${agy_mark}"
             (( agy_count > 1 )) && agy_text+="×${agy_count}"
-            if (( agy_rate_limited )); then
+            if (( agy_gemini_rl && agy_service_rl )); then
+                agy_text+=" ⊘⊘"     # both pools exhausted
+            elif (( agy_rate_limited )); then
                 agy_text+=" ⊘"
             fi
         fi
@@ -534,8 +551,11 @@ main() {
             tt2+="  (1 instance)"
         fi
         tt2+="${nl}Sessions  : ${agy_conv_count} total / ${agy_recent_count} active (24h)"
-        if (( agy_rate_limited )); then
-            tt2+="${nl}Quota     : ⊘ ${agy_quota_info}"
+        if (( agy_gemini_rl )); then
+            tt2+="${nl}Gemini quota : ⊘ rate-limited, resets in ${agy_gemini_resets}"
+        fi
+        if (( agy_service_rl )); then
+            tt2+="${nl}Service quota: ⊘ rate-limited, resets in ${agy_service_resets}  (Sonnet/Opus/GPT)"
         fi
         tt2+="${nl}Data dir  : ${agy_dir}"
 

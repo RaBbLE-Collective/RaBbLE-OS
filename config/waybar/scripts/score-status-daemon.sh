@@ -31,7 +31,7 @@ log() {
 log "score-status-daemon starting (refresh every ${HEAVY_INTERVAL_S}s)"
 
 while true; do
-    for mode in claude codex; do
+    for mode in claude codex antigravity; do
         out="$CACHE_DIR/score-${mode}.json"
         tmp="${out}.tmp.$$"
         if RABBLE_GLYPH_PLACEHOLDER=1 bash "$SCRIPT_DIR/score-status.sh" "$mode" > "$tmp" 2>/dev/null; then
