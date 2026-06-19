@@ -1,0 +1,46 @@
+---
+# runtime/defaults/main.yml
+# Lowest-precedence defaults — safely overridden by group_vars per hardware target.
+# Do NOT use Jinja2 templates here. Plain values only.
+
+# ── NPU identity ──────────────────────────────────────────────────────────────
+# Concrete values come from group_vars/<machine>.yml (e.g. asus_proart_p16.yml).
+# These are the safe fallbacks for machines without NPU (generic_x64, VMs).
+npu:
+  enabled: false
+  vendor: "none"
+  family: "none"
+  driver: "none"
+
+xrt_rollback: false
+
+# ── FastFlowLM — AMD XDNA2 LLM inference ─────────────────────────────────────
+# XDNA2 only: Strix Point, Krackan, Strix Halo, Gorgon Point.
+# XDNA1 (Ryzen AI 7000/8000/200-series) NOT supported.
+# Install tries xanderlent COPR binary first; falls back to cmake source build.
+fastflowlm:
+  enabled: true
+  repo: "https://github.com/FastFlowLM/FastFlowLM.git"
+  src_dir: "/opt/src/FastFlowLM"
+  install_prefix: "/opt/fastflowlm"
+
+# ── Lemonade Server — OpenAI-compat local AI API on :8000 ────────────────────
+# Wraps FastFlowLM (NPU), optionally llama.cpp (GPU), Whisper STR, Kokoro TTS.
+# disabled by default — enable after XRT + FastFlowLM validate successfully.
+# Known bug: 'lemonade-server recipes' shows "Requires Windows" for NPU — ignore it.
+lemonade:
+  enabled: false
+  port: 8000
+
+# ── llama.cpp source build with CUDA ─────────────────────────────────────────
+# cuda_architectures: "native" auto-detects GPU arch at build time.
+#   Override per hardware: "89" (RTX 4060/Ada), "86" (RTX 30xx/Ampere)
+# version: pin to a release tag (e.g. "b4600") — "HEAD" for latest.
+llama_cpp:
+  enabled: true
+  repo: "https://github.com/ggerganov/llama.cpp"
+  version: "b4600"
+  src_dir: "/opt/llama.cpp"
+  build_dir: "/opt/llama.cpp/build"
+  install_prefix: "/usr/local"
+  cuda_architectures: "native"
