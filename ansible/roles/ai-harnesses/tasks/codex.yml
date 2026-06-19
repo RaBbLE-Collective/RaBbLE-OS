@@ -1,0 +1,22 @@
+---
+# Codex CLI — OpenAI's agentic coding assistant
+# Auth: OPENAI_API_KEY env or ~/.openai/config.
+# sCoRE provider: codex (subprocess, --full-context --quiet mode)
+
+- name: Install Codex CLI globally via npm
+  community.general.npm:
+    name: "@openai/codex"
+    global: true
+    state: present
+  environment:
+    NPM_CONFIG_PREFIX: "{{ ai_harnesses_node_prefix }}"
+
+- name: Verify codex binary is reachable
+  ansible.builtin.command: codex --version
+  register: _codex_version
+  changed_when: false
+  failed_when: false
+
+- name: Report Codex version
+  ansible.builtin.debug:
+    msg: "Codex: {{ _codex_version.stdout | default('not found — check PATH') }}"

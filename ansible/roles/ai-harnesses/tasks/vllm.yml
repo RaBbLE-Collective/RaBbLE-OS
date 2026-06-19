@@ -1,0 +1,55 @@
+---
+# vLLM — High-throughput local inference server
+# Designed for concurrent requests via PagedAttention (sCoRE multi-session local serving).
+# OpenAI-compat API on port 8000 (sCoRE: add local_llm provider pointing to :8000).
+#
+# RTX 4060 (8GB VRAM): viable for 7-8B models at FP16, or 13B at 4-bit.
+# Install: pip venv — NOT pipx (vLLM is a server, not a CLI tool).
+# Heavy download: torch + CUDA extensions = several GB. Disabled by default.
+#
+# To enable: set ai_harnesses_vllm_enabled: true in group_vars
+# To run: source ~/.venv/vllm/bin/activate && vllm serve <model> --port 8000
+
+- name: Ensure Python venv base directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.venv"
+    state: directory
+    mode: '0755'
+
+- name: Create vLLM virtual environment
+  ansible.builtin.command: python3 -m venv {{ ansible_env.HOME }}/.venv/vllm
+  args:
+    creates: "{{ ansible_env.HOME }}/.venv/vllm/bin/activate"
+
+- name: Upgrade pip in vLLM venv
+  ansible.builtin.pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ ansible_env.HOME }}/.venv/vllm"
+
+- name: Install vLLM with CUDA extras
+  ansible.builtin.pip:
+    name: "vllm"
+    state: present
+    virtualenv: "{{ ansible_env.HOME }}/.venv/vllm"
+  environment:
+    CUDA_HOME: /usr/local/cuda
+
+- name: Install vLLM wrapper script to ~/.local/bin/vllm
+  ansible.builtin.copy:
+    dest: "{{ ansible_env.HOME }}/.local/bin/vllm"
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      # vLLM wrapper — activates the venv and delegates all args
+      exec "{{ ansible_env.HOME }}/.venv/vllm/bin/vllm" "$@"
+
+- name: Verify vLLM is importable
+  ansible.builtin.command: "{{ ansible_env.HOME }}/.venv/vllm/bin/python -c 'import vllm; print(vllm.__version__)'"
+  register: _vllm_version
+  changed_when: false
+  failed_when: false
+
+- name: Report vLLM version
+  ansible.builtin.debug:
+    msg: "vLLM: {{ _vllm_version.stdout | default('import failed — check CUDA and build logs') }}"

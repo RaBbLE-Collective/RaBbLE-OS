@@ -1,0 +1,104 @@
+---
+# free-claude-code — Local Anthropic API proxy for Claude Code
+# https://github.com/Alishahryar1/free-claude-code  (MIT)
+#
+# FastAPI server on :8082 that speaks the Anthropic Messages API.
+# Claude Code CLI routes through it via ANTHROPIC_BASE_URL=http://localhost:8082,
+# giving CC access to Groq/Cerebras/DeepSeek/NIM/etc at no Anthropic cost.
+#
+# sCoRE provider: claude_code_proxy (subprocess, injects ANTHROPIC_BASE_URL)
+# Admin UI: http://127.0.0.1:8082/admin  (local-only; auth token in fcc.env)
+# Spells: bash RaBbLE-Grimoire/spells/fcc-ctl.sh {start|stop|status|logs|keys}
+
+- name: Ensure uv (Python package manager) is installed
+  ansible.builtin.shell: |
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  args:
+    creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+
+- name: Clone free-claude-code repository
+  ansible.builtin.git:
+    repo: "https://github.com/Alishahryar1/free-claude-code.git"
+    dest: "{{ ansible_env.HOME }}/.local/share/rabble/free-claude-code"
+    version: main
+    depth: 1
+    force: false
+
+- name: Install free-claude-code dependencies via uv
+  ansible.builtin.command: >
+    {{ ansible_env.HOME }}/.local/bin/uv sync
+  args:
+    chdir: "{{ ansible_env.HOME }}/.local/share/rabble/free-claude-code"
+
+- name: Ensure RaBbLE config directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.config/rabble"
+    state: directory
+    mode: '0700'
+
+- name: Deploy fcc.env from example if not present
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../config/rabble/fcc.env.example"
+    dest: "{{ ansible_env.HOME }}/.config/rabble/fcc.env"
+    mode: '0600'
+    force: false
+
+- name: Deploy fcc-ctl wrapper to ~/.local/bin
+  ansible.builtin.copy:
+    dest: "{{ ansible_env.HOME }}/.local/bin/fcc-ctl"
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      # Thin wrapper — delegates to Grimoire spell
+      exec bash "${HOME}/RaBbLE-Collective/RaBbLE-Grimoire/spells/fcc-ctl.sh" "$@"
+
+- name: Ensure systemd user directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.config/systemd/user"
+    state: directory
+    mode: '0755'
+
+- name: Deploy free-claude-code systemd user service
+  ansible.builtin.copy:
+    dest: "{{ ansible_env.HOME }}/.config/systemd/user/free-claude-code.service"
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=free-claude-code — local Anthropic API proxy for Claude Code
+      After=network-online.target
+
+      [Service]
+      Type=simple
+      WorkingDirectory=%h/.local/share/rabble/free-claude-code
+      EnvironmentFile=-%h/.config/rabble/fcc.env
+      ExecStart=%h/.local/bin/uv run uvicorn server:app --host 127.0.0.1 --port 8082
+      Restart=on-failure
+      RestartSec=5
+
+      [Install]
+      WantedBy=default.target
+
+- name: Enable and start free-claude-code service
+  ansible.builtin.systemd:
+    name: free-claude-code
+    enabled: true
+    state: started
+    scope: user
+    daemon_reload: true
+
+- name: Verify service is reachable
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8082/health
+    return_content: false
+  register: _fcc_health
+  failed_when: false
+  retries: 5
+  delay: 2
+  until: _fcc_health.status is defined and _fcc_health.status in [200, 404]
+
+- name: Report free-claude-code status
+  ansible.builtin.debug:
+    msg: >-
+      free-claude-code:
+      {{ 'running at http://127.0.0.1:8082' if (_fcc_health.status | default(0)) in [200, 404]
+         else 'not reachable — check: systemctl --user status free-claude-code' }}

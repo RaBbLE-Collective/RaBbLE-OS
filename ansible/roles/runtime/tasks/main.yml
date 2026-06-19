@@ -7,7 +7,8 @@
 #
 # Stack:
 #   hardware/amd-npu.yml  → amdxdna kernel module + firmware
-#   runtime/xrt.yml       → XRT userspace + XDNA2 runtime libraries  ← HERE
+#   runtime/xrt.yml       → XRT userspace + XDNA2 runtime libraries
+#   runtime/llama-cpp.yml → llama.cpp source build with CUDA  ← HERE
 # =============================================================================
 
 - name: Configure XRT + XDNA2 userspace runtime
@@ -17,3 +18,8 @@
     - npu.vendor == "amd"
     - npu.family in ["xdna2", "xdna"]
   tags: [runtime, xrt, npu]
+
+- name: Build and install llama.cpp with CUDA
+  ansible.builtin.import_tasks: llama-cpp.yml
+  when: llama_cpp.enabled | bool
+  tags: [runtime, llama-cpp]

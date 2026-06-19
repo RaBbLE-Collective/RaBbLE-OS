@@ -1,0 +1,35 @@
+---
+# BuilderIO/skills — Modular slash-command skills for Claude Code
+# https://github.com/BuilderIO/skills  (MIT)
+#
+# Installs skills (/visual-plan, /visual-recap, /quick-recap, etc.) into
+# Claude Code's global skills directory (~/.claude/commands/).
+# Skills are invoked as slash commands during Claude Code sessions.
+#
+# Non-interactive install: picks the default skills (visual-plan + visual-recap).
+# Re-run this task to sync/update installed skills.
+
+- name: Ensure Claude Code global commands directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.claude/commands"
+    state: directory
+    mode: '0755'
+
+- name: Install BuilderIO/skills via npx (non-interactive, default skill set)
+  ansible.builtin.command: >
+    npx --yes @agent-native/skills@latest add
+    --skill visual-plan
+    --skill visual-recap
+    --skill quick-recap
+    --scope user
+    --no-github-action
+  environment:
+    HOME: "{{ ansible_env.HOME }}"
+    PATH: "{{ ansible_env.PATH }}:{{ ansible_env.HOME }}/.local/bin"
+  register: _skills_install
+  changed_when: "'already installed' not in (_skills_install.stdout | default(''))"
+  failed_when: _skills_install.rc != 0
+
+- name: Report BuilderIO skills install
+  ansible.builtin.debug:
+    msg: "BuilderIO/skills: {{ _skills_install.stdout_lines | default(['install output not captured']) }}"

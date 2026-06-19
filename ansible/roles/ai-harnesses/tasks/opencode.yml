@@ -1,0 +1,22 @@
+---
+# opencode — TUI AI coding assistant (multi-provider, Aider-like UX)
+# Auth: delegates to provider env vars (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
+# sCoRE provider: opencode (subprocess, `opencode run --print` mode)
+
+- name: Install opencode globally via npm
+  community.general.npm:
+    name: "opencode-ai"
+    global: true
+    state: present
+  environment:
+    NPM_CONFIG_PREFIX: "{{ ai_harnesses_node_prefix }}"
+
+- name: Verify opencode binary is reachable
+  ansible.builtin.command: opencode --version
+  register: _opencode_version
+  changed_when: false
+  failed_when: false
+
+- name: Report opencode version
+  ansible.builtin.debug:
+    msg: "opencode: {{ _opencode_version.stdout | default('not found — check PATH or npm package name') }}"

@@ -1,0 +1,32 @@
+---
+# aider — AI pair programming CLI (multi-provider, git-aware)
+# Auth: OPENAI_API_KEY, ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, etc.
+# sCoRE provider: aider (subprocess, --no-pretty --message mode)
+# Uses pipx so it gets an isolated venv that doesn't conflict with system Python.
+
+- name: Ensure pipx is installed
+  ansible.builtin.package:
+    name: pipx
+    state: present
+  become: true
+
+- name: Install aider via pipx
+  ansible.builtin.command: pipx install aider-chat
+  args:
+    creates: "{{ ansible_env.HOME }}/.local/bin/aider"
+
+- name: Upgrade aider if already installed
+  ansible.builtin.command: pipx upgrade aider-chat
+  register: _aider_upgrade
+  changed_when: "'already at latest version' not in _aider_upgrade.stdout"
+  failed_when: false
+
+- name: Verify aider binary is reachable
+  ansible.builtin.command: aider --version
+  register: _aider_version
+  changed_when: false
+  failed_when: false
+
+- name: Report aider version
+  ansible.builtin.debug:
+    msg: "aider: {{ _aider_version.stdout | default('not found') }}"

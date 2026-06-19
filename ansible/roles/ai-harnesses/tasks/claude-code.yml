@@ -1,0 +1,22 @@
+---
+# Claude Code CLI — Anthropic's official agentic coding assistant
+# Auth: `claude` picks up existing browser/OAuth session or ANTHROPIC_API_KEY.
+# sCoRE provider: claude_code (subprocess, --print mode)
+
+- name: Install Claude Code CLI globally via npm
+  community.general.npm:
+    name: "@anthropic-ai/claude-code"
+    global: true
+    state: present
+  environment:
+    NPM_CONFIG_PREFIX: "{{ ai_harnesses_node_prefix }}"
+
+- name: Verify claude binary is reachable
+  ansible.builtin.command: claude --version
+  register: _claude_version
+  changed_when: false
+  failed_when: false
+
+- name: Report Claude Code version
+  ansible.builtin.debug:
+    msg: "Claude Code: {{ _claude_version.stdout | default('not found — check PATH') }}"

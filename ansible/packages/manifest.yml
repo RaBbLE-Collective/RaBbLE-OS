@@ -1057,3 +1057,68 @@ packages:
 
   # wrangler: installed via npm install -g (community.general.npm) — not a Fedora package
   # See: ansible/roles/apps/rabble-collective/tasks/main.yml
+
+  # ── apps.ai-harnesses — sCoRE local AI layer ─────────────────────────────
+  # Code agents and LLM CLI tools that sCoRE wraps as subprocess providers.
+  # Run via: ansible-playbook site.yml --tags ai-harnesses
+  # Role: ansible/roles/ai-harnesses/
+  # Full provider/harness docs: RaBbLE-Grimoire/RaBbLE-sCoRE/sCoRE-Local-AI-Layer.md
+  #
+  # Install method notes (non-DNF tools):
+  #   claude-code       → npm install -g @anthropic-ai/claude-code
+  #   codex             → npm install -g @openai/codex
+  #   opencode          → npm install -g opencode-ai
+  #   gemini-cli        → npm install -g @google/gemini-cli
+  #   aider             → pipx install aider-chat   (requires: pipx — DNF below)
+  #   ollama            → curl https://ollama.ai/install.sh | sh  (ships systemd service)
+  #   free-claude-code  → git clone + uv sync (requires: uv — curl installer, not DNF)
+  #   vllm              → pip venv (disabled by default; heavy GPU install)
+  #   builder-skills    → npx @agent-native/skills@latest add
+  #
+  # DNF prerequisites managed by the role:
+
+  - name: pipx
+    category: apps.ai-harnesses
+    reason: Isolated Python CLI tool installer — used to install aider-chat in its own venv
+    source: fedora
+    platform: all
+    layer: apps
+    ks: false
+
+  # ── runtime.llama-cpp — llama.cpp CUDA source build prerequisites ─────────
+  # Build deps installed by: ansible-playbook site.yml -K --tags runtime,llama-cpp
+  # Role: ansible/roles/runtime/tasks/llama-cpp.yml
+  # Binary output: /usr/local/bin/llama-server, llama-cli, llama-bench, llama-quantize
+  # Config: llama_cpp.* vars in ansible/roles/runtime/vars/main.yml
+
+  - name: cmake
+    category: runtime.llama-cpp
+    reason: CMake build system — required to configure llama.cpp source build with CUDA flags
+    source: fedora
+    platform: all
+    layer: runtime
+    ks: false
+
+  - name: gcc-c++
+    category: runtime.llama-cpp
+    reason: C++ compiler — required to build llama.cpp and ggml CUDA kernels
+    source: fedora
+    platform: all
+    layer: runtime
+    ks: false
+
+  - name: ninja-build
+    category: runtime.llama-cpp
+    reason: Ninja build backend — faster than make for llama.cpp CUDA compilation
+    source: fedora
+    platform: all
+    layer: runtime
+    ks: false
+
+  - name: cuda-devel
+    category: runtime.llama-cpp
+    reason: CUDA development headers — required to compile ggml CUDA backend (GGML_CUDA=ON)
+    source: nvidia
+    platform: all
+    layer: runtime
+    ks: false

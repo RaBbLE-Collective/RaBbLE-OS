@@ -1,0 +1,54 @@
+---
+# Ollama — local LLM runtime (OpenAI-compat server on port 11434)
+# sCoRE provider: local_llm (http://localhost:11434/v1/chat/completions)
+# Installed via official install script; enabled as a systemd user service.
+
+- name: Check if ollama binary exists
+  ansible.builtin.stat:
+    path: /usr/local/bin/ollama
+  register: _ollama_bin
+
+- name: Install ollama via official install script
+  ansible.builtin.shell: |
+    curl -fsSL https://ollama.ai/install.sh | sh
+  when: not _ollama_bin.stat.exists
+  become: true
+
+- name: Enable and start ollama systemd service
+  ansible.builtin.systemd:
+    name: ollama
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true
+  failed_when: false
+
+- name: Wait for ollama API to be ready
+  ansible.builtin.uri:
+    url: http://localhost:11434/api/version
+    return_content: false
+  register: _ollama_ready
+  until: _ollama_ready.status == 200
+  retries: 10
+  delay: 3
+  failed_when: false
+
+- name: Pull configured ollama models
+  ansible.builtin.command: "ollama pull {{ item }}"
+  loop: "{{ ai_harnesses_ollama_models }}"
+  when:
+    - ai_harnesses_ollama_models | length > 0
+    - _ollama_ready.status is defined
+    - _ollama_ready.status == 200
+  changed_when: true
+  failed_when: false
+
+- name: Verify ollama binary is reachable
+  ansible.builtin.command: ollama --version
+  register: _ollama_version
+  changed_when: false
+  failed_when: false
+
+- name: Report ollama version
+  ansible.builtin.debug:
+    msg: "ollama: {{ _ollama_version.stdout | default('not found') }}"

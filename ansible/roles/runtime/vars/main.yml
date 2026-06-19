@@ -7,3 +7,16 @@ npu:
   driver:  "{{ npu.driver  | default('none') }}"
 
 xrt_rollback: "{{ xrt_rollback | default(false) }}"
+
+# ── llama.cpp source build ────────────────────────────────────────────────────
+# cuda_architectures: "native" = auto-detect GPU at build time (recommended).
+#   Override per hardware target: "89" (RTX 4060/Ada), "86" (RTX 30xx/Ampere)
+# version: pin to a llama.cpp release tag (e.g. "b4600") — "HEAD" for latest.
+llama_cpp:
+  enabled: true
+  repo: "https://github.com/ggerganov/llama.cpp"
+  version: "b4600"
+  src_dir: "/opt/llama.cpp"
+  build_dir: "/opt/llama.cpp/build"
+  install_prefix: "/usr/local"
+  cuda_architectures: "native"

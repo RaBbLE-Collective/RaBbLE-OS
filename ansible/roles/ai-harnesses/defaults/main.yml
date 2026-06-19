@@ -1,0 +1,33 @@
+---
+# ai-harnesses/defaults/main.yml
+# Versions and toggles for each harness. Override in host_vars or group_vars.
+
+ai_harnesses_claude_code_enabled: true
+ai_harnesses_codex_enabled: true
+ai_harnesses_opencode_enabled: true
+ai_harnesses_aider_enabled: true
+ai_harnesses_gemini_cli_enabled: true
+ai_harnesses_ollama_enabled: true
+
+# vLLM: disabled by default — heavy install (several GB, CUDA build).
+# Enable when using sCoRE as a local multi-session inference server.
+# Serves OpenAI-compat API on port 8000.
+ai_harnesses_vllm_enabled: false
+
+# free-claude-code: local Anthropic API proxy for CC (routes to free/cheap providers).
+# Runs as systemd user service on :8082. Configure via ~/.config/rabble/fcc.env.
+ai_harnesses_fcc_enabled: true
+
+# BuilderIO/skills: slash-command skills for Claude Code (/visual-plan, /visual-recap, etc.)
+ai_harnesses_builder_skills_enabled: true
+
+# Node-based CLIs install globally via npm. Requires Node.js in PATH.
+ai_harnesses_node_prefix: "{{ ansible_env.HOME }}/.local"
+
+# Aider uses pipx so it doesn't pollute the system Python env.
+ai_harnesses_aider_model: ""          # blank = aider uses its own default
+
+# Ollama: pull these models after service starts (can be empty list)
+ai_harnesses_ollama_models:
+  - llama3.2
+  - qwen2.5-coder:7b

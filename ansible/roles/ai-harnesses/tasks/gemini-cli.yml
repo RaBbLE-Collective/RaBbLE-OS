@@ -1,0 +1,22 @@
+---
+# Google Gemini CLI — official Gemini terminal interface
+# Auth: GEMINI_API_KEY or Google Cloud ADC.
+# sCoRE provider: gemini_cli (subprocess, `-p <prompt>` mode)
+
+- name: Install Gemini CLI globally via npm
+  community.general.npm:
+    name: "@google/gemini-cli"
+    global: true
+    state: present
+  environment:
+    NPM_CONFIG_PREFIX: "{{ ai_harnesses_node_prefix }}"
+
+- name: Verify gemini binary is reachable
+  ansible.builtin.command: gemini --version
+  register: _gemini_version
+  changed_when: false
+  failed_when: false
+
+- name: Report Gemini CLI version
+  ansible.builtin.debug:
+    msg: "Gemini CLI: {{ _gemini_version.stdout | default('not found — check PATH') }}"

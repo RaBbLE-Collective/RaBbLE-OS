@@ -1,0 +1,126 @@
+---
+# =============================================================================
+# llama.cpp — Source Build with CUDA
+# =============================================================================
+# Builds the ggml/llama.cpp inference engine from source against the system
+# CUDA toolkit. Source build is required because Fedora's packaged version is
+# stale and not compiled with GPU support.
+#
+# Produces (in /usr/local/bin/):
+#   llama-server   — OpenAI-compat HTTP server (sCoRE local_llm provider)
+#   llama-cli      — interactive CLI
+#   llama-bench    — performance benchmark
+#   llama-quantize — model quantization tool
+#
+# CUDA architecture note:
+#   RTX 4060 (Ada Lovelace) = 89
+#   RTX 3xxx  (Ampere)      = 86
+#   Using "native" auto-detects the GPU present at build time.
+#   Override with: llama_cpp.cuda_architectures in group_vars
+#
+# Build time: ~5-15 min depending on CPU/ccache state.
+# Idempotency: skips rebuild if installed binary matches target version tag.
+# =============================================================================
+
+# ── Build dependencies ────────────────────────────────────────────────────────
+
+- name: Install llama.cpp build dependencies
+  ansible.builtin.dnf:
+    name:
+      - git
+      - cmake
+      - gcc-c++
+      - ninja-build
+      - cuda-toolkit          # already installed via hardware role on RTX machines
+      - cuda-devel
+    state: present
+  tags: [runtime, llama-cpp]
+
+# ── Version check (idempotency) ───────────────────────────────────────────────
+
+- name: Check installed llama-server version
+  ansible.builtin.command: llama-server --version
+  register: _llama_installed_version
+  changed_when: false
+  failed_when: false
+  tags: [runtime, llama-cpp]
+
+- name: Set rebuild needed flag
+  ansible.builtin.set_fact:
+    _llama_rebuild_needed: >-
+      {{
+        _llama_installed_version.rc != 0 or
+        llama_cpp.version not in (_llama_installed_version.stdout | default(''))
+      }}
+  tags: [runtime, llama-cpp]
+
+# ── Source clone / update ─────────────────────────────────────────────────────
+
+- name: Clone llama.cpp source
+  ansible.builtin.git:
+    repo: "{{ llama_cpp.repo }}"
+    dest: "{{ llama_cpp.src_dir }}"
+    version: "{{ llama_cpp.version }}"
+    depth: 1
+    force: false
+  when: _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
+# ── CMake configure ───────────────────────────────────────────────────────────
+
+- name: Create build directory
+  ansible.builtin.file:
+    path: "{{ llama_cpp.build_dir }}"
+    state: directory
+    mode: '0755'
+  when: _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
+- name: Configure llama.cpp with CMake (CUDA enabled)
+  ansible.builtin.command: >
+    cmake
+      -S {{ llama_cpp.src_dir }}
+      -B {{ llama_cpp.build_dir }}
+      -G Ninja
+      -DGGML_CUDA=ON
+      -DCMAKE_CUDA_ARCHITECTURES={{ llama_cpp.cuda_architectures }}
+      -DCMAKE_BUILD_TYPE=Release
+      -DCMAKE_INSTALL_PREFIX={{ llama_cpp.install_prefix }}
+      -DLLAMA_BUILD_SERVER=ON
+      -DLLAMA_BUILD_TOOLS=ON
+  when: _llama_rebuild_needed
+  environment:
+    CUDA_PATH: /usr/local/cuda
+    PATH: "{{ ansible_env.PATH }}:/usr/local/cuda/bin"
+  tags: [runtime, llama-cpp]
+
+# ── Build + install ───────────────────────────────────────────────────────────
+
+- name: Build llama.cpp (this takes ~5-15 minutes)
+  ansible.builtin.command: cmake --build {{ llama_cpp.build_dir }} --config Release -j{{ ansible_processor_vcpus }}
+  when: _llama_rebuild_needed
+  environment:
+    CUDA_PATH: /usr/local/cuda
+    PATH: "{{ ansible_env.PATH }}:/usr/local/cuda/bin"
+  async: 1200   # 20-minute cap — source builds are slow
+  poll: 30
+  tags: [runtime, llama-cpp]
+
+- name: Install llama.cpp binaries to {{ llama_cpp.install_prefix }}/bin
+  ansible.builtin.command: cmake --install {{ llama_cpp.build_dir }}
+  when: _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
+# ── Verify ────────────────────────────────────────────────────────────────────
+
+- name: Verify llama-server binary
+  ansible.builtin.command: llama-server --version
+  register: _llama_server_version
+  changed_when: false
+  failed_when: false
+  tags: [runtime, llama-cpp, verify]
+
+- name: Report llama.cpp install status
+  ansible.builtin.debug:
+    msg: "llama.cpp: {{ _llama_server_version.stdout | default('not found — check build logs') }}"
+  tags: [runtime, llama-cpp]

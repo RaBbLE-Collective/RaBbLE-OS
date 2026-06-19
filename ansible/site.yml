@@ -12,7 +12,8 @@
 #   --tags plymouth              → Layer 2: Plymouth only
 #   --tags sddm                  → Layer 2: SDDM only
 #   --tags snapper               → Btrfs snapshots (cross-cutting)
-#   --tags runtime               → GPU/NPU runtimes (cross-cutting)
+#   --tags runtime               → GPU/NPU runtimes + llama.cpp source build (cross-cutting)
+#   --tags llama-cpp             → llama.cpp CUDA build only
 #   --tags monitoring            → System observability stack (cross-cutting)
 #   --tags virtualization        → QEMU/KVM host stack (cross-cutting, dev machines)
 #   --tags desktop               → Layer 3: Hyprland + shell stack (incl. fastfetch)
@@ -20,6 +21,9 @@
 #   --tags hyprland              → Layer 3: Hyprland only
 #   --tags apps                  → Layer 4: applications
 #   --tags collective            → RaBbLE Collective dev tooling (Node.js, wrangler, age, gh)
+#   --tags ai-harnesses          → sCoRE local AI layer (claude-code, codex, opencode, aider, gemini-cli, ollama, vllm, free-claude-code, builder-skills)
+#   --tags free-claude-code      → free-claude-code proxy only
+#   --tags builder-skills        → BuilderIO slash-command skills only
 #   --tags dotfiles              → Dotfile symlinks only (user-level)
 #
 # Packages/config split (combine with above):
@@ -308,3 +312,18 @@
   tags: [collective]
   roles:
     - role: apps/rabble-collective
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI Harnesses — sCoRE local AI layer
+# Code agents and LLM CLI tools: Claude Code, Codex, opencode, aider,
+# Gemini CLI, Ollama. These are the backends sCoRE wraps for the RaBbLE TUI.
+# Runs as user (become: false) — installs to ~/.local/.
+# Skip on headless servers without GPU: --skip-tags ai-harnesses
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "AI Harnesses — sCoRE local AI layer"
+  hosts: all
+  become: false
+  tags: [ai-harnesses, ai]
+  roles:
+    - role: ai-harnesses
