@@ -1,0 +1,175 @@
+---
+# =============================================================================
+# FastFlowLM — AMD XDNA2 LLM Inference Engine
+# Ollama-like UX for NPU-accelerated inference on Ryzen AI 300+.
+#
+# Requires: XRT runtime installed (xrt.yml must run first)
+# Kernel:   7.0+ with amdxdna in-tree
+# Hardware: XDNA2 only (Strix Point, Krackan, Strix Halo, Gorgon Point)
+#           XDNA1 (7000/8000/200-series) is NOT supported.
+#
+# Performance: ~18 tok/s for 20B models on Strix Point (June 2026 baseline)
+# NPU handles prompt processing; AMD iGPU handles token generation.
+#
+# Install strategy:
+#   1. Try xanderlent COPR (binary RPM — fast, zero build time)
+#   2. Fall back to source build if COPR package absent or FLM validate fails
+#
+# Note: XDNA2-specific model variants required — not all GGUF files work.
+#       Model list: https://fastflowlm.com/docs/models/
+# =============================================================================
+
+# ── COPR install attempt ──────────────────────────────────────────────────────
+
+- name: Check if fastflowlm binary exists
+  ansible.builtin.stat:
+    path: /opt/fastflowlm/bin/flm
+  register: _flm_bin
+  tags: [runtime, fastflowlm, npu]
+
+- name: Attempt fastflowlm install from xanderlent COPR
+  become: true
+  ansible.builtin.dnf:
+    name: fastflowlm
+    state: present
+  register: _flm_copr_install
+  when: not _flm_bin.stat.exists
+  failed_when: false
+  tags: [runtime, fastflowlm, npu]
+
+- name: Re-check fastflowlm binary after COPR attempt
+  ansible.builtin.stat:
+    path: /opt/fastflowlm/bin/flm
+  register: _flm_bin_post
+  tags: [runtime, fastflowlm, npu]
+
+# ── Source build fallback ─────────────────────────────────────────────────────
+# Triggered when COPR package is absent, wrong version, or post-COPR flm validate fails.
+
+- name: Install FastFlowLM build dependencies
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - cmake
+      - ninja-build
+      - git
+      - boost-devel
+      - ffmpeg-free-devel
+      - fftw-devel
+      - rust
+      - cargo
+      - gcc
+      - gcc-c++
+      - make
+    state: present
+  when: not _flm_bin_post.stat.exists
+  tags: [runtime, fastflowlm, npu]
+
+- name: Create cmake3 symlink if missing (Fedora cmake compat)
+  become: true
+  ansible.builtin.file:
+    src: /usr/bin/cmake
+    dest: /usr/bin/cmake3
+    state: link
+    force: false
+  when: not _flm_bin_post.stat.exists
+  failed_when: false
+  tags: [runtime, fastflowlm, npu]
+
+- name: Clone FastFlowLM repository
+  ansible.builtin.git:
+    repo: "https://github.com/FastFlowLM/FastFlowLM.git"
+    dest: "{{ fastflowlm.src_dir }}"
+    version: HEAD
+    recursive: true
+    update: true
+  when: not _flm_bin_post.stat.exists
+  tags: [runtime, fastflowlm, npu]
+
+- name: Configure FastFlowLM build (linux-default preset)
+  ansible.builtin.command:
+    cmd: cmake --preset linux-default
+    chdir: "{{ fastflowlm.src_dir }}/src"
+  environment:
+    LD_LIBRARY_PATH: "/usr/xrt/lib64:/opt/xilinx/xrt/lib64"
+    XILINX_XRT: "/opt/xilinx/xrt"
+  register: _flm_cmake
+  when: not _flm_bin_post.stat.exists
+  changed_when: _flm_cmake.rc == 0
+  tags: [runtime, fastflowlm, npu]
+
+- name: Build FastFlowLM
+  ansible.builtin.command:
+    cmd: "cmake --build --preset linux-default -j{{ ansible_processor_vcpus }}"
+    chdir: "{{ fastflowlm.src_dir }}/src"
+  register: _flm_build
+  when:
+    - not _flm_bin_post.stat.exists
+    - _flm_cmake is defined
+    - _flm_cmake.rc == 0
+  changed_when: _flm_build.rc == 0
+  tags: [runtime, fastflowlm, npu]
+
+- name: Install FastFlowLM
+  become: true
+  ansible.builtin.command:
+    cmd: cmake --install --preset linux-default
+    chdir: "{{ fastflowlm.src_dir }}/src"
+  when:
+    - not _flm_bin_post.stat.exists
+    - _flm_build is defined
+    - _flm_build.rc == 0
+  changed_when: true
+  tags: [runtime, fastflowlm, npu]
+
+# ── flm wrapper script ────────────────────────────────────────────────────────
+# XRT from COPR lands in /usr/xrt — flm needs LD_LIBRARY_PATH set.
+# This wrapper ensures the correct runtime libs are found regardless of
+# how the user invokes flm (shell, systemd, sCoRE subprocess).
+
+- name: Deploy flm wrapper script with XRT library paths
+  become: true
+  ansible.builtin.copy:
+    dest: /usr/local/bin/flm
+    owner: root
+    group: root
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      export LD_LIBRARY_PATH="/opt/fastflowlm/lib:/opt/xilinx/xrt/lib64:/usr/xrt/lib64:${LD_LIBRARY_PATH}"
+      export FLM_CONFIG_PATH="/opt/fastflowlm/share/flm/model_list.json"
+      exec /opt/fastflowlm/bin/flm "$@"
+  tags: [runtime, fastflowlm, npu]
+
+# ── Validation ────────────────────────────────────────────────────────────────
+
+- name: Check final flm binary state
+  ansible.builtin.stat:
+    path: /opt/fastflowlm/bin/flm
+  register: _flm_final
+  tags: [runtime, fastflowlm, npu, verify]
+
+- name: Run flm validate
+  ansible.builtin.command: /usr/local/bin/flm validate
+  register: _flm_validate
+  changed_when: false
+  failed_when: false
+  when: _flm_final.stat.exists
+  tags: [runtime, fastflowlm, npu, verify]
+
+- name: Report FastFlowLM validation result
+  ansible.builtin.debug:
+    msg: "{{ _flm_validate.stdout_lines | default(['flm not found — COPR and source build both failed']) }}"
+  tags: [runtime, fastflowlm, npu, verify]
+
+- name: Warn if flm validate mentions firmware incompatibility
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: flm validate reported firmware incompatibility.
+      The COPR XRT version may be outdated (2.19.0 from April 2025).
+      Build XRT from source: https://github.com/amd/xdna-driver
+      See Grimoire: RaBbLE-OS/hardware/RaBbLE-OS-Hardware-NPU-XDNA2.md
+  when:
+    - _flm_validate is defined
+    - "'firmware' in (_flm_validate.stdout | lower) and 'incompatible' in (_flm_validate.stdout | lower)"
+  tags: [runtime, fastflowlm, npu, verify]

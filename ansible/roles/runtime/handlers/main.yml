@@ -3,3 +3,14 @@
   become: true
   ansible.builtin.command: udevadm control --reload-rules && udevadm trigger
   listen: reload udev rules
+
+- name: run ldconfig
+  become: true
+  ansible.builtin.command: ldconfig
+  listen: run ldconfig
+
+- name: reload systemd daemon
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: reload systemd daemon

@@ -1,145 +1,220 @@
-# ---
-# # =============================================================================
-# # XRT + XDNA2 Userspace Runtime
-# # Provides /dev/accel access and NPU programming interfaces for agents.
-# #
-# # Fedora 43 install path:
-# #   Option A (preferred): AMD COPR — binary RPMs, auto-updates
-# #   Option B (fallback):  Build from source (slow, last resort)
-# #
-# # Post-install verification:
-# #   xrt-smi examine          → shows NPU device
-# #   ls /dev/accel/           → should show accel0 or similar
-# # =============================================================================
+---
+# =============================================================================
+# XRT + XDNA2 Userspace Runtime
+# Provides NPU programming interfaces above the amdxdna kernel driver.
+#
+# Stack:   amdxdna (kernel, in-tree since 7.0) → XRT (userspace) → FastFlowLM
+#
+# Kernel 7.0+ ships amdxdna in-tree. No DKMS needed. This task only
+# installs the userspace XRT runtime that sits above /dev/accel/.
+#
+# COPR path (preferred): xanderlent/amd-npu-driver
+#   Known caveats as of 2026-06-18:
+#   - Experimental, volunteer-maintained
+#   - F43 packages may have Boost mismatch on F44 → source build needed
+#   - XRT version may lag upstream (2.19.0 = April 2025 build)
+#   - `flm validate` firmware incompatibility = outdated XRT → build from source
+#
+# IOMMU: must remain enabled. Never add amd_iommu=off to kernel cmdline.
+# =============================================================================
 
-# # ── Repository Setup ──────────────────────────────────────────────────────────
+# ── COPR repository ───────────────────────────────────────────────────────────
 
-# - name: Check if XRT COPR repo already enabled
-#   ansible.builtin.stat:
-#     path: /etc/yum.repos.d/_copr:copr.fedorainfracloud.org:amdxrt:xrt.repo
-#   register: xrt_copr_stat
-#   tags: [runtime, xrt, npu]
+- name: Check if xanderlent/amd-npu-driver COPR is enabled
+  ansible.builtin.stat:
+    path: /etc/yum.repos.d/_copr:copr.fedorainfracloud.org:xanderlent:amd-npu-driver.repo
+  register: _xrt_copr_stat
+  tags: [runtime, xrt, npu]
 
-# - name: Enable AMD XRT COPR repository
-#   become: true
-#   ansible.builtin.command: >
-#     dnf copr enable -y amdxrt/xrt
-#     fedora-{{ ansible_distribution_major_version }}-x86_64
-#   when: not xrt_copr_stat.stat.exists
-#   register: xrt_copr_result
-#   failed_when: xrt_copr_result.rc != 0
-#   tags: [runtime, xrt, npu]
+- name: Enable xanderlent/amd-npu-driver COPR
+  become: true
+  ansible.builtin.command: dnf copr enable -y xanderlent/amd-npu-driver
+  when: not _xrt_copr_stat.stat.exists
+  register: _xrt_copr_enable
+  failed_when: false
+  tags: [runtime, xrt, npu]
 
-# - name: Warn if COPR enable failed — check repo availability for Fedora version
-#   ansible.builtin.debug:
-#     msg: >
-#       WARNING: AMD XRT COPR may not yet have Fedora {{ ansible_distribution_major_version }} builds.
-#       Check https://copr.fedorainfracloud.org/coprs/amdxrt/xrt/
-#       You may need to build from source: https://github.com/Xilinx/XRT
-#   when:
-#     - xrt_copr_result is defined
-#     - xrt_copr_result.rc is defined
-#     - xrt_copr_result.rc != 0
-#   tags: [runtime, xrt, npu]
+- name: Warn if COPR enable failed
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: Could not enable xanderlent/amd-npu-driver COPR.
+      XRT packages will be unavailable. You may need to build from source.
+      See Grimoire: RaBbLE-OS/hardware/RaBbLE-OS-Hardware-NPU-XDNA2.md
+  when:
+    - _xrt_copr_enable is defined
+    - _xrt_copr_enable.rc is defined
+    - _xrt_copr_enable.rc != 0
+  tags: [runtime, xrt, npu]
 
-# # ── Package Installation ──────────────────────────────────────────────────────
+# ── Package installation ──────────────────────────────────────────────────────
 
-# - name: Install XRT runtime packages
-#   become: true
-#   ansible.builtin.dnf:
-#     name:
-#       - xrt
-#       - xrt-devel
-#     state: present
-#   register: xrt_install
-#   failed_when: false          # Non-fatal — COPR may lag on new Fedora releases
-#   tags: [runtime, xrt, npu]
+- name: Install XRT runtime and XDNA driver packages
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - xrt
+      - xdna-driver
+    state: present
+    allow_downgrade: false
+    allowerasing: true
+  register: _xrt_install
+  failed_when: false
+  tags: [runtime, xrt, npu]
 
-# - name: Warn if XRT packages not found
-#   ansible.builtin.debug:
-#     msg: >
-#       WARNING: XRT packages could not be installed from COPR.
-#       NPU userspace runtime is not available.
-#       Kernel module (amdxdna) may still be loaded — hardware layer is intact.
-#       See grimoire/Architecture.md for manual build instructions.
-#   when: xrt_install.failed | default(false)
-#   tags: [runtime, xrt, npu]
+- name: Report XRT install result
+  ansible.builtin.debug:
+    msg: >-
+      XRT install: {{ 'succeeded' if not _xrt_install.failed | default(false) else 'FAILED' }}.
+      If failed, check: (1) COPR enabled for your Fedora version,
+      (2) Boost library conflict (F44 may need source build),
+      (3) OpenCL ICD conflict (try: dnf install --allowerasing xrt xdna-driver).
+      See: Grimoire RaBbLE-OS/hardware/RaBbLE-OS-Hardware-NPU-XDNA2.md
+  tags: [runtime, xrt, npu]
 
-# # ── Runtime Permissions ───────────────────────────────────────────────────────
+# ── Symlink workaround ────────────────────────────────────────────────────────
+# XRT from COPR installs to /usr/xrt, not /opt/xilinx/xrt.
+# FastFlowLM and legacy tools expect /opt/xilinx/xrt.
 
-# - name: Add current user to render group (required for /dev/accel access)
-#   become: true
-#   ansible.builtin.user:
-#     name: "{{ ansible_user_id }}"
-#     groups: render
-#     append: true
-#   tags: [runtime, xrt, npu]
+- name: Ensure /opt/xilinx exists
+  become: true
+  ansible.builtin.file:
+    path: /opt/xilinx
+    state: directory
+    mode: '0755'
+  when: not _xrt_install.failed | default(false)
+  tags: [runtime, xrt, npu]
 
-# - name: Add current user to video group
-#   become: true
-#   ansible.builtin.user:
-#     name: "{{ ansible_user_id }}"
-#     groups: video
-#     append: true
-#   tags: [runtime, xrt, npu]
+- name: Symlink /opt/xilinx/xrt → /usr/xrt
+  become: true
+  ansible.builtin.file:
+    src: /usr/xrt
+    dest: /opt/xilinx/xrt
+    state: link
+    force: true
+  when:
+    - not _xrt_install.failed | default(false)
+    - ansible_facts.stat is not defined or not ansible_facts.stat.exists
+  failed_when: false
+  tags: [runtime, xrt, npu]
 
-# # ── udev Rules ────────────────────────────────────────────────────────────────
+- name: Symlink /usr/xrt/lib → /usr/xrt/lib64
+  become: true
+  ansible.builtin.file:
+    src: /usr/xrt/lib64
+    dest: /usr/xrt/lib
+    state: link
+    force: true
+  when: not _xrt_install.failed | default(false)
+  failed_when: false
+  tags: [runtime, xrt, npu]
 
-# - name: Deploy udev rule for NPU device permissions
-#   become: true
-#   ansible.builtin.copy:
-#     dest: /etc/udev/rules.d/99-amdxdna.rules
-#     content: |
-#       # AMD NPU (XDNA2) — grant render group rw access
-#       SUBSYSTEM=="accel", KERNEL=="accel*", GROUP="render", MODE="0660"
-#     owner: root
-#     group: root
-#     mode: '0644'
-#     backup: true
-#   tags: [runtime, xrt, npu]
-#   notify: reload udev rules
+# ── Dynamic linker paths ──────────────────────────────────────────────────────
 
-# # ── Verification ──────────────────────────────────────────────────────────────
+- name: Configure ld.so paths for XRT and FastFlowLM libraries
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/ld.so.conf.d/xrt-npu.conf
+    content: |
+      /opt/fastflowlm/lib
+      /opt/xilinx/xrt/lib64
+    owner: root
+    group: root
+    mode: '0644'
+  notify: run ldconfig
+  tags: [runtime, xrt, npu]
 
-# - name: Check /dev/accel devices exist
-#   ansible.builtin.find:
-#     paths: /dev/accel
-#     file_type: any
-#   register: accel_devices
-#   failed_when: false
-#   tags: [runtime, xrt, npu, verify]
+# ── memlock limits ────────────────────────────────────────────────────────────
+# REQUIRED — missing memlock causes misleading "mmap failed (err=-11)" XRT errors.
+# Must reboot or re-login for PAM limits to take effect on existing sessions.
 
-# - name: Run xrt-smi examine
-#   ansible.builtin.command: xrt-smi examine
-#   register: xrt_examine
-#   changed_when: false
-#   failed_when: false
-#   tags: [runtime, xrt, npu, verify]
+- name: Configure PAM memlock limits for NPU DMA
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/security/limits.d/99-amdxdna.conf
+    content: |
+      # AMD XDNA2 NPU — required for DMA buffer allocation via XRT
+      * soft memlock unlimited
+      * hard memlock unlimited
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [runtime, xrt, npu]
 
-# - name: Report NPU runtime status
-#   ansible.builtin.debug:
-#     msg:
-#       - "accel devices found: {{ accel_devices.files | length }}"
-#       - "xrt-smi output:"
-#       - "{{ xrt_examine.stdout_lines | default(['xrt-smi not available']) }}"
-#   tags: [runtime, xrt, npu, verify]
+- name: Configure systemd default memlock for NPU services
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/systemd/system.conf.d/99-amdxdna.conf
+    content: |
+      [Manager]
+      DefaultLimitMEMLOCK=infinity
+    owner: root
+    group: root
+    mode: '0644'
+  notify: reload systemd daemon
+  tags: [runtime, xrt, npu]
 
-# # ── Rollback ──────────────────────────────────────────────────────────────────
+# ── udev permissions ──────────────────────────────────────────────────────────
 
-# - name: Rollback — remove XRT packages
-#   become: true
-#   ansible.builtin.dnf:
-#     name:
-#       - xrt
-#       - xrt-devel
-#     state: absent
-#   when: xrt_rollback | default(false)
-#   tags: [runtime, xrt, npu, rollback]
+- name: Deploy udev rule for /dev/accel NPU access
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/udev/rules.d/99-amdxdna.rules
+    content: |
+      # AMD XDNA2 NPU — render group rw access for XRT userspace
+      SUBSYSTEM=="accel", KERNEL=="accel*", GROUP="render", MODE="0660"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: reload udev rules
+  tags: [runtime, xrt, npu]
 
-# - name: Rollback — remove udev NPU rule
-#   become: true
-#   ansible.builtin.file:
-#     path: /etc/udev/rules.d/99-amdxdna.rules
-#     state: absent
-#   when: xrt_rollback | default(false)
-#   tags: [runtime, xrt, npu, rollback]
+# ── User group membership ─────────────────────────────────────────────────────
+
+- name: Add user to render group (required for /dev/accel access)
+  become: true
+  ansible.builtin.user:
+    name: "{{ ansible_user_id }}"
+    groups: render
+    append: true
+  tags: [runtime, xrt, npu]
+
+- name: Add user to video group
+  become: true
+  ansible.builtin.user:
+    name: "{{ ansible_user_id }}"
+    groups: video
+    append: true
+  tags: [runtime, xrt, npu]
+
+# ── Verification ──────────────────────────────────────────────────────────────
+
+- name: Check /dev/accel devices
+  ansible.builtin.find:
+    paths: /dev/accel
+    file_type: any
+  register: _accel_devices
+  failed_when: false
+  tags: [runtime, xrt, npu, verify]
+
+- name: Run xrt-smi examine
+  ansible.builtin.command: /usr/xrt/bin/xrt-smi examine
+  environment:
+    LD_LIBRARY_PATH: "/usr/xrt/lib64:/opt/xilinx/xrt/lib64"
+  register: _xrt_examine
+  changed_when: false
+  failed_when: false
+  tags: [runtime, xrt, npu, verify]
+
+- name: Report XRT + NPU runtime status
+  ansible.builtin.debug:
+    msg:
+      - "accel devices: {{ _accel_devices.files | map(attribute='path') | list | default(['none']) }}"
+      - "xrt-smi: {{ _xrt_examine.stdout_lines | default(['xrt-smi not available — install or build from source']) }}"
+  tags: [runtime, xrt, npu, verify]
+
+- name: Reminder — reboot required for memlock and group changes
+  ansible.builtin.debug:
+    msg: >-
+      REMINDER: Reboot required for memlock limits and group membership (render/video) to take effect.
+      After reboot, validate with: flm validate
+  tags: [runtime, xrt, npu]

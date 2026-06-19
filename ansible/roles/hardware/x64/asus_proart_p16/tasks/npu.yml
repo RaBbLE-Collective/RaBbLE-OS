@@ -1,6 +1,57 @@
 ---
-# hardware/x64/asus_proart_p16/tasks/npu.yml — STUB
-- name: "asus_proart_p16/npu — stub"
+# hardware/x64/asus_proart_p16/tasks/npu.yml
+# AMD XDNA2 NPU — kernel driver verification
+#
+# The amdxdna driver ships in-tree since Linux 7.0. No DKMS, no out-of-tree
+# patches. This task verifies the driver is loaded and the device is present.
+# XRT userspace + FastFlowLM + Lemonade are handled by roles/runtime/*.yml.
+#
+# IOMMU: must remain enabled. Never add amd_iommu=off to the kernel cmdline.
+# Firmware: lives at /usr/lib/firmware/amdnpu/ via linux-firmware package.
+
+- name: Check amdxdna kernel module is loaded
+  ansible.builtin.command: lsmod
+  register: _lsmod_output
+  changed_when: false
+  failed_when: false
+  tags: [hardware, npu]
+
+- name: Report amdxdna module status
   ansible.builtin.debug:
-    msg: "spark ~ hardware/asus_proart_p16/npu >> stub, no-op // %DORMANT%"
-  tags: [hardware]
+    msg: >-
+      amdxdna: {{ 'LOADED ✅' if 'amdxdna' in _lsmod_output.stdout
+                  else 'NOT LOADED ⚠️  — check kernel version (7.0+ required) and BIOS NPU enable' }}
+  tags: [hardware, npu]
+
+- name: Check /dev/accel device node exists
+  ansible.builtin.find:
+    paths: /dev/accel
+    file_type: any
+  register: _accel_devs
+  failed_when: false
+  tags: [hardware, npu]
+
+- name: Report NPU device node status
+  ansible.builtin.debug:
+    msg: >-
+      NPU device: {{ _accel_devs.files | map(attribute='path') | list
+                     if _accel_devs.files | length > 0
+                     else ['/dev/accel/* — NOT FOUND. IOMMU enabled? Secure Boot disabled?'] }}
+  tags: [hardware, npu]
+
+- name: Check NPU firmware files are present
+  ansible.builtin.find:
+    paths: /usr/lib/firmware/amdnpu
+    patterns: "npu.sbin*.xz"
+    recurse: true
+  register: _npu_firmware
+  failed_when: false
+  tags: [hardware, npu]
+
+- name: Report NPU firmware presence
+  ansible.builtin.debug:
+    msg: >-
+      NPU firmware: {{ _npu_firmware.files | length }} file(s) found at /usr/lib/firmware/amdnpu/.
+      Needs firmware ≥ 1.1.0.0 (npu.sbin.1.1.x.x.xz) for FastFlowLM.
+      Update linux-firmware if only 1.0.0.x files present.
+  tags: [hardware, npu]
