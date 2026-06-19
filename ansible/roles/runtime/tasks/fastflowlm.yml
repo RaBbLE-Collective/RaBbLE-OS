@@ -54,6 +54,7 @@
       - ninja-build
       - git
       - boost-devel
+      - libcurl-devel
       - ffmpeg-free-devel
       - fftw-devel
       - rust
