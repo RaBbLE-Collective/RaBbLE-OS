@@ -140,6 +140,16 @@
     mode: '0644'
   tags: [runtime, xrt, npu]
 
+- name: Ensure /etc/systemd/system.conf.d exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/system.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags: [runtime, xrt, npu]
+
 - name: Configure systemd default memlock for NPU services
   become: true
   ansible.builtin.copy:
