@@ -97,15 +97,116 @@
   failed_when: false
   tags: [runtime, xrt, npu]
 
-- name: Symlink /usr/xrt/lib → /usr/xrt/lib64
+- name: Symlink XRT core libs into /usr/xrt/lib (COPR puts them in lib64, cmake looks in lib)
   become: true
-  ansible.builtin.file:
-    src: /usr/xrt/lib64
-    dest: /usr/xrt/lib
-    state: link
-    force: true
+  ansible.builtin.shell: |
+    for f in /usr/xrt/lib64/libxrt*.so* /usr/xrt/lib64/libxilinx*.so*; do
+      [ -e "$f" ] && ln -sf "$f" "/usr/xrt/lib/$(basename $f)"
+    done
+  args:
+    executable: /bin/bash
   when: not _xrt_install.failed | default(false)
+  changed_when: true
   failed_when: false
+  tags: [runtime, xrt, npu]
+
+# ── XRT API version check + source build fallback ────────────────────────────
+# COPR XRT 2.19.0 (April 2025) is missing xrt::runlist::add(xrt::run&&).
+# FastFlowLM prebuilt NPU libs (src/lib/*.so) require this symbol, added post-April 2025.
+# Fix: build XRT from xdna-driver source → installs updated RPM over COPR version.
+
+- name: Check for required XRT runlist::add(xrt::run&&) symbol
+  ansible.builtin.shell: >-
+    nm -D /usr/xrt/lib64/libxrt_coreutil.so 2>/dev/null |
+    grep -q '_ZN3xrt7runlist3addEONS_3runE'
+  register: _xrt_rvalue_ok
+  changed_when: false
+  failed_when: false
+  tags: [runtime, xrt, npu]
+
+- name: Install XRT source build dependencies (COPR XRT missing required symbol)
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - cmake
+      - ninja-build
+      - git
+      - boost-devel
+      - ocl-icd-devel
+      - opencl-headers
+      - libdrm-devel
+      - rapidjson-devel
+      - python3-devel
+      - libffi-devel
+      - libuuid-devel
+      - systemd-devel
+      - ncurses-devel
+      - elfutils-devel
+      - tcsh
+      - rpm-build
+    state: present
+  when: _xrt_rvalue_ok.rc != 0
+  tags: [runtime, xrt, npu]
+
+- name: Clone xdna-driver repository for XRT source build
+  ansible.builtin.git:
+    repo: "https://github.com/amd/xdna-driver.git"
+    dest: /opt/src/xdna-driver
+    version: HEAD
+    recursive: true
+    update: true
+  when: _xrt_rvalue_ok.rc != 0
+  tags: [runtime, xrt, npu]
+
+- name: Build XRT userspace from xdna-driver source (npu profile, ~20-30 min)
+  ansible.builtin.shell: |
+    cd /opt/src/xdna-driver/xrt/build
+    ./build.sh -npu -opt -noctest -j{{ ansible_processor_vcpus }}
+  args:
+    executable: /bin/bash
+  register: _xrt_src_build
+  when: _xrt_rvalue_ok.rc != 0
+  changed_when: _xrt_src_build.rc == 0
+  failed_when: false
+  tags: [runtime, xrt, npu]
+
+- name: Install XRT RPM from source build (replaces COPR 2.19.0)
+  become: true
+  ansible.builtin.shell: |
+    dnf install --allowerasing -y /opt/src/xdna-driver/xrt/build/Release/*.rpm
+  args:
+    executable: /bin/bash
+  when:
+    - _xrt_rvalue_ok.rc != 0
+    - _xrt_src_build is defined
+    - _xrt_src_build.rc == 0
+  changed_when: true
+  failed_when: false
+  tags: [runtime, xrt, npu]
+
+- name: Re-symlink XRT core libs after source build (output path may differ from COPR)
+  become: true
+  ansible.builtin.shell: |
+    for f in /usr/xrt/lib64/libxrt*.so* /usr/xrt/lib64/libxilinx*.so*; do
+      [ -e "$f" ] && ln -sf "$f" "/usr/xrt/lib/$(basename $f)"
+    done
+  args:
+    executable: /bin/bash
+  when:
+    - _xrt_rvalue_ok.rc != 0
+    - _xrt_src_build is defined
+    - _xrt_src_build.rc == 0
+  changed_when: true
+  failed_when: false
+  tags: [runtime, xrt, npu]
+
+- name: Report XRT source build outcome
+  ansible.builtin.debug:
+    msg: >-
+      XRT source build: {{ 'succeeded — source XRT installed over COPR' if (_xrt_src_build.rc | default(1)) == 0 else
+      'FAILED — COPR XRT 2.19.0 is missing add(xrt::run&&); FastFlowLM link step will fail. Build XRT manually from xdna-driver.' }}
+      See Grimoire: RaBbLE-OS/hardware/RaBbLE-OS-Hardware-NPU-XDNA2.md
+  when: _xrt_rvalue_ok.rc != 0
   tags: [runtime, xrt, npu]
 
 # ── Dynamic linker paths ──────────────────────────────────────────────────────

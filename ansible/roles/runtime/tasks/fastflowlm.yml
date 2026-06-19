@@ -87,9 +87,16 @@
   when: not _flm_bin_post.stat.exists
   tags: [runtime, fastflowlm, npu]
 
+- name: Remove stale FastFlowLM build directory
+  ansible.builtin.file:
+    path: "{{ fastflowlm.src_dir }}/src/build"
+    state: absent
+  when: not _flm_bin_post.stat.exists
+  tags: [runtime, fastflowlm, npu]
+
 - name: Configure FastFlowLM build (linux-default preset)
   ansible.builtin.command:
-    cmd: cmake --preset linux-default
+    cmd: cmake --preset linux-default -DXRT_LIB_DIR=/opt/xilinx/xrt/lib64
     chdir: "{{ fastflowlm.src_dir }}/src"
   environment:
     LD_LIBRARY_PATH: "/usr/xrt/lib64:/opt/xilinx/xrt/lib64"
