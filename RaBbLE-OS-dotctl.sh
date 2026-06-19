@@ -57,6 +57,12 @@ declare -A BUNDLE_SRC=(
   [swayosd]="config/swayosd"
   [claude]="config/claude/themes"
   [vscodium]="config/vscodium/User"
+  [kvantum]="config/kvantum"
+  [qt5ct]="config/qt5ct"
+  [qt6ct]="config/qt6ct"
+  [gtk3]="config/gtk-3.0"
+  [gtk4]="config/gtk-4.0"
+  [themes]="config/themes"
 )
 
 declare -A BUNDLE_DEST=(
@@ -72,6 +78,12 @@ declare -A BUNDLE_DEST=(
   [swayosd]="${HOME}/.config/swayosd"
   [claude]="${HOME}/.claude/themes"
   [vscodium]="${HOME}/.config/VSCodium/User"
+  [kvantum]="${HOME}/.config/Kvantum"
+  [qt5ct]="${HOME}/.config/qt5ct"
+  [qt6ct]="${HOME}/.config/qt6ct"
+  [gtk3]="${HOME}/.config/gtk-3.0"
+  [gtk4]="${HOME}/.config/gtk-4.0"
+  [themes]="${HOME}/.local/share/themes"
 )
 
 declare -A BUNDLE_DESC=(
@@ -87,9 +99,15 @@ declare -A BUNDLE_DESC=(
   [swayosd]="swayOSD volume/brightness overlay — RaBbLE-Aether gradient ring + flowing text"
   [claude]="Claude Code RaBbLE theme (themes only — settings.json is not managed)"
   [vscodium]="VSCodium user settings — activates RaBbLE Aether theme (theme artifacts deploy from Aether via Ansible)"
+  [kvantum]="Kvantum Qt theme — RaBbLE-Aether synthwave dark (void bg, #e8d5ff text, magenta+cyan accents)"
+  [qt5ct]="Qt5 config (kvantum style, Papirus-Dark icons, Exo 2 / Share Tech Mono fonts)"
+  [qt6ct]="Qt6 config (kvantum style, Papirus-Dark icons, Exo 2 / Share Tech Mono fonts)"
+  [gtk3]="GTK3 user stylesheet — Aether palette overlay (sidebar, selection, scrollbars, menus)"
+  [gtk4]="GTK4 CSS variables — Aether palette (limited effect due to libadwaita sandboxing)"
+  [themes]="GTK installed themes (RaBbLE-Aether) → ~/.local/share/themes"
 )
 
-BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd claude vscodium)
+BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd claude vscodium kvantum qt5ct qt6ct gtk3 gtk4 themes)
 
 # Post-apply hooks — run after a bundle's files are deployed.
 # Only set for bundles that need more than a file copy (e.g. patching a config key).

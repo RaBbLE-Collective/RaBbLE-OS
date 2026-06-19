@@ -5,14 +5,13 @@
  * No !important — not needed or allowed in GTK3 user stylesheets.
  *
  * Palette: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md
- * (hardcoded here — GTK3 user stylesheets don’t inherit @define-color from installed themes)
+ * (hardcoded here — GTK3 user stylesheets don't inherit @define-color from installed themes)
  *
- *   #0a0010  void bg       #12132a  surface
- *   #1a1b2e  raised        #2a2840  border_dim
+ *   #0a0010  void bg       #120025  surface / cards
+ *   #1a0030  raised        #2a0050  border_dim
  *   #ff2d78  magenta       #00f5ff  cyan
- *   #bf5fff  violet        #e8e6f0  text
- *   #6b6880  muted         #e05c6f  red
- *   #50fa7b  green         #f1fa8c  yellow
+ *   #bf5fff  violet        #e8d5ff  text (PRIMARY — must be bright)
+ *   #8860aa  muted         #f7a8d4  soft pink
  */
 
 /* ── Selection — cyan accent (Aether preference over magenta base) ───────────── */
@@ -23,7 +22,7 @@ treeview row:selected,
 .view.cell:selected,
 iconview.cell:selected {
   background-color: rgba(0, 245, 255, 0.20);
-  color: #e8e6f0;
+  color: #e8d5ff;
 }
 
 .view row:selected:focus,
@@ -35,18 +34,18 @@ treeview row:selected:focus {
 .sidebar,
 .sidebar scrolledwindow,
 .sidebar viewport {
-  background-color: #12132a;
-  color: #e8e6f0;
+  background-color: #120025;
+  color: #e8d5ff;
 }
 
 .sidebar row {
-  background-color: #12132a;
-  color: #e8e6f0;
+  background-color: #120025;
+  color: #e8d5ff;
 }
 
 .sidebar row:hover {
   background-color: rgba(191, 95, 255, 0.18);
-  color: #e8e6f0;
+  color: #e8d5ff;
 }
 
 .sidebar row:selected {
@@ -55,7 +54,7 @@ treeview row:selected:focus {
 }
 
 .sidebar .heading label {
-  color: #6b6880;
+  color: #8860aa;
   font-size: smaller;
 }
 
@@ -87,14 +86,14 @@ scrollbar slider:active { background-color: #00f5ff; }
 /* ── Column headers in list view ──────────────────────────────────── */
 .view column-header button,
 treeview header button {
-  background-color: #12132a;
-  color: #6b6880;
+  background-color: #120025;
+  color: #8860aa;
   border-bottom: 1px solid rgba(191, 95, 255, 0.35);
 }
 
 .view column-header button:hover,
 treeview header button:hover {
-  color: #e8e6f0;
+  color: #e8d5ff;
   background-color: rgba(191, 95, 255, 0.10);
 }
 
@@ -113,7 +112,7 @@ entry:focus {
 
 /* ── Statusbar — muted footer ─────────────────────────────────────── */
 statusbar {
-  background-color: #12132a;
-  color: #6b6880;
+  background-color: #120025;
+  color: #8860aa;
   border-top: 1px solid rgba(191, 95, 255, 0.20);
 }
