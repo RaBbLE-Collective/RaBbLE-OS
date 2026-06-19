@@ -1,6 +1,6 @@
 [%General]
 author=RaBbLE Collective — adapted from Catppuccin/kvantum (MIT) and KvArcDark
-comment=RaBbLE-Aether — synthwave/outrun dark theme. Deep void bg, #e8d5ff text, magenta+cyan accents.
+comment=RaBbLE-Aether — synthwave/outrun dark theme. Deep void bg, #f8f4ff text, magenta+cyan accents.
 x11drag=menubar_and_primary_toolbar
 alt_mnemonic=true
 left_tabs=true
@@ -74,7 +74,7 @@ shadowless_popup=false
 ; bg/void:    #0a0010   surface/cards: #120025
 ; primary:    #ff2d78   accent/cyan:   #00f5ff
 ; violet:     #bf5fff   soft pink:     #f7a8d4
-; text:       #e8d5ff   muted:         #8860aa
+; text:       #f8f4ff   muted:         #8860aa
 
 [GeneralColors]
 window.color=#0a0010
@@ -87,12 +87,12 @@ dark.color=#000005
 mid.color=#080010
 highlight.color=#ff2d78
 inactive.highlight.color=#8860aa
-text.color=#e8d5ff
-window.text.color=#e8d5ff
-button.text.color=#e8d5ff
+text.color=#f8f4ff
+window.text.color=#f8f4ff
+button.text.color=#f8f4ff
 disabled.text.color=#8860aa
 tooltip.base.color=#120025
-tooltip.text.color=#e8d5ff
+tooltip.text.color=#f8f4ff
 highlight.text.color=#0a0010
 link.color=#00f5ff
 link.visited.color=#bf5fff
@@ -125,7 +125,7 @@ frame.right=3
 interior=true
 interior.element=button
 indicator.size=9
-text.normal.color=#e8d5ff
+text.normal.color=#f8f4ff
 text.focus.color=#00f5ff
 text.press.color=#ff2d78
 text.toggle.color=#00f5ff
@@ -152,14 +152,14 @@ frame.top=1
 frame.bottom=1
 frame.left=1
 frame.right=1
-text.normal.color=#e8d5ff
+text.normal.color=#f8f4ff
 
 [DockTitle]
 inherits=PanelButtonCommand
 frame=false
 interior=false
 text.normal.color=#bf5fff
-text.focus.color=#e8d5ff
+text.focus.color=#f8f4ff
 text.bold=true
 
 [IndicatorSpinBox]
@@ -169,20 +169,20 @@ interior=true
 frame.left=1
 indicator.element=spin
 indicator.size=8
-text.normal.color=#e8d5ff
+text.normal.color=#f8f4ff
 
 [RadioButton]
 inherits=PanelButtonCommand
 frame=false
 interior.element=radio
-text.normal.color=#e8d5ff
+text.normal.color=#f8f4ff
 text.focus.color=#00f5ff
 
 [CheckBox]
 inherits=PanelButtonCommand
 frame=false
 interior.element=checkbox
-text.normal.color=#e8d5ff
+text.normal.color=#f8f4ff
 text.focus.color=#00f5ff
 
 [Focus]
@@ -212,8 +212,8 @@ frame.element=lineedit
 interior.element=lineedit
 text.margin.left=1
 text.margin.right=1
-text.normal.color=#e8d5ff
-text.focus.color=#e8d5ff
+text.normal.color=#f8f4ff
+text.focus.color=#f8f4ff
 
 [DropDownButton]
 inherits=PanelButtonCommand
@@ -230,7 +230,7 @@ indicator.size=9
 
 [ToolboxTab]
 inherits=PanelButtonCommand
-text.normal.color=#e8d5ff
+text.normal.color=#f8f4ff
 text.press.color=#bf5fff
 text.focus.color=#00f5ff
 
@@ -249,7 +249,7 @@ frame.left=4
 frame.right=4
 text.normal.color=#8860aa
 text.focus.color=#bf5fff
-text.toggle.color=#e8d5ff
+text.toggle.color=#f8f4ff
 frame.expansion=0
 
 [TabFrame]
@@ -287,7 +287,7 @@ frame.right=1
 text.bold=true
 text.normal.color=#8860aa
 text.focus.color=#00f5ff
-text.toggle.color=#e8d5ff
+text.toggle.color=#f8f4ff
 frame.expansion=0
 
 [SizeGrip]
@@ -301,7 +301,7 @@ text.margin=0
 frame=false
 interior.element=menubar
 frame.element=menubar
-text.normal.color=#e8d5ff
+text.normal.color=#f8f4ff
 text.focus.color=#00f5ff
 text.press.color=#ff2d78
 text.toggle.color=#ff2d78
@@ -313,7 +313,7 @@ frame.expansion=0
 frame.element=tbutton
 interior.element=tbutton
 indicator.element=arrow
-text.normal.color=#e8d5ff
+text.normal.color=#f8f4ff
 text.focus.color=#00f5ff
 text.press.color=#ff2d78
 text.toggle.color=#ff2d78
@@ -343,8 +343,8 @@ inherits=PanelButtonCommand
 frame.element=progress
 interior.element=progress
 text.margin=0
-text.normal.color=#e8d5ff
-text.focus.color=#e8d5ff
+text.normal.color=#f8f4ff
+text.focus.color=#f8f4ff
 text.press.color=#0a0010
 text.toggle.color=#0a0010
 text.bold=false
@@ -373,10 +373,10 @@ text.margin.top=2
 text.margin.bottom=2
 text.margin.left=4
 text.margin.right=4
-text.normal.color=#e8d5ff
-text.focus.color=#e8d5ff
+text.normal.color=#f8f4ff
+text.focus.color=#f8f4ff
 text.press.color=#0a0010
-text.toggle.color=#e8d5ff
+text.toggle.color=#f8f4ff
 text.iconspacing=3
 frame.expansion=0
 
@@ -413,8 +413,8 @@ frame=true
 frame.element=menuitem
 interior.element=menuitem
 indicator.element=menuitem
-text.normal.color=#e8d5ff
-text.focus.color=#e8d5ff
+text.normal.color=#f8f4ff
+text.focus.color=#f8f4ff
 text.margin.top=1
 text.margin.bottom=1
 text.margin.left=15
@@ -431,7 +431,7 @@ frame.element=menubar
 interior.element=menubar
 frame.bottom=0
 frame.expansion=0
-text.normal.color=#e8d5ff
+text.normal.color=#f8f4ff
 text.bold=false
 
 [MenuBarItem]
@@ -447,7 +447,7 @@ text.margin.left=4
 text.margin.right=4
 text.margin.top=0
 text.margin.bottom=0
-text.normal.color=#e8d5ff
+text.normal.color=#f8f4ff
 text.focus.color=#ff2d78
 frame.expansion=0
 
@@ -459,7 +459,7 @@ frame.left=1
 frame.right=1
 frame.element=menu
 interior.element=menu
-text.normal.color=#e8d5ff
+text.normal.color=#f8f4ff
 text.shadow=false
 frame.expansion=0
 
@@ -470,7 +470,7 @@ interior.element=titlebar
 indicator.size=12
 indicator.element=mdi
 text.normal.color=#8860aa
-text.focus.color=#e8d5ff
+text.focus.color=#f8f4ff
 text.bold=true
 text.italic=false
 frame.expansion=0
@@ -479,7 +479,7 @@ frame.expansion=0
 inherits=PanelButtonCommand
 interior.element=combo
 frame.element=combo
-text.press.color=#e8d5ff
+text.press.color=#f8f4ff
 indicator.element=carrow
 
 [GroupBox]
@@ -488,7 +488,7 @@ frame=false
 text.shadow=0
 text.margin=0
 text.normal.color=#bf5fff
-text.focus.color=#e8d5ff
+text.focus.color=#f8f4ff
 text.bold=true
 frame.expansion=0
 

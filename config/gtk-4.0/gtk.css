@@ -6,9 +6,9 @@
   --destructive-color: #ff2d78;
   --success-color: #00f5ff;
   --window-bg-color: #0a0010;
-  --window-fg-color: #e8d5ff;
+  --window-fg-color: #f8f4ff;
   --view-bg-color: #120025;
-  --view-fg-color: #e8d5ff;
+  --view-fg-color: #f8f4ff;
 }
 
 /* GTK4/libadwaita sandboxes color overrides — this CSS has limited effect.

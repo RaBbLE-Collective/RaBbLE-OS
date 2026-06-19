@@ -35,6 +35,11 @@
 <radialGradient fx="-73.205238" fy="1084.6528" cx="-73.205238" cy="1084.6528" gradientTransform="matrix(1.9936117e-4,-3.8621156,2.8413414,7.9240303e-7,-3060.8544,607.77205)" xlink:href="#linearGradient6732" id="radialGradient4966" r="3.625" gradientUnits="userSpaceOnUse"/>
 <radialGradient fx="-73.334702" fy="1084.8059" cx="-73.334702" cy="1084.8059" gradientTransform="matrix(1.9936117e-4,-3.8621156,2.8413414,7.9240303e-7,-3060.8544,521.77205)" r="3.625" id="radialGradient6740-0" xlink:href="#linearGradient6732" gradientUnits="userSpaceOnUse"/>
 <radialGradient fx="-75.842552" fy="1132.2737" cx="-75.381783" cy="1132.228" gradientTransform="matrix(-3.5863106,2.2914401e-5,3.434988e-6,-2.0702316,-244.84591,3199.4713)" r="3.625" id="radialGradient6746-6" xlink:href="#linearGradient6806" gradientUnits="userSpaceOnUse"/>
+<linearGradient id="aether-focus-grad" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#ff2d78"/>
+<stop offset="0.5" stop-color="#bf5fff"/>
+<stop offset="1" stop-color="#00f5ff"/>
+</linearGradient>
 </defs>
 <text x="44.75" y="257.31104" style="font-family:Gill Sans;text-align:justify;stroke:none;line-height:125%;font-weight:bold;font-size:14px" id="text6990" xml:space="preserve"><tspan x="44.75" y="257.31104" id="tspan6992"/>
 </text>
@@ -741,12 +746,12 @@
 </g>
 </g>
 <g style="stroke:none" id="common-focused-left" transform="translate(-9,5)">
-<rect width="2.5" x="270.5" y="1170" height="30" style="fill:#ff2d78" id="rect4870"/>
+<rect width="2.5" x="270.5" y="1170" height="30" style="fill:url(#aether-focus-grad)" id="rect4870"/>
 <path style="fill:#200040" id="path4872" d="m 272,1170 0,30 1,0 0,-30 z"/>
 <path style="fill-rule:evenodd;fill-opacity:0" id="path4874" d="m 270,1170 0,30 1,0 0,-30 z"/>
 </g>
 <g style="stroke:none" id="common-focused-topleft" transform="translate(-9,5)">
-<path style="fill:#ff2d78" id="path4878" d="m 308.5,1172.5 -2.5,0 0,2.5 2.5,0 z" transform="translate(-35.5,-5)"/>
+<path style="fill:#bf5fff" id="path4878" d="m 308.5,1172.5 -2.5,0 0,2.5 2.5,0 z" transform="translate(-35.5,-5)"/>
 <path style="fill:#200040" id="path4880" d="m 273,1169 -1,0 0,1 1,0 z"/>
 <path style="fill-opacity:0" id="path4882" d="m 273,1167 -3,0 0,3 1,0 c 0,-1.125 0.875,-2 2,-2 z"/>
 </g>

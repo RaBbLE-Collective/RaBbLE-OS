@@ -10,7 +10,7 @@
  *   #0a0010  void bg       #120025  surface / cards
  *   #1a0030  raised        #2a0050  border_dim
  *   #ff2d78  magenta       #00f5ff  cyan
- *   #bf5fff  violet        #e8d5ff  text (PRIMARY — must be bright)
+ *   #bf5fff  violet        #f8f4ff  text (PRIMARY — must be bright)
  *   #8860aa  muted         #f7a8d4  soft pink
  */
 
@@ -22,7 +22,7 @@ treeview row:selected,
 .view.cell:selected,
 iconview.cell:selected {
   background-color: rgba(0, 245, 255, 0.20);
-  color: #e8d5ff;
+  color: #f8f4ff;
 }
 
 .view row:selected:focus,
@@ -35,17 +35,17 @@ treeview row:selected:focus {
 .sidebar scrolledwindow,
 .sidebar viewport {
   background-color: #120025;
-  color: #e8d5ff;
+  color: #f8f4ff;
 }
 
 .sidebar row {
   background-color: #120025;
-  color: #e8d5ff;
+  color: #f8f4ff;
 }
 
 .sidebar row:hover {
   background-color: rgba(191, 95, 255, 0.18);
-  color: #e8d5ff;
+  color: #f8f4ff;
 }
 
 .sidebar row:selected {
@@ -93,7 +93,7 @@ treeview header button {
 
 .view column-header button:hover,
 treeview header button:hover {
-  color: #e8d5ff;
+  color: #f8f4ff;
   background-color: rgba(191, 95, 255, 0.10);
 }
 
