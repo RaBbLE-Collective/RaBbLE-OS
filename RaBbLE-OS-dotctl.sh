@@ -58,6 +58,7 @@ declare -A BUNDLE_SRC=(
   [claude]="config/claude/themes"
   [vscodium]="config/vscodium/User"
   [kvantum]="config/kvantum"
+  [kdeglobals]="config/kdeglobals"
   [qt5ct]="config/qt5ct"
   [qt6ct]="config/qt6ct"
   [gtk3]="config/gtk-3.0"
@@ -79,6 +80,7 @@ declare -A BUNDLE_DEST=(
   [claude]="${HOME}/.claude/themes"
   [vscodium]="${HOME}/.config/VSCodium/User"
   [kvantum]="${HOME}/.config/Kvantum"
+  [kdeglobals]="${HOME}/.config"
   [qt5ct]="${HOME}/.config/qt5ct"
   [qt6ct]="${HOME}/.config/qt6ct"
   [gtk3]="${HOME}/.config/gtk-3.0"
@@ -99,7 +101,8 @@ declare -A BUNDLE_DESC=(
   [swayosd]="swayOSD volume/brightness overlay — RaBbLE-Aether gradient ring + flowing text"
   [claude]="Claude Code RaBbLE theme (themes only — settings.json is not managed)"
   [vscodium]="VSCodium user settings — activates RaBbLE Aether theme (theme artifacts deploy from Aether via Ansible)"
-  [kvantum]="Kvantum Qt theme — RaBbLE-Aether synthwave dark (void bg, #e8d5ff text, magenta+cyan accents)"
+  [kvantum]="Kvantum Qt theme — RaBbLE-Aether synthwave dark (void bg, #f8f4ff text, magenta+cyan accents)"
+  [kdeglobals]="KDE color scheme (~/.config/kdeglobals) — drives Dolphin/Kate view+window text color; Kvantum only styles widget frames, not palette text"
   [qt5ct]="Qt5 config (kvantum style, Papirus-Dark icons, Exo 2 / Share Tech Mono fonts)"
   [qt6ct]="Qt6 config (kvantum style, Papirus-Dark icons, Exo 2 / Share Tech Mono fonts)"
   [gtk3]="GTK3 user stylesheet — Aether palette overlay (sidebar, selection, scrollbars, menus)"
@@ -107,7 +110,7 @@ declare -A BUNDLE_DESC=(
   [themes]="GTK installed themes (RaBbLE-Aether) → ~/.local/share/themes"
 )
 
-BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd claude vscodium kvantum qt5ct qt6ct gtk3 gtk4 themes)
+BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd claude vscodium kvantum kdeglobals qt5ct qt6ct gtk3 gtk4 themes)
 
 # Post-apply hooks — run after a bundle's files are deployed.
 # Only set for bundles that need more than a file copy (e.g. patching a config key).
