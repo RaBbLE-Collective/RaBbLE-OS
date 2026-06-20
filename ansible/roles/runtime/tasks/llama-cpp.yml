@@ -84,6 +84,20 @@
   when: _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
+# ── GCC 15 compatibility patch ────────────────────────────────────────────────
+# GCC 15 (Fedora 43) no longer transitively includes <cstdint>; llama-mmap.h
+# uses uint32_t without including it, causing compile failure. Upstream fixed
+# this in versions after b4600; this patch keeps the pinned version buildable.
+
+- name: Patch llama-mmap.h for GCC 15 (missing <cstdint> include)
+  ansible.builtin.lineinfile:
+    path: "{{ llama_cpp.src_dir }}/src/llama-mmap.h"
+    insertafter: '#include <vector>'
+    line: '#include <cstdint>'
+    state: present
+  when: _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
 # ── CMake configure ───────────────────────────────────────────────────────────
 
 - name: Create build directory
