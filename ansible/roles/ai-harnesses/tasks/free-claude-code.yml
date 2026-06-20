@@ -84,6 +84,11 @@
       [Install]
       WantedBy=default.target
 
+- name: Sync model routing from fcc.env.example
+  ansible.builtin.command: >
+    bash {{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-Grimoire/spells/fcc-ctl.sh sync
+  changed_when: false
+
 - name: Enable and start free-claude-code service
   ansible.builtin.systemd:
     name: free-claude-code
