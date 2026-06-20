@@ -11,21 +11,37 @@
 #   - Chain position: after cloud fast-tier, before heavy local GPU inference
 #
 # Install strategy:
-#   1. Try xanderlent COPR (includes lemonade-server package when available)
-#   2. Fall back to upstream GitHub release RPM/binary
+#   1. Try xanderlent COPR (when lemonade-server package is available)
+#   2. Fall back to PyPI: pip3 install lemonade-server
+#      Binary lands in /usr/local/bin/lemonade-server
+#      Service file is created by this task (not bundled with pip package)
 #
-# Known issue: `lemonade-server recipes` shows "Requires Windows" for NPU
+# Known issue: `lemonade serve recipes` shows "Requires Windows" for NPU
 #   even on a working Linux stack. This is a labeling bug — ignore it.
 #   Run `flm validate` to confirm NPU inference is operational.
 # =============================================================================
 
-# ── Install ───────────────────────────────────────────────────────────────────
+# ── Binary check (covers COPR /usr/bin and pip /usr/local/bin) ───────────────
 
-- name: Check if lemonade-server binary exists
+- name: Check lemonade-server binary locations
   ansible.builtin.stat:
-    path: /usr/bin/lemonade-server
-  register: _lemonade_bin
+    path: "{{ item }}"
+  register: _lemonade_bin_checks
+  loop:
+    - /usr/bin/lemonade-server
+    - /usr/local/bin/lemonade-server
   tags: [runtime, lemonade, npu]
+
+- name: Set lemonade installed facts
+  ansible.builtin.set_fact:
+    _lemonade_installed: "{{ _lemonade_bin_checks.results | selectattr('stat.exists') | list | length > 0 }}"
+    _lemonade_bin_path: >-
+      {{ (_lemonade_bin_checks.results | selectattr('stat.exists') | list | first).item
+         if (_lemonade_bin_checks.results | selectattr('stat.exists') | list | length > 0)
+         else '' }}
+  tags: [runtime, lemonade, npu]
+
+# ── Install: COPR → pip3 fallback ────────────────────────────────────────────
 
 - name: Attempt lemonade-server install from COPR
   become: true
@@ -33,27 +49,85 @@
     name: lemonade-server
     state: present
   register: _lemonade_copr_install
-  when: not _lemonade_bin.stat.exists
+  when: not _lemonade_installed
   failed_when: false
   tags: [runtime, lemonade, npu]
 
-- name: Re-check lemonade-server binary after COPR attempt
-  ansible.builtin.stat:
-    path: /usr/bin/lemonade-server
-  register: _lemonade_bin_post
+- name: Install lemonade-server via pip3 (COPR fallback)
+  become: true
+  ansible.builtin.pip:
+    name: lemonade-server
+    state: present
+    executable: pip3
+  register: _lemonade_pip_install
+  when:
+    - not _lemonade_installed
+    - _lemonade_copr_install is defined
+    - (_lemonade_copr_install.failures | default([]) | length > 0) or
+      (_lemonade_copr_install.rc | default(0)) != 0
+  failed_when: false
   tags: [runtime, lemonade, npu]
 
-- name: Note if lemonade-server not available via COPR
+# ── Re-check after install attempts ──────────────────────────────────────────
+
+- name: Re-check lemonade-server binary locations
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: _lemonade_bin_checks_post
+  loop:
+    - /usr/bin/lemonade-server
+    - /usr/local/bin/lemonade-server
+  tags: [runtime, lemonade, npu]
+
+- name: Set lemonade post-install facts
+  ansible.builtin.set_fact:
+    _lemonade_installed_post: "{{ _lemonade_bin_checks_post.results | selectattr('stat.exists') | list | length > 0 }}"
+    _lemonade_bin_path_post: >-
+      {{ (_lemonade_bin_checks_post.results | selectattr('stat.exists') | list | first).item
+         if (_lemonade_bin_checks_post.results | selectattr('stat.exists') | list | length > 0)
+         else '' }}
+    _lemonade_via_pip: "{{ (_lemonade_pip_install is defined) and (_lemonade_pip_install.changed | default(false)) }}"
+  tags: [runtime, lemonade, npu]
+
+- name: Note if lemonade-server not available
   ansible.builtin.debug:
     msg: >-
-      INFO: lemonade-server not found via COPR.
-      You may need to install from the upstream GitHub release or build from source.
-      Upstream releases: https://github.com/lemonade-sdk/lemonade/releases
+      INFO: lemonade-server could not be installed via COPR or pip3.
+      Verify PyPI package name: pip3 install lemonade-server
+      GitHub releases: https://github.com/lemonade-sdk/lemonade/releases
       Once installed, re-run: ansible-playbook ... --tags lemonade
-  when: not _lemonade_bin_post.stat.exists
+  when: not _lemonade_installed_post
   tags: [runtime, lemonade, npu]
 
-# ── Systemd service override ──────────────────────────────────────────────────
+# ── Systemd service file (pip path only — COPR includes its own .service) ────
+
+- name: Create lemonade-server systemd service (pip-installed)
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/lemonade-server.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Lemonade Server — OpenAI-compat local AI API
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart={{ _lemonade_bin_path_post }} serve --port {{ lemonade.port }}
+      Restart=on-failure
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+  when:
+    - _lemonade_installed_post
+    - _lemonade_via_pip
+  notify: reload systemd daemon
+  tags: [runtime, lemonade, npu]
+
+# ── Systemd service override (memlock + FLM env — applies to both paths) ─────
 # FastFlowLM requires LimitMEMLOCK=infinity in the service unit.
 # Without this, lemonade-server starts but FLM inference fails with mmap errors.
 
@@ -65,7 +139,7 @@
     owner: root
     group: root
     mode: '0755'
-  when: _lemonade_bin_post.stat.exists
+  when: _lemonade_installed_post
   tags: [runtime, lemonade, npu]
 
 - name: Deploy lemonade-server systemd override (memlock + FLM env)
@@ -80,7 +154,7 @@
       LimitMEMLOCK=infinity
       Environment=LD_LIBRARY_PATH=/opt/fastflowlm/lib:/opt/xilinx/xrt/lib64:/usr/xrt/lib64
       Environment=FLM_CONFIG_PATH=/opt/fastflowlm/share/flm/model_list.json
-  when: _lemonade_bin_post.stat.exists
+  when: _lemonade_installed_post
   notify: reload systemd daemon
   tags: [runtime, lemonade, npu]
 
@@ -93,7 +167,7 @@
     enabled: true
     state: started
     daemon_reload: true
-  when: _lemonade_bin_post.stat.exists
+  when: _lemonade_installed_post
   register: _lemonade_service
   failed_when: false
   tags: [runtime, lemonade, npu]
@@ -109,7 +183,7 @@
   until: _lemonade_health.status in [200, 404]
   retries: 10
   delay: 3
-  when: _lemonade_bin_post.stat.exists
+  when: _lemonade_installed_post
   failed_when: false
   tags: [runtime, lemonade, npu, verify]
 
@@ -127,7 +201,7 @@
       Lemonade is live. Add to sCoRE provider chain:
         local_npu: http://localhost:{{ lemonade.port }}/v1/chat/completions
       NPU inference: ~18 tok/s (20B model), offline, private.
-      NOTE: 'lemonade-server recipes' may show "Requires Windows" for NPU — this is a labeling bug.
+      NOTE: 'lemonade serve recipes' may show "Requires Windows" for NPU — this is a labeling bug.
       Use `flm validate` to confirm NPU stack is operational.
-  when: _lemonade_bin_post.stat.exists
+  when: _lemonade_installed_post
   tags: [runtime, lemonade, npu]

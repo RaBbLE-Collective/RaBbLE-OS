@@ -35,6 +35,7 @@
       - vulkan-headers
       - vulkan-loader-devel
       - glslang
+      - glslc
     state: present
   when: llama_cpp.backend | default('vulkan') == "vulkan"
   tags: [runtime, llama-cpp]
