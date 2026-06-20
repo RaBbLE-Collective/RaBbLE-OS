@@ -2,33 +2,48 @@
 # aider — AI pair programming CLI (multi-provider, git-aware)
 # Auth: OPENAI_API_KEY, ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, etc.
 # sCoRE provider: aider (subprocess, --no-pretty --message mode)
-# Uses pipx so it gets an isolated venv that doesn't conflict with system Python.
+#
+# scipy note: aider depends on scipy. No cp314 wheel exists for scipy<1.16
+# on PyPI. Rather than building scipy from source (requires gfortran + openblas
+# + ~15 min compile), we install python3-scipy from Fedora repos (1.16.x,
+# compiled for Python 3.14) and pass --system-site-packages so aider's venv
+# picks it up directly.
 
-- name: Ensure pipx and aider build deps are installed
+- name: Ensure pipx and aider system deps are installed
   ansible.builtin.package:
     name:
       - pipx
-      - gcc-gfortran
+      - python3-scipy
     state: present
   become: true
 
-- name: Install aider via pipx
-  ansible.builtin.command: pipx install aider-chat
-  args:
-    creates: "{{ lookup('env', 'HOME') }}/.local/bin/aider"
+- name: Check if aider is already installed
+  ansible.builtin.command: aider --version
+  register: _aider_precheck
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+
+- name: Install aider via pipx (system-site-packages for scipy)
+  ansible.builtin.command: pipx install aider-chat --system-site-packages
+  when: _aider_precheck.rc != 0
 
 - name: Upgrade aider if already installed
   ansible.builtin.command: pipx upgrade aider-chat
   register: _aider_upgrade
   changed_when: "'already at latest version' not in _aider_upgrade.stdout"
   failed_when: false
+  when: _aider_precheck.rc == 0
 
 - name: Verify aider binary is reachable
   ansible.builtin.command: aider --version
   register: _aider_version
   changed_when: false
   failed_when: false
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
 
 - name: Report aider version
   ansible.builtin.debug:
-    msg: "aider: {{ _aider_version.stdout | default('not found') }}"
+    msg: "aider: {{ _aider_version.stdout | default('not found — check PATH or pipx install') }}"
