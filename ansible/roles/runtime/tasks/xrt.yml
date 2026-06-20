@@ -234,11 +234,23 @@
 - name: Write XRT runlist::add(xrt::run&&) shim source
   become: true
   ansible.builtin.copy:
-    dest: /opt/src/xrt_shim/xrt_runlist_shim.cpp
+    dest: /opt/src/xrt_shim/xrt_runlist_shim.c
     content: |
-      #include "xrt/xrt_kernel.h"
-      namespace xrt {
-        void runlist::add(run&& r) { add(static_cast<const run&>(r)); }
+      /*
+       * XRT compatibility shim: provides xrt::runlist::add(xrt::run&&) missing from
+       * COPR XRT 2.19.0. Works at the raw symbol level to avoid C++ class member
+       * rules — cannot define an out-of-line member function not declared in the class.
+       *
+       * Calling convention on x86-64: both add(run const&) and add(run&&) pass
+       * this in rdi and a pointer-to-run in rsi. The redirect is safe.
+       *
+       *   _ZN3xrt7runlist3addERKNS_3runE = add(xrt::run const&)  — present in 2.19.0
+       *   _ZN3xrt7runlist3addEONS_3runE  = add(xrt::run&&)       — MISSING, provided here
+       */
+      void _ZN3xrt7runlist3addERKNS_3runE(void*, void*);
+
+      void _ZN3xrt7runlist3addEONS_3runE(void* self, void* run_ref) {
+          _ZN3xrt7runlist3addERKNS_3runE(self, run_ref);
       }
     owner: root
     group: root
@@ -249,11 +261,9 @@
 - name: Compile XRT runlist shim into shared library
   become: true
   ansible.builtin.shell: |
-    g++ -shared -fPIC -O2 \
-        -I/opt/xilinx/xrt/include \
+    gcc -shared -fPIC -O2 \
         -o /opt/src/xrt_shim/libxrt_runlist_shim.so \
-        /opt/src/xrt_shim/xrt_runlist_shim.cpp \
-        -L/opt/xilinx/xrt/lib64 -lxrt_coreutil
+        /opt/src/xrt_shim/xrt_runlist_shim.c
   args:
     executable: /bin/bash
   register: _xrt_shim_compile
