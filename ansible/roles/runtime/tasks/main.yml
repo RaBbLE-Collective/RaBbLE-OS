@@ -11,8 +11,9 @@
 #   runtime/fastflowlm.yml → FastFlowLM LLM inference engine (COPR or source)
 #   runtime/lemonade.yml   → Lemonade Server (OpenAI-compat API on :8000)
 #
-# GPU stack (NVIDIA RTX 4060 via PRIME offload):
-#   runtime/llama-cpp.yml → llama.cpp source build with CUDA
+# GPU/CPU fallback stack (llama.cpp — Vulkan or CUDA):
+#   runtime/llama-cpp.yml → llama.cpp source build; backend: vulkan (iGPU) or cuda (RTX 3060)
+#   ProArt P16: currently vulkan (dGPU suspended, gpu_mode: integrated)
 #
 # All NPU tasks gate on: npu.enabled + npu.vendor == "amd" + npu.family == "xdna2"
 # Set in group_vars/asus_proart_p16.yml
@@ -44,7 +45,7 @@
     - lemonade.enabled | bool
   tags: [runtime, lemonade, npu]
 
-- name: Build and install llama.cpp with CUDA
+- name: Build and install llama.cpp (Vulkan or CUDA)
   ansible.builtin.import_tasks: llama-cpp.yml
   when: llama_cpp.enabled | bool
   tags: [runtime, llama-cpp]

@@ -1,22 +1,22 @@
 ---
 # =============================================================================
-# llama.cpp — Source Build with CUDA
+# llama.cpp — Source Build (Vulkan or CUDA backend)
 # =============================================================================
-# Builds the ggml/llama.cpp inference engine from source against the system
-# CUDA toolkit. Source build is required because Fedora's packaged version is
-# stale and not compiled with GPU support.
+# CPU/GPU fallback inference engine — complements FastFlowLM (NPU path).
+# Provides llama-server (OpenAI-compat HTTP on :8080) for models without
+# XDNA2-specific variants, or for CPU-only / iGPU workloads.
 #
-# Produces (in /usr/local/bin/):
-#   llama-server   — OpenAI-compat HTTP server (sCoRE local_llm provider)
-#   llama-cli      — interactive CLI
-#   llama-bench    — performance benchmark
-#   llama-quantize — model quantization tool
+# Backends:
+#   vulkan  — AMD Radeon iGPU or any Vulkan-capable GPU. Default.
+#             Packages: vulkan-headers, vulkan-loader-devel, glslang
+#   cuda    — NVIDIA GPU. Requires NVIDIA CUDA repo to be configured first.
+#             Packages: cuda-toolkit, cuda-devel (from NVIDIA CUDA repo)
+#             Set: llama_cpp.backend: "cuda" and llama_cpp.cuda_architectures
+#               "86" = RTX 3060/3xxx (Ampere), "89" = RTX 4060/Ada, "native" = auto
 #
-# CUDA architecture note:
-#   RTX 4060 (Ada Lovelace) = 89
-#   RTX 3xxx  (Ampere)      = 86
-#   Using "native" auto-detects the GPU present at build time.
-#   Override with: llama_cpp.cuda_architectures in group_vars
+# ProArt P16 current config: backend=vulkan (RTX 3060 suspended, iGPU active)
+# To switch to CUDA: set gpu_mode: nvidia in group_vars, configure CUDA repo,
+#   then set llama_cpp.backend: "cuda" in group_vars/asus_proart_p16.yml.
 #
 # Build time: ~5-15 min depending on CPU/ccache state.
 # Idempotency: skips rebuild if installed binary matches target version tag.
@@ -24,16 +24,33 @@
 
 # ── Build dependencies ────────────────────────────────────────────────────────
 
-- name: Install llama.cpp build dependencies
+- name: Install llama.cpp build dependencies (Vulkan)
+  become: true
   ansible.builtin.dnf:
     name:
       - git
       - cmake
       - gcc-c++
       - ninja-build
-      - cuda-toolkit          # already installed via hardware role on RTX machines
+      - vulkan-headers
+      - vulkan-loader-devel
+      - glslang
+    state: present
+  when: llama_cpp.backend | default('vulkan') == "vulkan"
+  tags: [runtime, llama-cpp]
+
+- name: Install llama.cpp build dependencies (CUDA)
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - git
+      - cmake
+      - gcc-c++
+      - ninja-build
+      - cuda-toolkit
       - cuda-devel
     state: present
+  when: llama_cpp.backend | default('vulkan') == "cuda"
   tags: [runtime, llama-cpp]
 
 # ── Version check (idempotency) ───────────────────────────────────────────────
@@ -76,7 +93,23 @@
   when: _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
-- name: Configure llama.cpp with CMake (CUDA enabled)
+- name: Configure llama.cpp with CMake (Vulkan backend)
+  ansible.builtin.command: >
+    cmake
+      -S {{ llama_cpp.src_dir }}
+      -B {{ llama_cpp.build_dir }}
+      -G Ninja
+      -DGGML_VULKAN=ON
+      -DCMAKE_BUILD_TYPE=Release
+      -DCMAKE_INSTALL_PREFIX={{ llama_cpp.install_prefix }}
+      -DLLAMA_BUILD_SERVER=ON
+      -DLLAMA_BUILD_TOOLS=ON
+  when:
+    - _llama_rebuild_needed
+    - llama_cpp.backend | default('vulkan') == "vulkan"
+  tags: [runtime, llama-cpp]
+
+- name: Configure llama.cpp with CMake (CUDA backend)
   ansible.builtin.command: >
     cmake
       -S {{ llama_cpp.src_dir }}
@@ -88,7 +121,9 @@
       -DCMAKE_INSTALL_PREFIX={{ llama_cpp.install_prefix }}
       -DLLAMA_BUILD_SERVER=ON
       -DLLAMA_BUILD_TOOLS=ON
-  when: _llama_rebuild_needed
+  when:
+    - _llama_rebuild_needed
+    - llama_cpp.backend | default('vulkan') == "cuda"
   environment:
     CUDA_PATH: /usr/local/cuda
     PATH: "{{ ansible_env.PATH }}:/usr/local/cuda/bin"
@@ -100,13 +135,14 @@
   ansible.builtin.command: cmake --build {{ llama_cpp.build_dir }} --config Release -j{{ ansible_processor_vcpus }}
   when: _llama_rebuild_needed
   environment:
-    CUDA_PATH: /usr/local/cuda
-    PATH: "{{ ansible_env.PATH }}:/usr/local/cuda/bin"
-  async: 1200   # 20-minute cap — source builds are slow
+    CUDA_PATH: "{{ '/usr/local/cuda' if llama_cpp.backend | default('vulkan') == 'cuda' else '' }}"
+    PATH: "{{ ansible_env.PATH + ':/usr/local/cuda/bin' if llama_cpp.backend | default('vulkan') == 'cuda' else ansible_env.PATH }}"
+  async: 1200
   poll: 30
   tags: [runtime, llama-cpp]
 
 - name: Install llama.cpp binaries to {{ llama_cpp.install_prefix }}/bin
+  become: true
   ansible.builtin.command: cmake --install {{ llama_cpp.build_dir }}
   when: _llama_rebuild_needed
   tags: [runtime, llama-cpp]
@@ -122,5 +158,5 @@
 
 - name: Report llama.cpp install status
   ansible.builtin.debug:
-    msg: "llama.cpp: {{ _llama_server_version.stdout | default('not found — check build logs') }}"
+    msg: "llama.cpp ({{ llama_cpp.backend | default('vulkan') }}): {{ _llama_server_version.stdout | default('not found — check build logs') }}"
   tags: [runtime, llama-cpp]

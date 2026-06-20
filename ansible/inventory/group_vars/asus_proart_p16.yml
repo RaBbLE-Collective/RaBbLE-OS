@@ -26,6 +26,19 @@ asus_power_profile: "Balanced"      # Balanced | Performance | Quiet
 # Only change if power_stack_profile: full_asus
 gpu_mode: "integrated"
 
+# ── Lemonade Server ───────────────────────────────────────────
+# Enabled after flm validate confirmed NPU is live (2026-06-20).
+lemonade:
+  enabled: true
+  port: 8000
+
+# ── llama.cpp ─────────────────────────────────────────────────
+# backend: vulkan — uses AMD Radeon iGPU via Vulkan API.
+# Switch to "cuda" when gpu_mode: nvidia and CUDA repo is configured.
+llama_cpp:
+  enabled: true
+  backend: "vulkan"
+
 # ── Boot / Plymouth ───────────────────────────────────────────
 # nvidia-drm.modeset=1: NVIDIA KMS — prevents DRM conflict when dGPU wakes.
 # plymouth.use-simpledrm=1: Plymouth stays on EFI framebuffer (simpledrm)

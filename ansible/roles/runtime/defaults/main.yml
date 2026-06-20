@@ -32,15 +32,17 @@ lemonade:
   enabled: false
   port: 8000
 
-# ── llama.cpp source build with CUDA ─────────────────────────────────────────
-# cuda_architectures: "native" auto-detects GPU arch at build time.
-#   Override per hardware: "89" (RTX 4060/Ada), "86" (RTX 30xx/Ampere)
+# ── llama.cpp source build ────────────────────────────────────────────────────
+# backend: "vulkan" (AMD iGPU / any Vulkan GPU) or "cuda" (NVIDIA, requires CUDA repo)
+#   cuda_architectures only used when backend: cuda
+#     "86" = RTX 3060/3xxx (Ampere), "89" = RTX 4060/Ada, "native" = auto-detect
 # version: pin to a release tag (e.g. "b4600") — "HEAD" for latest.
 llama_cpp:
   enabled: true
+  backend: "vulkan"
   repo: "https://github.com/ggerganov/llama.cpp"
   version: "b4600"
   src_dir: "/opt/llama.cpp"
   build_dir: "/opt/llama.cpp/build"
   install_prefix: "/usr/local"
-  cuda_architectures: "native"
+  cuda_architectures: "86"
