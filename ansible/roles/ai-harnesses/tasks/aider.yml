@@ -3,17 +3,14 @@
 # Auth: OPENAI_API_KEY, ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, etc.
 # sCoRE provider: aider (subprocess, --no-pretty --message mode)
 #
-# scipy note: aider depends on scipy. No cp314 wheel exists for scipy<1.16
-# on PyPI. Rather than building scipy from source (requires gfortran + openblas
-# + ~15 min compile), we install python3-scipy from Fedora repos (1.16.x,
-# compiled for Python 3.14) and pass --system-site-packages so aider's venv
-# picks it up directly.
+# Python 3.14 compat notes:
+#   scipy: aider pins scipy==1.15.3, which has no cp314 wheel. Override to
+#          >=1.16.0; scipy 1.17.x ships a manylinux cp314 wheel — no source build.
+#   pydub: imports `audioop` removed in Python 3.13+. audioop-lts reimplements it.
 
-- name: Ensure pipx and aider system deps are installed
+- name: Ensure pipx is installed
   ansible.builtin.package:
-    name:
-      - pipx
-      - python3-scipy
+    name: pipx
     state: present
   become: true
 
@@ -25,16 +22,38 @@
   environment:
     PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
 
-- name: Install aider via pipx (system-site-packages for scipy)
-  ansible.builtin.command: pipx install aider-chat --system-site-packages
+- name: Write scipy override file
+  ansible.builtin.copy:
+    content: "scipy>=1.16.0\n"
+    dest: /tmp/aider-scipy-override.txt
+    mode: '0644'
+  when: _aider_precheck.rc != 0
+
+- name: Install aider via uv tool (scipy override + audioop-lts for Python 3.14)
+  ansible.builtin.command: >
+    uv tool install aider-chat
+    --overrides /tmp/aider-scipy-override.txt
+    --with audioop-lts
+  register: _aider_install
+  changed_when: _aider_install.rc == 0
+  when: _aider_precheck.rc != 0
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+
+- name: Remove scipy override file
+  ansible.builtin.file:
+    path: /tmp/aider-scipy-override.txt
+    state: absent
   when: _aider_precheck.rc != 0
 
 - name: Upgrade aider if already installed
-  ansible.builtin.command: pipx upgrade aider-chat
+  ansible.builtin.command: uv tool upgrade aider-chat
   register: _aider_upgrade
-  changed_when: "'already at latest version' not in _aider_upgrade.stdout"
+  changed_when: "'Already at' not in _aider_upgrade.stdout"
   failed_when: false
   when: _aider_precheck.rc == 0
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
 
 - name: Verify aider binary is reachable
   ansible.builtin.command: aider --version
@@ -46,4 +65,4 @@
 
 - name: Report aider version
   ansible.builtin.debug:
-    msg: "aider: {{ _aider_version.stdout | default('not found — check PATH or pipx install') }}"
+    msg: "aider: {{ _aider_version.stdout | default('not found — check PATH or uv tool install') }}"

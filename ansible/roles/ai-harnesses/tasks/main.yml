@@ -12,6 +12,7 @@
     apply: { tags: always }
   tags: [ai-harnesses, claude-code]
   when: ai_harnesses_claude_code_enabled
+  ignore_errors: true
 
 - name: "codex"
   ansible.builtin.include_tasks:
@@ -19,6 +20,7 @@
     apply: { tags: always }
   tags: [ai-harnesses, codex]
   when: ai_harnesses_codex_enabled
+  ignore_errors: true
 
 - name: "opencode"
   ansible.builtin.include_tasks:
@@ -26,6 +28,7 @@
     apply: { tags: always }
   tags: [ai-harnesses, opencode]
   when: ai_harnesses_opencode_enabled
+  ignore_errors: true
 
 - name: "aider"
   ansible.builtin.include_tasks:
@@ -33,6 +36,7 @@
     apply: { tags: always }
   tags: [ai-harnesses, aider]
   when: ai_harnesses_aider_enabled
+  ignore_errors: true
 
 - name: "gemini-cli"
   ansible.builtin.include_tasks:
@@ -40,6 +44,7 @@
     apply: { tags: always }
   tags: [ai-harnesses, gemini-cli]
   when: ai_harnesses_gemini_cli_enabled
+  ignore_errors: true
 
 - name: "ollama"
   ansible.builtin.include_tasks:
@@ -47,6 +52,7 @@
     apply: { tags: always }
   tags: [ai-harnesses, ollama]
   when: ai_harnesses_ollama_enabled
+  ignore_errors: true
 
 - name: "vllm"
   ansible.builtin.include_tasks:
@@ -54,6 +60,7 @@
     apply: { tags: always }
   tags: [ai-harnesses, vllm]
   when: ai_harnesses_vllm_enabled
+  ignore_errors: true
 
 - name: "free-claude-code"
   ansible.builtin.include_tasks:
@@ -61,6 +68,7 @@
     apply: { tags: always }
   tags: [ai-harnesses, free-claude-code]
   when: ai_harnesses_fcc_enabled
+  ignore_errors: true
 
 - name: "builder-skills"
   ansible.builtin.include_tasks:
@@ -68,3 +76,4 @@
     apply: { tags: always }
   tags: [ai-harnesses, builder-skills]
   when: ai_harnesses_builder_skills_enabled
+  ignore_errors: true
