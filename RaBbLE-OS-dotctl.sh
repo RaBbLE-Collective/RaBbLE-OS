@@ -268,6 +268,12 @@ walk_bundle() {
 
 _apply_file() {
   local src="$1" dest="$2" rel="$3"
+  # Skip if dest resolves to the same inode as src (Ansible-managed symlink).
+  local resolved_dest
+  resolved_dest="$(realpath -m "$dest" 2>/dev/null || echo "")"
+  if [[ -n "$resolved_dest" && "$src" == "$resolved_dest" ]]; then
+    return 0
+  fi
   mkdir -p "$(dirname "$dest")"
   cp "$src" "$dest"
   [[ "$src" == */scripts/* ]] && chmod 755 "$dest"

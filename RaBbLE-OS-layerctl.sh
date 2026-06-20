@@ -59,11 +59,14 @@ divider() { echo -e "${MUTED}─────────────────
 declare -A LAYER_NAMES=(
   [base]="Base system (repos, packages, locale, fonts)"
   [hardware]="Hardware abstraction (GPU, asusctl, NPU, power)"
+  [runtime]="GPU/NPU runtimes (llama.cpp, XRT, FastFlowLM, Lemonade)"
+  [monitoring]="System observability (btop, htop, nvtop, sensors)"
+  [virtualization]="QEMU/KVM host stack"
   [boot]="Boot chain (GRUB2, Plymouth, SDDM)"
   [snapper]="Snapper (Btrfs snapshots)"
   [desktop]="Desktop (Hyprland, Quickshell, terminal, shell)"
   [apps]="Applications (VSCode, dev tools)"
-  [dotfiles]="Dotfiles (symlink ~/.config entries)"
+  [dotfiles]="Dotfiles (symlink ~/.config entries + dotctl deploy)"
   [ai-harnesses]="AI coding harnesses — all agents"
   [claude-code]="Claude Code CLI"
   [free-claude-code]="free-claude-code proxy (Anthropic API → NIM/Groq/etc)"
@@ -80,6 +83,9 @@ declare -A LAYER_NAMES=(
 declare -A LAYER_VERIFY=(
   [base]="rpm -q git ansible-core"
   [hardware]="asusctl profile -l && supergfxctl --status"
+  [runtime]="LD_LIBRARY_PATH=/usr/local/lib64 llama-server --version"
+  [monitoring]="command -v btop && command -v sensors"
+  [virtualization]="systemctl is-active libvirtd"
   [boot]="systemctl is-active sddm && plymouth-set-default-theme"
   [snapper]="snapper -c root list"
   [desktop]="hyprctl version && systemctl --user is-active waybar || true"
@@ -99,7 +105,8 @@ declare -A LAYER_VERIFY=(
 )
 
 # Ordered list for status display and sequential all-deploy
-LAYER_ORDER=(base hardware boot snapper desktop apps ai-harnesses dotfiles)
+# Mirrors site.yml play order: base → hardware → runtime → monitoring → virtualization → boot → ...
+LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles)
 
 # ── State tracking ────────────────────────────────────────────────────────────
 
@@ -282,9 +289,11 @@ cmd_status() {
 }
 
 cmd_dotfiles() {
-  pulse "Re-linking dotfiles..."
+  pulse "Re-linking dotfiles (Ansible symlinks)..."
   run_playbook "dotfiles"
-  ok "Dotfiles linked."
+  pulse "Deploying configs via dotctl (non-symlinked bundles)..."
+  "${SCRIPT_DIR}/RaBbLE-OS-dotctl.sh" apply all
+  ok "Dotfiles linked and configs deployed."
 }
 
 cmd_upgrade() {

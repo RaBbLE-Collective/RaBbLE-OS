@@ -16,7 +16,27 @@
 #   bXXXX   — pin to a known-good tag.
 #
 # See defaults/main.yml for full variable reference.
+#
+# Version guard: llama.cpp >= b9739 reports "version: 1 (commithash)" — the
+# sequential build number is gone. We stamp /usr/local/share/llama-cpp/version
+# after each install and compare that against the resolved GitHub tag. This is
+# format-independent and survives future version scheme changes.
 # =============================================================================
+
+# ── Library path setup ────────────────────────────────────────────────────────
+# cmake installs shared libs to /usr/local/lib64 which is not in the default
+# ldconfig search path on Fedora. Add it once and notify ldconfig handler.
+
+- name: Ensure /usr/local/lib64 is in ldconfig path
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/ld.so.conf.d/usr-local-lib64.conf
+    content: "/usr/local/lib64\n"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: run ldconfig
+  tags: [runtime, llama-cpp]
 
 # ── Resolve version ────────────────────────────────────────────────────────────
 
@@ -38,23 +58,23 @@
          else llama_cpp.version }}
   tags: [runtime, llama-cpp]
 
-# ── Version check (idempotency) ───────────────────────────────────────────────
+# ── Version check (idempotency via stamp file) ────────────────────────────────
+# llama.cpp >= b9739 reports "version: 1 (commithash)" — build number gone.
+# We stamp /usr/local/share/llama-cpp/version after each install instead.
 
-- name: Check installed llama-server version
-  ansible.builtin.command: llama-server --version
-  register: _llama_installed
-  changed_when: false
+- name: Read installed llama.cpp version stamp
+  ansible.builtin.slurp:
+    src: /usr/local/share/llama-cpp/version
+  register: _llama_stamp
   failed_when: false
   tags: [runtime, llama-cpp]
 
-# Version output: "version: NNNN (hash)" — strip leading 'b' from tag to compare.
 - name: Set rebuild/reinstall needed flag
   ansible.builtin.set_fact:
     _llama_rebuild_needed: >-
       {{
-        _llama_installed.rc != 0 or
-        (_llama_resolved_version | replace('b', '')) not in
-        (_llama_installed.stdout | default(''))
+        _llama_stamp.failed | default(true) or
+        (_llama_stamp.content | default('') | b64decode | trim) != _llama_resolved_version
       }}
   when: llama_cpp.version != "HEAD"
   tags: [runtime, llama-cpp]
@@ -210,6 +230,35 @@
   when:
     - llama_cpp.install_method | default('source') == "source"
     - _llama_rebuild_needed
+  notify: run ldconfig
+  tags: [runtime, llama-cpp]
+
+# ── Write version stamp ───────────────────────────────────────────────────────
+
+- name: Ensure llama-cpp stamp directory exists
+  become: true
+  ansible.builtin.file:
+    path: /usr/local/share/llama-cpp
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when:
+    - llama_cpp.install_method | default('source') == "source"
+    - _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
+- name: Write llama.cpp version stamp
+  become: true
+  ansible.builtin.copy:
+    content: "{{ _llama_resolved_version }}\n"
+    dest: /usr/local/share/llama-cpp/version
+    owner: root
+    group: root
+    mode: '0644'
+  when:
+    - llama_cpp.install_method | default('source') == "source"
+    - _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
 # =============================================================================
@@ -296,9 +345,27 @@
     - _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
+- name: Write llama.cpp version stamp (prebuilt)
+  become: true
+  ansible.builtin.copy:
+    content: "{{ _llama_resolved_version }}\n"
+    dest: /usr/local/share/llama-cpp/version
+    owner: root
+    group: root
+    mode: '0644'
+  when:
+    - llama_cpp.install_method | default('source') == "prebuilt"
+    - _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
 # =============================================================================
-# VERIFY (both paths)
+# FLUSH HANDLERS + VERIFY (both paths)
 # =============================================================================
+# Flush now so ldconfig runs before we try llama-server --version.
+
+- name: Flush handlers (ensure ldconfig ran before verify)
+  ansible.builtin.meta: flush_handlers
+  tags: [runtime, llama-cpp]
 
 - name: Verify llama-server binary
   ansible.builtin.command: llama-server --version
