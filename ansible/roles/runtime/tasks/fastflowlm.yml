@@ -144,9 +144,11 @@
 
 - name: Install FastFlowLM
   become: true
-  ansible.builtin.command:
-    cmd: cmake --install --preset linux-default
-    chdir: "{{ fastflowlm.src_dir }}/src"
+  ansible.builtin.shell: |
+    BUILD_DIR=$(find "{{ fastflowlm.src_dir }}/src" -name CMakeCache.txt -maxdepth 3 | head -1 | xargs dirname)
+    cmake --install "$BUILD_DIR"
+  args:
+    executable: /bin/bash
   when:
     - not _flm_bin_post.stat.exists
     - _flm_build is defined
