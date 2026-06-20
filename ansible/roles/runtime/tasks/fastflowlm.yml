@@ -87,6 +87,19 @@
   when: not _flm_bin_post.stat.exists
   tags: [runtime, fastflowlm, npu]
 
+- name: Copy XRT runlist shim into FastFlowLM src/lib (required for add(xrt::run&&))
+  become: true
+  ansible.builtin.copy:
+    src: /opt/src/xrt_shim/libxrt_runlist_shim.so
+    dest: "{{ fastflowlm.src_dir }}/src/lib/libxrt_runlist_shim.so"
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0755'
+  when: not _flm_bin_post.stat.exists
+  failed_when: false
+  tags: [runtime, fastflowlm, npu]
+
 - name: Remove stale FastFlowLM build directory
   ansible.builtin.file:
     path: "{{ fastflowlm.src_dir }}/src/build"
@@ -94,22 +107,33 @@
   when: not _flm_bin_post.stat.exists
   tags: [runtime, fastflowlm, npu]
 
-- name: Configure FastFlowLM build (linux-default preset)
-  ansible.builtin.command:
-    cmd: cmake --preset linux-default -DXRT_LIB_DIR=/opt/xilinx/xrt/lib64
+- name: Configure FastFlowLM build (linux-default preset; inject shim flag if present)
+  ansible.builtin.shell: |
+    CMAKE_EXTRA=()
+    if [ -f "{{ fastflowlm.src_dir }}/src/lib/libxrt_runlist_shim.so" ]; then
+      CMAKE_EXTRA+=("-DCMAKE_EXE_LINKER_FLAGS=-lxrt_runlist_shim")
+    fi
+    cmake --preset linux-default \
+      -DXRT_LIB_DIR=/opt/xilinx/xrt/lib64 \
+      "${CMAKE_EXTRA[@]}"
+  args:
     chdir: "{{ fastflowlm.src_dir }}/src"
+    executable: /bin/bash
   environment:
     LD_LIBRARY_PATH: "/usr/xrt/lib64:/opt/xilinx/xrt/lib64"
     XILINX_XRT: "/opt/xilinx/xrt"
   register: _flm_cmake
   when: not _flm_bin_post.stat.exists
   changed_when: _flm_cmake.rc == 0
+  failed_when: _flm_cmake.rc != 0
   tags: [runtime, fastflowlm, npu]
 
 - name: Build FastFlowLM
   ansible.builtin.command:
     cmd: "cmake --build --preset linux-default -j{{ ansible_processor_vcpus }}"
     chdir: "{{ fastflowlm.src_dir }}/src"
+  environment:
+    LD_LIBRARY_PATH: "/opt/src/xrt_shim:/usr/xrt/lib64:/opt/xilinx/xrt/lib64"
   register: _flm_build
   when:
     - not _flm_bin_post.stat.exists
@@ -128,6 +152,22 @@
     - _flm_build is defined
     - _flm_build.rc == 0
   changed_when: true
+  tags: [runtime, fastflowlm, npu]
+
+- name: Copy XRT runlist shim to /opt/fastflowlm/lib (runtime dep after install)
+  become: true
+  ansible.builtin.copy:
+    src: /opt/src/xrt_shim/libxrt_runlist_shim.so
+    dest: /opt/fastflowlm/lib/libxrt_runlist_shim.so
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0755'
+  when:
+    - not _flm_bin_post.stat.exists
+    - _flm_build is defined
+    - _flm_build.rc == 0
+  failed_when: false
   tags: [runtime, fastflowlm, npu]
 
 # ── flm wrapper script ────────────────────────────────────────────────────────

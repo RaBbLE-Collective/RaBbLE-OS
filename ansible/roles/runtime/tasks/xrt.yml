@@ -112,8 +112,14 @@
 
 # ── XRT API version check + source build fallback ────────────────────────────
 # COPR XRT 2.19.0 (April 2025) is missing xrt::runlist::add(xrt::run&&).
-# FastFlowLM prebuilt NPU libs (src/lib/*.so) require this symbol, added post-April 2025.
-# Fix: build XRT from xdna-driver source → installs updated RPM over COPR version.
+# FastFlowLM prebuilt NPU libs (src/lib/*.so) require this symbol.
+#
+# NOTE: xdna-driver's XRT submodule is ALSO pinned to 2.19.0. Building from
+# xdna-driver source produces the same XRT and does NOT add this symbol.
+# Primary fix = shim (see below). Source build is available for firmware
+# compatibility issues (flm validate mismatch), NOT for this linker symbol.
+# To trigger source build manually: set xrt_force_rebuild=true in group_vars
+# or pass -e xrt_force_rebuild=true on the playbook command line.
 
 - name: Check for required XRT runlist::add(xrt::run&&) symbol
   ansible.builtin.shell: >-
@@ -124,7 +130,7 @@
   failed_when: false
   tags: [runtime, xrt, npu]
 
-- name: Install XRT source build dependencies (COPR XRT missing required symbol)
+- name: Install XRT source build dependencies
   become: true
   ansible.builtin.dnf:
     name:
@@ -145,7 +151,7 @@
       - tcsh
       - rpm-build
     state: present
-  when: _xrt_rvalue_ok.rc != 0
+  when: xrt_force_rebuild | default(false)
   tags: [runtime, xrt, npu]
 
 - name: Clone xdna-driver repository for XRT source build
@@ -155,7 +161,7 @@
     version: HEAD
     recursive: true
     update: true
-  when: _xrt_rvalue_ok.rc != 0
+  when: xrt_force_rebuild | default(false)
   tags: [runtime, xrt, npu]
 
 - name: Build XRT userspace from xdna-driver source (npu profile, ~20-30 min)
@@ -165,7 +171,7 @@
   args:
     executable: /bin/bash
   register: _xrt_src_build
-  when: _xrt_rvalue_ok.rc != 0
+  when: xrt_force_rebuild | default(false)
   changed_when: _xrt_src_build.rc == 0
   failed_when: false
   tags: [runtime, xrt, npu]
@@ -177,7 +183,7 @@
   args:
     executable: /bin/bash
   when:
-    - _xrt_rvalue_ok.rc != 0
+    - xrt_force_rebuild | default(false)
     - _xrt_src_build is defined
     - _xrt_src_build.rc == 0
   changed_when: true
@@ -193,19 +199,74 @@
   args:
     executable: /bin/bash
   when:
-    - _xrt_rvalue_ok.rc != 0
+    - xrt_force_rebuild | default(false)
     - _xrt_src_build is defined
     - _xrt_src_build.rc == 0
   changed_when: true
   failed_when: false
   tags: [runtime, xrt, npu]
 
-- name: Report XRT source build outcome
+- name: Report XRT symbol status
   ansible.builtin.debug:
     msg: >-
-      XRT source build: {{ 'succeeded — source XRT installed over COPR' if (_xrt_src_build.rc | default(1)) == 0 else
-      'FAILED — COPR XRT 2.19.0 is missing add(xrt::run&&); FastFlowLM link step will fail. Build XRT manually from xdna-driver.' }}
-      See Grimoire: RaBbLE-OS/hardware/RaBbLE-OS-Hardware-NPU-XDNA2.md
+      XRT runlist::add(xrt::run&&): {{ 'present in COPR XRT' if _xrt_rvalue_ok.rc == 0 else
+      'MISSING from COPR 2.19.0 — shim will be compiled and injected at FLM link time.
+      To rebuild XRT from source (for firmware mismatch): re-run with -e xrt_force_rebuild=true' }}
+  tags: [runtime, xrt, npu]
+
+# ── XRT runlist::add(xrt::run&&) compatibility shim ──────────────────────────
+# COPR XRT 2.19.0 AND xdna-driver's pinned XRT submodule both lack this rvalue
+# overload. FastFlowLM prebuilt NPU libs in src/lib/*.so require it.
+# Root cause: the overload was added to XRT upstream after the xdna-driver pin.
+# Fix: compile a C++ shim that provides the symbol by forwarding to the existing
+# const-lvalue add(xrt::run const&). xrt::run is a ref-counted pimpl handle;
+# copy vs. move semantics are equivalent at the handle level.
+
+- name: Create XRT shim source directory
+  become: true
+  ansible.builtin.file:
+    path: /opt/src/xrt_shim
+    state: directory
+    mode: '0755'
+  when: _xrt_rvalue_ok.rc != 0
+  tags: [runtime, xrt, npu]
+
+- name: Write XRT runlist::add(xrt::run&&) shim source
+  become: true
+  ansible.builtin.copy:
+    dest: /opt/src/xrt_shim/xrt_runlist_shim.cpp
+    content: |
+      #include "xrt/xrt_kernel.h"
+      namespace xrt {
+        void runlist::add(run&& r) { add(static_cast<const run&>(r)); }
+      }
+    owner: root
+    group: root
+    mode: '0644'
+  when: _xrt_rvalue_ok.rc != 0
+  tags: [runtime, xrt, npu]
+
+- name: Compile XRT runlist shim into shared library
+  become: true
+  ansible.builtin.shell: |
+    g++ -shared -fPIC -O2 \
+        -I/opt/xilinx/xrt/include \
+        -o /opt/src/xrt_shim/libxrt_runlist_shim.so \
+        /opt/src/xrt_shim/xrt_runlist_shim.cpp \
+        -L/opt/xilinx/xrt/lib64 -lxrt_coreutil
+  args:
+    executable: /bin/bash
+  register: _xrt_shim_compile
+  when: _xrt_rvalue_ok.rc != 0
+  changed_when: _xrt_shim_compile.rc == 0
+  failed_when: false
+  tags: [runtime, xrt, npu]
+
+- name: Report XRT shim compile outcome
+  ansible.builtin.debug:
+    msg: >-
+      XRT runlist shim: {{ 'compiled at /opt/src/xrt_shim/libxrt_runlist_shim.so' if (_xrt_shim_compile.rc | default(1)) == 0 else
+      'FAILED to compile — FastFlowLM link will fail. Ensure g++ is installed and XRT headers are at /opt/xilinx/xrt/include' }}
   when: _xrt_rvalue_ok.rc != 0
   tags: [runtime, xrt, npu]
 
