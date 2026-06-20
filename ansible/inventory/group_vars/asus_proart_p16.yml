@@ -33,11 +33,11 @@ lemonade:
   port: 8000
 
 # ── llama.cpp ─────────────────────────────────────────────────
-# backend: vulkan — uses AMD Radeon iGPU via Vulkan API.
-# Switch to "cuda" when gpu_mode: nvidia and CUDA repo is configured.
-llama_cpp:
-  enabled: true
-  backend: "vulkan"
+# Defaults (vulkan, enabled) are correct for this machine — no override needed.
+# To switch to CUDA: set gpu_mode: nvidia, configure NVIDIA CUDA repo, then add:
+#   llama_cpp: { enabled: true, backend: "cuda", repo: ..., version: ...,
+#                src_dir: ..., build_dir: ..., install_prefix: ..., cuda_architectures: "86" }
+# NOTE: must repeat ALL keys — Ansible dict vars replace, not merge.
 
 # ── Boot / Plymouth ───────────────────────────────────────────
 # nvidia-drm.modeset=1: NVIDIA KMS — prevents DRM conflict when dGPU wakes.
