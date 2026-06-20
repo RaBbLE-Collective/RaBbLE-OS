@@ -77,7 +77,7 @@
       Type=simple
       WorkingDirectory=%h/.local/share/RaBbLE/free-claude-code
       EnvironmentFile=-%h/.config/RaBbLE/fcc.env
-      ExecStart=%h/.local/bin/uv run uvicorn server:app --host 127.0.0.1 --port 8082
+      ExecStart=%h/.local/share/RaBbLE/free-claude-code/.venv/bin/uvicorn server:app --host 127.0.0.1 --port 8082
       Restart=on-failure
       RestartSec=5
 
