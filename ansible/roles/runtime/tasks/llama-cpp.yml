@@ -1,25 +1,70 @@
 ---
 # =============================================================================
-# llama.cpp — Source Build (Vulkan or CUDA backend)
+# llama.cpp — source build or pre-built binary install
 # =============================================================================
-# CPU/GPU fallback inference engine — complements FastFlowLM (NPU path).
-# Provides llama-server (OpenAI-compat HTTP on :8080) for models without
-# XDNA2-specific variants, or for CPU-only / iGPU workloads.
+# install_method: source (default) or prebuilt
+#   source   — clone + cmake + ninja. ~5-15 min. Full Vulkan/CUDA control.
+#   prebuilt — download GitHub release zip. Seconds. No build deps needed.
+#              Ships Vulkan only; CUDA prebuilts exist but require extra config
+#              (set llama_cpp.prebuilt_artifact to the exact release filename).
 #
-# Backends:
-#   vulkan  — AMD Radeon iGPU or any Vulkan-capable GPU. Default.
-#             Packages: vulkan-headers, vulkan-loader-devel, glslang
-#   cuda    — NVIDIA GPU. Requires NVIDIA CUDA repo to be configured first.
-#             Packages: cuda-toolkit, cuda-devel (from NVIDIA CUDA repo)
-#             Set: llama_cpp.backend: "cuda" and llama_cpp.cuda_architectures
-#               "86" = RTX 3060/3xxx (Ampere), "89" = RTX 4060/Ada, "native" = auto
+# version: latest (default), HEAD (source only), or specific tag e.g. b4600
+#   latest  — resolves to current GitHub release tag at provision time.
+#   HEAD    — always rebuilds from main branch tip; use during development only.
+#   bXXXX   — pin to a known-good tag.
 #
-# ProArt P16 current config: backend=vulkan (RTX 3060 suspended, iGPU active)
-# To switch to CUDA: set gpu_mode: nvidia in group_vars, configure CUDA repo,
-#   then set llama_cpp.backend: "cuda" in group_vars/asus_proart_p16.yml.
-#
-# Build time: ~5-15 min depending on CPU/ccache state.
-# Idempotency: skips rebuild if installed binary matches target version tag.
+# See defaults/main.yml for full variable reference.
+# =============================================================================
+
+# ── Resolve version ────────────────────────────────────────────────────────────
+
+- name: Fetch latest llama.cpp release info from GitHub
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/ggerganov/llama.cpp/releases/latest
+    return_content: true
+    headers:
+      Accept: "application/vnd.github+json"
+  register: _llama_gh_release
+  when: llama_cpp.version == "latest"
+  tags: [runtime, llama-cpp]
+
+- name: Set resolved llama.cpp version
+  ansible.builtin.set_fact:
+    _llama_resolved_version: >-
+      {{ _llama_gh_release.json.tag_name
+         if llama_cpp.version == 'latest'
+         else llama_cpp.version }}
+  tags: [runtime, llama-cpp]
+
+# ── Version check (idempotency) ───────────────────────────────────────────────
+
+- name: Check installed llama-server version
+  ansible.builtin.command: llama-server --version
+  register: _llama_installed
+  changed_when: false
+  failed_when: false
+  tags: [runtime, llama-cpp]
+
+# Version output: "version: NNNN (hash)" — strip leading 'b' from tag to compare.
+- name: Set rebuild/reinstall needed flag
+  ansible.builtin.set_fact:
+    _llama_rebuild_needed: >-
+      {{
+        _llama_installed.rc != 0 or
+        (_llama_resolved_version | replace('b', '')) not in
+        (_llama_installed.stdout | default(''))
+      }}
+  when: llama_cpp.version != "HEAD"
+  tags: [runtime, llama-cpp]
+
+- name: Set rebuild flag (HEAD always rebuilds)
+  ansible.builtin.set_fact:
+    _llama_rebuild_needed: true
+  when: llama_cpp.version == "HEAD"
+  tags: [runtime, llama-cpp]
+
+# =============================================================================
+# SOURCE BUILD PATH
 # =============================================================================
 
 # ── Build dependencies ────────────────────────────────────────────────────────
@@ -37,7 +82,10 @@
       - glslang
       - glslc
     state: present
-  when: llama_cpp.backend | default('vulkan') == "vulkan"
+  when:
+    - llama_cpp.install_method | default('source') == "source"
+    - llama_cpp.backend | default('vulkan') == "vulkan"
+    - _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
 - name: Install llama.cpp build dependencies (CUDA)
@@ -51,64 +99,55 @@
       - cuda-toolkit
       - cuda-devel
     state: present
-  when: llama_cpp.backend | default('vulkan') == "cuda"
+  when:
+    - llama_cpp.install_method | default('source') == "source"
+    - llama_cpp.backend | default('vulkan') == "cuda"
+    - _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
-# ── Version check (idempotency) ───────────────────────────────────────────────
-
-- name: Check installed llama-server version
-  ansible.builtin.command: llama-server --version
-  register: _llama_installed_version
-  changed_when: false
-  failed_when: false
-  tags: [runtime, llama-cpp]
-
-- name: Set rebuild needed flag
-  ansible.builtin.set_fact:
-    _llama_rebuild_needed: >-
-      {{
-        _llama_installed_version.rc != 0 or
-        llama_cpp.version not in (_llama_installed_version.stdout | default(''))
-      }}
-  tags: [runtime, llama-cpp]
-
-# ── Source clone / update ─────────────────────────────────────────────────────
+# ── Clone / update source ─────────────────────────────────────────────────────
 
 - name: Clone llama.cpp source
   ansible.builtin.git:
     repo: "{{ llama_cpp.repo }}"
     dest: "{{ llama_cpp.src_dir }}"
-    version: "{{ llama_cpp.version }}"
+    version: "{{ 'main' if llama_cpp.version == 'HEAD' else _llama_resolved_version }}"
     depth: 1
     force: false
-  when: _llama_rebuild_needed
+    update: true
+  when:
+    - llama_cpp.install_method | default('source') == "source"
+    - _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
 # ── GCC 15 compatibility patch ────────────────────────────────────────────────
-# GCC 15 (Fedora 43) no longer transitively includes <cstdint>; llama-mmap.h
-# uses uint32_t without including it, causing compile failure. Upstream fixed
-# this in versions after b4600; this patch keeps the pinned version buildable.
+# GCC 15 (Fedora 43+) no longer transitively includes <cstdint> via <vector>.
+# Fixed upstream post-b4600. Lineinfile is idempotent — no-ops on patched versions.
 
-- name: Patch llama-mmap.h for GCC 15 (missing <cstdint> include)
+- name: Patch llama-mmap.h for GCC 15 (missing <cstdint>)
   ansible.builtin.lineinfile:
     path: "{{ llama_cpp.src_dir }}/src/llama-mmap.h"
     insertafter: '#include <vector>'
     line: '#include <cstdint>'
     state: present
-  when: _llama_rebuild_needed
+  when:
+    - llama_cpp.install_method | default('source') == "source"
+    - _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
-# ── CMake configure ───────────────────────────────────────────────────────────
+# ── CMake configure ────────────────────────────────────────────────────────────
 
 - name: Create build directory
   ansible.builtin.file:
     path: "{{ llama_cpp.build_dir }}"
     state: directory
     mode: '0755'
-  when: _llama_rebuild_needed
+  when:
+    - llama_cpp.install_method | default('source') == "source"
+    - _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
-- name: Configure llama.cpp with CMake (Vulkan backend)
+- name: Configure llama.cpp with CMake (Vulkan)
   ansible.builtin.command: >
     cmake
       -S {{ llama_cpp.src_dir }}
@@ -120,11 +159,12 @@
       -DLLAMA_BUILD_SERVER=ON
       -DLLAMA_BUILD_TOOLS=ON
   when:
-    - _llama_rebuild_needed
+    - llama_cpp.install_method | default('source') == "source"
     - llama_cpp.backend | default('vulkan') == "vulkan"
+    - _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
-- name: Configure llama.cpp with CMake (CUDA backend)
+- name: Configure llama.cpp with CMake (CUDA)
   ansible.builtin.command: >
     cmake
       -S {{ llama_cpp.src_dir }}
@@ -137,18 +177,22 @@
       -DLLAMA_BUILD_SERVER=ON
       -DLLAMA_BUILD_TOOLS=ON
   when:
-    - _llama_rebuild_needed
+    - llama_cpp.install_method | default('source') == "source"
     - llama_cpp.backend | default('vulkan') == "cuda"
+    - _llama_rebuild_needed
   environment:
     CUDA_PATH: /usr/local/cuda
     PATH: "{{ ansible_env.PATH }}:/usr/local/cuda/bin"
   tags: [runtime, llama-cpp]
 
-# ── Build + install ───────────────────────────────────────────────────────────
+# ── Build + install ────────────────────────────────────────────────────────────
 
-- name: Build llama.cpp (this takes ~5-15 minutes)
-  ansible.builtin.command: cmake --build {{ llama_cpp.build_dir }} --config Release -j{{ ansible_processor_vcpus }}
-  when: _llama_rebuild_needed
+- name: Build llama.cpp (~5-15 minutes)
+  ansible.builtin.command: >
+    cmake --build {{ llama_cpp.build_dir }} --config Release -j{{ ansible_processor_vcpus }}
+  when:
+    - llama_cpp.install_method | default('source') == "source"
+    - _llama_rebuild_needed
   environment:
     CUDA_PATH: "{{ '/usr/local/cuda' if llama_cpp.backend | default('vulkan') == 'cuda' else '' }}"
     PATH: "{{ ansible_env.PATH + ':/usr/local/cuda/bin' if llama_cpp.backend | default('vulkan') == 'cuda' else ansible_env.PATH }}"
@@ -156,13 +200,101 @@
   poll: 30
   tags: [runtime, llama-cpp]
 
-- name: Install llama.cpp binaries to {{ llama_cpp.install_prefix }}/bin
+- name: Install llama.cpp binaries
   become: true
   ansible.builtin.command: cmake --install {{ llama_cpp.build_dir }}
-  when: _llama_rebuild_needed
+  when:
+    - llama_cpp.install_method | default('source') == "source"
+    - _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
-# ── Verify ────────────────────────────────────────────────────────────────────
+# =============================================================================
+# PRE-BUILT BINARY PATH
+# =============================================================================
+# Downloads the Ubuntu-built Vulkan release zip from GitHub.
+# Artifact naming: llama-{tag}-bin-ubuntu-vulkan-x64.zip
+# CUDA prebuilt: set llama_cpp.prebuilt_artifact to the exact filename
+#   (e.g. llama-b5000-bin-ubuntu-cuda-cu12.4-x86_64.zip) — CUDA variants
+#   differ by CUDA version so cannot be auto-constructed reliably.
+
+- name: Set prebuilt artifact filename
+  ansible.builtin.set_fact:
+    _llama_artifact: >-
+      {{ llama_cpp.prebuilt_artifact
+         if llama_cpp.prebuilt_artifact is defined
+         else 'llama-' + _llama_resolved_version + '-bin-ubuntu-vulkan-x64.zip' }}
+  when:
+    - llama_cpp.install_method | default('source') == "prebuilt"
+    - _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
+- name: Create prebuilt staging directory
+  ansible.builtin.file:
+    path: /tmp/llama-prebuilt
+    state: directory
+    mode: '0755'
+  when:
+    - llama_cpp.install_method | default('source') == "prebuilt"
+    - _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
+- name: Download llama.cpp pre-built release
+  ansible.builtin.get_url:
+    url: "https://github.com/ggerganov/llama.cpp/releases/download/{{ _llama_resolved_version }}/{{ _llama_artifact }}"
+    dest: "/tmp/llama-prebuilt/{{ _llama_artifact }}"
+    mode: '0644'
+  when:
+    - llama_cpp.install_method | default('source') == "prebuilt"
+    - _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
+- name: Extract llama.cpp pre-built archive
+  ansible.builtin.unarchive:
+    src: "/tmp/llama-prebuilt/{{ _llama_artifact }}"
+    dest: /tmp/llama-prebuilt/
+    remote_src: true
+  when:
+    - llama_cpp.install_method | default('source') == "prebuilt"
+    - _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
+- name: Find extracted llama binaries
+  ansible.builtin.find:
+    paths: /tmp/llama-prebuilt
+    patterns: "llama-*"
+    recurse: true
+    file_type: file
+  register: _llama_extracted_bins
+  when:
+    - llama_cpp.install_method | default('source') == "prebuilt"
+    - _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
+- name: Install pre-built llama binaries to {{ llama_cpp.install_prefix }}/bin
+  become: true
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "{{ llama_cpp.install_prefix }}/bin/{{ item.path | basename }}"
+    mode: '0755'
+    remote_src: true
+  loop: "{{ _llama_extracted_bins.files | default([]) }}"
+  when:
+    - llama_cpp.install_method | default('source') == "prebuilt"
+    - _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
+- name: Clean up prebuilt staging directory
+  ansible.builtin.file:
+    path: /tmp/llama-prebuilt
+    state: absent
+  when:
+    - llama_cpp.install_method | default('source') == "prebuilt"
+    - _llama_rebuild_needed
+  tags: [runtime, llama-cpp]
+
+# =============================================================================
+# VERIFY (both paths)
+# =============================================================================
 
 - name: Verify llama-server binary
   ansible.builtin.command: llama-server --version
@@ -173,5 +305,10 @@
 
 - name: Report llama.cpp install status
   ansible.builtin.debug:
-    msg: "llama.cpp ({{ llama_cpp.backend | default('vulkan') }}): {{ _llama_server_version.stdout | default('not found — check build logs') }}"
+    msg: >-
+      llama.cpp
+      ({{ llama_cpp.install_method | default('source') }}
+      / {{ llama_cpp.backend | default('vulkan') }}
+      / {{ _llama_resolved_version }}):
+      {{ _llama_server_version.stdout | default('not found — check build logs') }}
   tags: [runtime, llama-cpp]
