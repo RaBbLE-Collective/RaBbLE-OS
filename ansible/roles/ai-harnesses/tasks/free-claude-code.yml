@@ -19,7 +19,7 @@
 - name: Clone free-claude-code repository
   ansible.builtin.git:
     repo: "https://github.com/Alishahryar1/free-claude-code.git"
-    dest: "{{ lookup('env', 'HOME') }}/.local/share/rabble/free-claude-code"
+    dest: "{{ lookup('env', 'HOME') }}/.local/share/RaBbLE/free-claude-code"
     version: main
     depth: 1
     force: false
@@ -28,24 +28,24 @@
   ansible.builtin.command: >
     {{ lookup('env', 'HOME') }}/.local/bin/uv python install
   args:
-    chdir: "{{ lookup('env', 'HOME') }}/.local/share/rabble/free-claude-code"
+    chdir: "{{ lookup('env', 'HOME') }}/.local/share/RaBbLE/free-claude-code"
 
 - name: Install free-claude-code dependencies via uv
   ansible.builtin.command: >
     {{ lookup('env', 'HOME') }}/.local/bin/uv sync
   args:
-    chdir: "{{ lookup('env', 'HOME') }}/.local/share/rabble/free-claude-code"
+    chdir: "{{ lookup('env', 'HOME') }}/.local/share/RaBbLE/free-claude-code"
 
 - name: Ensure RaBbLE config directory exists
   ansible.builtin.file:
-    path: "{{ lookup('env', 'HOME') }}/.config/rabble"
+    path: "{{ lookup('env', 'HOME') }}/.config/RaBbLE"
     state: directory
     mode: '0700'
 
 - name: Deploy fcc.env from example if not present
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../config/rabble/fcc.env.example"
-    dest: "{{ lookup('env', 'HOME') }}/.config/rabble/fcc.env"
+    src: "{{ playbook_dir }}/../config/RaBbLE/fcc.env.example"
+    dest: "{{ lookup('env', 'HOME') }}/.config/RaBbLE/fcc.env"
     mode: '0600'
     force: false
 
@@ -75,8 +75,8 @@
 
       [Service]
       Type=simple
-      WorkingDirectory=%h/.local/share/rabble/free-claude-code
-      EnvironmentFile=-%h/.config/rabble/fcc.env
+      WorkingDirectory=%h/.local/share/RaBbLE/free-claude-code
+      EnvironmentFile=-%h/.config/RaBbLE/fcc.env
       ExecStart=%h/.local/bin/uv run uvicorn server:app --host 127.0.0.1 --port 8082
       Restart=on-failure
       RestartSec=5

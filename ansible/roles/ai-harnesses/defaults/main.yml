@@ -15,7 +15,7 @@ ai_harnesses_ollama_enabled: true
 ai_harnesses_vllm_enabled: false
 
 # free-claude-code: local Anthropic API proxy for CC (routes to free/cheap providers).
-# Runs as systemd user service on :8082. Configure via ~/.config/rabble/fcc.env.
+# Runs as systemd user service on :8082. Configure via ~/.config/RaBbLE/fcc.env.
 ai_harnesses_fcc_enabled: true
 
 # BuilderIO/skills: slash-command skills for Claude Code (/visual-plan, /visual-recap, etc.)
