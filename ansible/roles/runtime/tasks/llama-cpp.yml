@@ -4,6 +4,8 @@
 # =============================================================================
 # install_method: source (default) or prebuilt
 #   source   — clone + cmake + ninja. ~5-15 min. Full Vulkan/CUDA control.
+#              Vulkan deps: vulkan-{headers,loader-devel}, glslang, glslc,
+#                           spirv-{headers,tools}-devel
 #   prebuilt — download GitHub release zip. Seconds. No build deps needed.
 #              Ships Vulkan only; CUDA prebuilts exist but require extra config
 #              (set llama_cpp.prebuilt_artifact to the exact release filename).
@@ -81,6 +83,8 @@
       - vulkan-loader-devel
       - glslang
       - glslc
+      - spirv-headers-devel
+      - spirv-tools-devel
     state: present
   when:
     - llama_cpp.install_method | default('source') == "source"
