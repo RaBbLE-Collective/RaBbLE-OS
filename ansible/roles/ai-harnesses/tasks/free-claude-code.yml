@@ -58,6 +58,26 @@
       # Thin wrapper — delegates to Grimoire spell
       exec bash "${HOME}/RaBbLE-Collective/RaBbLE-Grimoire/spells/fcc-ctl.sh" "$@"
 
+- name: Deploy claude-free launcher to ~/.local/bin
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/claude-free"
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      # Claude Code routed through local free-claude-code proxy
+      # Proxy: http://127.0.0.1:8082  (systemctl --user status free-claude-code)
+      # Models: configured in ~/.config/RaBbLE/fcc.env  (fcc-ctl sync to update)
+      exec env ANTHROPIC_BASE_URL=http://127.0.0.1:8082 ANTHROPIC_API_KEY=fcc-no-auth claude "$@"
+
+- name: Deploy claude-paid launcher to ~/.local/bin
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/claude-paid"
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      # Claude Code against real Anthropic API — strips proxy override if set
+      exec env -u ANTHROPIC_BASE_URL claude "$@"
+
 - name: Ensure systemd user directory exists
   ansible.builtin.file:
     path: "{{ lookup('env', 'HOME') }}/.config/systemd/user"
