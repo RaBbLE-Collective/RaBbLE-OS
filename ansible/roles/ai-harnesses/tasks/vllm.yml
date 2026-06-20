@@ -12,40 +12,40 @@
 
 - name: Ensure Python venv base directory exists
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/.venv"
+    path: "{{ lookup('env', 'HOME') }}/.venv"
     state: directory
     mode: '0755'
 
 - name: Create vLLM virtual environment
-  ansible.builtin.command: python3 -m venv {{ ansible_env.HOME }}/.venv/vllm
+  ansible.builtin.command: python3 -m venv {{ lookup('env', 'HOME') }}/.venv/vllm
   args:
-    creates: "{{ ansible_env.HOME }}/.venv/vllm/bin/activate"
+    creates: "{{ lookup('env', 'HOME') }}/.venv/vllm/bin/activate"
 
 - name: Upgrade pip in vLLM venv
   ansible.builtin.pip:
     name: pip
     state: latest
-    virtualenv: "{{ ansible_env.HOME }}/.venv/vllm"
+    virtualenv: "{{ lookup('env', 'HOME') }}/.venv/vllm"
 
 - name: Install vLLM with CUDA extras
   ansible.builtin.pip:
     name: "vllm"
     state: present
-    virtualenv: "{{ ansible_env.HOME }}/.venv/vllm"
+    virtualenv: "{{ lookup('env', 'HOME') }}/.venv/vllm"
   environment:
     CUDA_HOME: /usr/local/cuda
 
 - name: Install vLLM wrapper script to ~/.local/bin/vllm
   ansible.builtin.copy:
-    dest: "{{ ansible_env.HOME }}/.local/bin/vllm"
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/vllm"
     mode: '0755'
     content: |
       #!/usr/bin/env bash
       # vLLM wrapper — activates the venv and delegates all args
-      exec "{{ ansible_env.HOME }}/.venv/vllm/bin/vllm" "$@"
+      exec "{{ lookup('env', 'HOME') }}/.venv/vllm/bin/vllm" "$@"
 
 - name: Verify vLLM is importable
-  ansible.builtin.command: "{{ ansible_env.HOME }}/.venv/vllm/bin/python -c 'import vllm; print(vllm.__version__)'"
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.venv/vllm/bin/python -c 'import vllm; print(vllm.__version__)'"
   register: _vllm_version
   changed_when: false
   failed_when: false

@@ -63,6 +63,16 @@ declare -A LAYER_NAMES=(
   [desktop]="Desktop (Hyprland, Quickshell, terminal, shell)"
   [apps]="Applications (VSCode, dev tools)"
   [dotfiles]="Dotfiles (symlink ~/.config entries)"
+  [ai-harnesses]="AI coding harnesses — all agents"
+  [claude-code]="Claude Code CLI"
+  [free-claude-code]="free-claude-code proxy (Anthropic API → NIM/Groq/etc)"
+  [codex]="OpenAI Codex CLI"
+  [opencode]="OpenCode agent"
+  [aider]="Aider pair-programmer"
+  [gemini-cli]="Gemini CLI"
+  [ollama]="Ollama local inference server"
+  [vllm]="vLLM inference server (heavy — GPU required)"
+  [builder-skills]="BuilderIO slash-command skills for Claude Code"
   [all]="Full system — all layers in order"
 )
 
@@ -74,11 +84,21 @@ declare -A LAYER_VERIFY=(
   [desktop]="hyprctl version && systemctl --user is-active waybar || true"
   [apps]="command -v code"
   [dotfiles]="test -L ~/.config/hypr/hyprland.conf"
+  [ai-harnesses]="command -v claude && systemctl --user is-active free-claude-code || true"
+  [claude-code]="command -v claude"
+  [free-claude-code]="systemctl --user is-active free-claude-code && curl -sf http://127.0.0.1:8082/health || curl -sf http://127.0.0.1:8082/"
+  [codex]="command -v codex"
+  [opencode]="command -v opencode"
+  [aider]="command -v aider"
+  [gemini-cli]="command -v gemini"
+  [ollama]="systemctl is-active ollama"
+  [vllm]="command -v vllm"
+  [builder-skills]="test -d ${HOME}/.claude/skills"
   [all]=""
 )
 
 # Ordered list for status display and sequential all-deploy
-LAYER_ORDER=(base hardware boot snapper desktop apps dotfiles)
+LAYER_ORDER=(base hardware boot snapper desktop apps ai-harnesses dotfiles)
 
 # ── State tracking ────────────────────────────────────────────────────────────
 
@@ -313,7 +333,12 @@ cmd_help() {
   echo
   echo -e "${BOLD}LAYERS${RESET}"
   for layer in "${LAYER_ORDER[@]}" all; do
-    printf "  ${CYAN}%-12s${RESET} %s\n" "$layer" "${LAYER_NAMES[$layer]}"
+    printf "  ${CYAN}%-16s${RESET} %s\n" "$layer" "${LAYER_NAMES[$layer]}"
+  done
+  echo
+  echo -e "${BOLD}AI HARNESS SUB-LAYERS${RESET} (targeted apply/verify)"
+  for layer in claude-code free-claude-code codex opencode aider gemini-cli ollama vllm builder-skills; do
+    printf "  ${CYAN}%-16s${RESET} %s\n" "$layer" "${LAYER_NAMES[$layer]}"
   done
   echo
   echo -e "${BOLD}HARDWARE PROFILES${RESET}"

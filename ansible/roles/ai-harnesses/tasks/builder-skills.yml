@@ -11,7 +11,7 @@
 
 - name: Ensure Claude Code global commands directory exists
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/.claude/commands"
+    path: "{{ lookup('env', 'HOME') }}/.claude/commands"
     state: directory
     mode: '0755'
 
@@ -24,8 +24,8 @@
     --scope user
     --no-github-action
   environment:
-    HOME: "{{ ansible_env.HOME }}"
-    PATH: "{{ ansible_env.PATH }}:{{ ansible_env.HOME }}/.local/bin"
+    HOME: "{{ lookup('env', 'HOME') }}"
+    PATH: "{{ lookup('env', 'PATH') }}:{{ lookup('env', 'HOME') }}/.local/bin"
   register: _skills_install
   changed_when: "'already installed' not in (_skills_install.stdout | default(''))"
   failed_when: _skills_install.rc != 0

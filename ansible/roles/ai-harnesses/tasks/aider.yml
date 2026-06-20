@@ -13,7 +13,7 @@
 - name: Install aider via pipx
   ansible.builtin.command: pipx install aider-chat
   args:
-    creates: "{{ ansible_env.HOME }}/.local/bin/aider"
+    creates: "{{ lookup('env', 'HOME') }}/.local/bin/aider"
 
 - name: Upgrade aider if already installed
   ansible.builtin.command: pipx upgrade aider-chat

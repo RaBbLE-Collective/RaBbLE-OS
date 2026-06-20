@@ -2,13 +2,69 @@
 # ai-harnesses/tasks/main.yml
 # Installs AI coding agents and LLM CLI tools for the sCoRE local AI layer.
 # Runs as the target user (become: false in site.yml play).
+#
+# include_tasks + apply.tags:always — the include carries the harness tag so
+# --tags <harness> selects it; apply:always makes the internal tasks run too.
 
-- { ansible.builtin.include_tasks: claude-code.yml, tags: [ai-harnesses, claude-code], when: ai_harnesses_claude_code_enabled }
-- { ansible.builtin.include_tasks: codex.yml,       tags: [ai-harnesses, codex],       when: ai_harnesses_codex_enabled }
-- { ansible.builtin.include_tasks: opencode.yml,    tags: [ai-harnesses, opencode],    when: ai_harnesses_opencode_enabled }
-- { ansible.builtin.include_tasks: aider.yml,       tags: [ai-harnesses, aider],       when: ai_harnesses_aider_enabled }
-- { ansible.builtin.include_tasks: gemini-cli.yml,  tags: [ai-harnesses, gemini-cli],  when: ai_harnesses_gemini_cli_enabled }
-- { ansible.builtin.include_tasks: ollama.yml,      tags: [ai-harnesses, ollama],      when: ai_harnesses_ollama_enabled }
-- { ansible.builtin.include_tasks: vllm.yml,              tags: [ai-harnesses, vllm],              when: ai_harnesses_vllm_enabled }
-- { ansible.builtin.include_tasks: free-claude-code.yml,  tags: [ai-harnesses, free-claude-code],  when: ai_harnesses_fcc_enabled }
-- { ansible.builtin.include_tasks: builder-skills.yml,    tags: [ai-harnesses, builder-skills],    when: ai_harnesses_builder_skills_enabled }
+- name: "claude-code"
+  ansible.builtin.include_tasks:
+    file: claude-code.yml
+    apply: { tags: always }
+  tags: [ai-harnesses, claude-code]
+  when: ai_harnesses_claude_code_enabled
+
+- name: "codex"
+  ansible.builtin.include_tasks:
+    file: codex.yml
+    apply: { tags: always }
+  tags: [ai-harnesses, codex]
+  when: ai_harnesses_codex_enabled
+
+- name: "opencode"
+  ansible.builtin.include_tasks:
+    file: opencode.yml
+    apply: { tags: always }
+  tags: [ai-harnesses, opencode]
+  when: ai_harnesses_opencode_enabled
+
+- name: "aider"
+  ansible.builtin.include_tasks:
+    file: aider.yml
+    apply: { tags: always }
+  tags: [ai-harnesses, aider]
+  when: ai_harnesses_aider_enabled
+
+- name: "gemini-cli"
+  ansible.builtin.include_tasks:
+    file: gemini-cli.yml
+    apply: { tags: always }
+  tags: [ai-harnesses, gemini-cli]
+  when: ai_harnesses_gemini_cli_enabled
+
+- name: "ollama"
+  ansible.builtin.include_tasks:
+    file: ollama.yml
+    apply: { tags: always }
+  tags: [ai-harnesses, ollama]
+  when: ai_harnesses_ollama_enabled
+
+- name: "vllm"
+  ansible.builtin.include_tasks:
+    file: vllm.yml
+    apply: { tags: always }
+  tags: [ai-harnesses, vllm]
+  when: ai_harnesses_vllm_enabled
+
+- name: "free-claude-code"
+  ansible.builtin.include_tasks:
+    file: free-claude-code.yml
+    apply: { tags: always }
+  tags: [ai-harnesses, free-claude-code]
+  when: ai_harnesses_fcc_enabled
+
+- name: "builder-skills"
+  ansible.builtin.include_tasks:
+    file: builder-skills.yml
+    apply: { tags: always }
+  tags: [ai-harnesses, builder-skills]
+  when: ai_harnesses_builder_skills_enabled

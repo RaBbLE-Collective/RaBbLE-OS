@@ -14,38 +14,44 @@
   ansible.builtin.shell: |
     curl -LsSf https://astral.sh/uv/install.sh | sh
   args:
-    creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+    creates: "{{ lookup('env', 'HOME') }}/.local/bin/uv"
 
 - name: Clone free-claude-code repository
   ansible.builtin.git:
     repo: "https://github.com/Alishahryar1/free-claude-code.git"
-    dest: "{{ ansible_env.HOME }}/.local/share/rabble/free-claude-code"
+    dest: "{{ lookup('env', 'HOME') }}/.local/share/rabble/free-claude-code"
     version: main
     depth: 1
     force: false
 
+- name: Install Python version required by free-claude-code
+  ansible.builtin.command: >
+    {{ lookup('env', 'HOME') }}/.local/bin/uv python install
+  args:
+    chdir: "{{ lookup('env', 'HOME') }}/.local/share/rabble/free-claude-code"
+
 - name: Install free-claude-code dependencies via uv
   ansible.builtin.command: >
-    {{ ansible_env.HOME }}/.local/bin/uv sync
+    {{ lookup('env', 'HOME') }}/.local/bin/uv sync
   args:
-    chdir: "{{ ansible_env.HOME }}/.local/share/rabble/free-claude-code"
+    chdir: "{{ lookup('env', 'HOME') }}/.local/share/rabble/free-claude-code"
 
 - name: Ensure RaBbLE config directory exists
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/.config/rabble"
+    path: "{{ lookup('env', 'HOME') }}/.config/rabble"
     state: directory
     mode: '0700'
 
 - name: Deploy fcc.env from example if not present
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../config/rabble/fcc.env.example"
-    dest: "{{ ansible_env.HOME }}/.config/rabble/fcc.env"
+    dest: "{{ lookup('env', 'HOME') }}/.config/rabble/fcc.env"
     mode: '0600'
     force: false
 
 - name: Deploy fcc-ctl wrapper to ~/.local/bin
   ansible.builtin.copy:
-    dest: "{{ ansible_env.HOME }}/.local/bin/fcc-ctl"
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/fcc-ctl"
     mode: '0755'
     content: |
       #!/usr/bin/env bash
@@ -54,13 +60,13 @@
 
 - name: Ensure systemd user directory exists
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/.config/systemd/user"
+    path: "{{ lookup('env', 'HOME') }}/.config/systemd/user"
     state: directory
     mode: '0755'
 
 - name: Deploy free-claude-code systemd user service
   ansible.builtin.copy:
-    dest: "{{ ansible_env.HOME }}/.config/systemd/user/free-claude-code.service"
+    dest: "{{ lookup('env', 'HOME') }}/.config/systemd/user/free-claude-code.service"
     mode: '0644'
     content: |
       [Unit]

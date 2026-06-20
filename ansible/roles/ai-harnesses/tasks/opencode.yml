@@ -3,11 +3,11 @@
 # Auth: delegates to provider env vars (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
 # sCoRE provider: opencode (subprocess, `opencode run --print` mode)
 
-- name: Install opencode globally via npm
+- name: Install opencode globally via npm (latest — reinstalls if missing or outdated)
   community.general.npm:
     name: "opencode-ai"
     global: true
-    state: present
+    state: latest
   environment:
     NPM_CONFIG_PREFIX: "{{ ai_harnesses_node_prefix }}"
 
@@ -19,4 +19,12 @@
 
 - name: Report opencode version
   ansible.builtin.debug:
-    msg: "opencode: {{ _opencode_version.stdout | default('not found — check PATH or npm package name') }}"
+    msg: "opencode: {{ _opencode_version.stdout | default('NOT FOUND — npm install may have failed or PATH is missing ~/.local/bin') }}"
+
+- name: Warn if opencode binary is missing after install
+  ansible.builtin.fail:
+    msg: >
+      opencode installed but binary not found in PATH.
+      Run: export PATH="$HOME/.local/bin:$PATH"
+      Or check: ls ~/.local/bin/opencode
+  when: _opencode_version.rc != 0
