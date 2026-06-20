@@ -113,7 +113,7 @@
     dest: "{{ llama_cpp.src_dir }}"
     version: "{{ 'main' if llama_cpp.version == 'HEAD' else _llama_resolved_version }}"
     depth: 1
-    force: false
+    force: true
     update: true
   when:
     - llama_cpp.install_method | default('source') == "source"
