@@ -4,9 +4,11 @@
 # sCoRE provider: aider (subprocess, --no-pretty --message mode)
 # Uses pipx so it gets an isolated venv that doesn't conflict with system Python.
 
-- name: Ensure pipx is installed
+- name: Ensure pipx and aider build deps are installed
   ansible.builtin.package:
-    name: pipx
+    name:
+      - pipx
+      - gcc-gfortran
     state: present
   become: true
 
