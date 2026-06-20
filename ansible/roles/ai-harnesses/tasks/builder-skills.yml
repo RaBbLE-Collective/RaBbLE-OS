@@ -22,7 +22,9 @@
     --skill visual-recap
     --skill quick-recap
     --scope user
-    --no-github-action
+    --client claude-code
+    --yes
+    --no-connect
   environment:
     HOME: "{{ lookup('env', 'HOME') }}"
     PATH: "{{ lookup('env', 'PATH') }}:{{ lookup('env', 'HOME') }}/.local/bin"
