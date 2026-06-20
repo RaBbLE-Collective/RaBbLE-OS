@@ -111,7 +111,7 @@
   ansible.builtin.shell: |
     CMAKE_EXTRA=()
     if [ -f "{{ fastflowlm.src_dir }}/src/lib/libxrt_runlist_shim.so" ]; then
-      CMAKE_EXTRA+=("-DCMAKE_EXE_LINKER_FLAGS=-L{{ fastflowlm.src_dir }}/src/lib -lxrt_runlist_shim")
+      CMAKE_EXTRA+=("-DCMAKE_EXE_LINKER_FLAGS=-L{{ fastflowlm.src_dir }}/src/lib -lxrt_runlist_shim -L/opt/xilinx/xrt/lib64 -lxrt_coreutil")
     fi
     cmake --preset linux-default \
       -DXRT_LIB_DIR=/opt/xilinx/xrt/lib64 \

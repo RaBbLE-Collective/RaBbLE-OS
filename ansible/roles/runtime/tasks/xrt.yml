@@ -263,7 +263,8 @@
   ansible.builtin.shell: |
     gcc -shared -fPIC -O2 \
         -o /opt/src/xrt_shim/libxrt_runlist_shim.so \
-        /opt/src/xrt_shim/xrt_runlist_shim.c
+        /opt/src/xrt_shim/xrt_runlist_shim.c \
+        -L/opt/xilinx/xrt/lib64 -lxrt_coreutil
   args:
     executable: /bin/bash
   register: _xrt_shim_compile
