@@ -8,6 +8,7 @@
 #   ./layer-ctl.sh apply hardware --packages     — packages only
 #   ./layer-ctl.sh apply boot --config           — config only
 #   ./layer-ctl.sh apply all                     — full system
+#   ./layer-ctl.sh upgrade                       — dnf + firmware + apply all
 #   ./layer-ctl.sh remove desktop                — teardown a layer
 #   ./layer-ctl.sh status                        — show all layer states
 #   ./layer-ctl.sh verify hardware               — run layer health checks
@@ -286,6 +287,53 @@ cmd_dotfiles() {
   ok "Dotfiles linked."
 }
 
+cmd_upgrade() {
+  local skip_packages=false skip_firmware=false skip_apply=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --no-packages) skip_packages=true ; shift ;;
+      --no-firmware) skip_firmware=true ; shift ;;
+      --no-apply)    skip_apply=true    ; shift ;;
+      *) warn "Unknown flag: $1"; shift ;;
+    esac
+  done
+
+  pulse "RaBbLE-OS System Upgrade"
+  divider
+
+  # 1. System packages
+  if ! $skip_packages; then
+    info "Upgrading system packages (dnf upgrade)..."
+    sudo dnf upgrade -y
+    ok "System packages upgraded."
+    divider
+  fi
+
+  # 2. Firmware (high value on ProArt: ASUS EC, NPU, USB-C, BIOS via LVFS)
+  if ! $skip_firmware; then
+    if command -v fwupdmgr &>/dev/null; then
+      info "Refreshing firmware metadata..."
+      fwupdmgr refresh --force 2>/dev/null || true
+      info "Applying firmware updates (reboot may be required)..."
+      fwupdmgr update || true
+      ok "Firmware update complete."
+      divider
+    else
+      muted "fwupdmgr not found — skipping firmware. Install: sudo dnf install fwupd"
+    fi
+  fi
+
+  # 3. Re-converge Ansible-managed state (llama.cpp latest, etc.)
+  if ! $skip_apply; then
+    info "Re-converging Ansible-managed state (apply all)..."
+    cmd_apply all
+  fi
+
+  ok "Upgrade complete. // %SYSTEM_UPGRADED%"
+  muted "If firmware was updated, reboot to apply."
+}
+
 cmd_diff() {
   local layer="${1:-}"
   [[ -z "$layer" ]] && fail "Usage: layer-ctl diff LAYER"
@@ -312,6 +360,10 @@ cmd_help() {
   echo -e "          --packages  packages only"
   echo -e "          --config    config/dotfiles only"
   echo -e "          --check     dry-run, no changes"
+  echo
+  echo -e "  ${CYAN}upgrade${RESET} [--no-packages] [--no-firmware] [--no-apply]"
+  echo -e "          Upgrade the system: dnf upgrade → firmware (fwupdmgr) → apply all."
+  echo -e "          Skip steps with --no-packages / --no-firmware / --no-apply."
   echo
   echo -e "  ${CYAN}remove${RESET}  LAYER"
   echo -e "          Remove a layer (with confirmation)."
@@ -347,6 +399,8 @@ cmd_help() {
   echo -e "  ${MUTED}generic_x64${RESET}"
   echo
   echo -e "${BOLD}EXAMPLES${RESET}"
+  echo -e "  ${MUTED}./layer-ctl.sh upgrade${RESET}                          — full system upgrade"
+  echo -e "  ${MUTED}./layer-ctl.sh upgrade --no-apply${RESET}               — dnf + firmware only"
   echo -e "  ${MUTED}./layer-ctl.sh apply all${RESET}"
   echo -e "  ${MUTED}./layer-ctl.sh apply hardware --packages${RESET}"
   echo -e "  ${MUTED}./layer-ctl.sh apply boot --config${RESET}"
@@ -376,6 +430,7 @@ shift || true
 
 case "$COMMAND" in
   apply)    cmd_apply "$@" ;;
+  upgrade)  cmd_upgrade "$@" ;;
   remove)   cmd_remove "$@" ;;
   verify)   cmd_verify "$@" ;;
   status)   cmd_status ;;
