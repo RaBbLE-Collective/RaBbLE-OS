@@ -682,6 +682,7 @@ def _agy_quota(now: float) -> dict:
         return {"gemini": dict(empty), "service": dict(empty)}
 
 
+
 def print_antigravity(now: float) -> None:
     import subprocess, glob as _glob
 
@@ -751,7 +752,7 @@ def print_antigravity(now: float) -> None:
         bar = make_bar(100.0)
         print(f"  {CYAN}Gemini API    {RESET} {bar} {MAGENTA}100%{RESET}  {MUTED}⊘ resets in {gem['resets_in']}{RESET}")
     else:
-        print(f"  {CYAN}Gemini API    {RESET} {GREEN}available{RESET}  {MUTED}no active quota limit{RESET}")
+        print(f"  {CYAN}Gemini API    {RESET} {GREEN}available{RESET}  {MUTED}(daily limits apply){RESET}")
 
     # Antigravity service quota (Sonnet/Opus/GPT) — agy's own second quota pool,
     # independent of both Gemini API and Claude Code's Anthropic quota.

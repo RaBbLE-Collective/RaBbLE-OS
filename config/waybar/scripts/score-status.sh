@@ -512,17 +512,24 @@ main() {
             esac
         fi
 
-        # Bar text — show ⊘ for each quota pool that is exhausted
+        # Bar text — show ⊘ for each quota pool that is exhausted.
+        # ⊘ shows even when idle so the user sees the warning before trying to use agy.
         local agy_text
+        local _exhausted_count=$(( agy_gemini_rl + agy_service_rl ))
         if [[ "$agy_state" == "idle" ]]; then
             agy_text="${agy_mark}"
+            if (( _exhausted_count > 0 )); then
+                local _omark=""
+                local _i; for (( _i=0; _i<_exhausted_count; _i++ )); do _omark+="⊘"; done
+                agy_text+=" ${_omark}"
+            fi
         else
             agy_text="Agy ${agy_mark}"
             (( agy_count > 1 )) && agy_text+="×${agy_count}"
-            if (( agy_gemini_rl && agy_service_rl )); then
-                agy_text+=" ⊘⊘"     # both pools exhausted
-            elif (( agy_rate_limited )); then
-                agy_text+=" ⊘"
+            if (( _exhausted_count > 0 )); then
+                local _omark=""
+                local _i; for (( _i=0; _i<_exhausted_count; _i++ )); do _omark+="⊘"; done
+                agy_text+=" ${_omark}"
             fi
         fi
 
@@ -537,9 +544,13 @@ main() {
         tt2+="${nl}Sessions  : ${agy_conv_count} total / ${agy_recent_count} active (24h)"
         if (( agy_gemini_rl )); then
             tt2+="${nl}Gemini quota : ⊘ rate-limited, resets in ${agy_gemini_resets}"
+        else
+            tt2+="${nl}Gemini quota : ✓ available"
         fi
         if (( agy_service_rl )); then
             tt2+="${nl}Service quota: ⊘ rate-limited, resets in ${agy_service_resets}  (Sonnet/Opus/GPT)"
+        else
+            tt2+="${nl}Service quota: ✓ available  (Sonnet/Opus/GPT)"
         fi
         tt2+="${nl}Data dir  : ${agy_dir}"
 
