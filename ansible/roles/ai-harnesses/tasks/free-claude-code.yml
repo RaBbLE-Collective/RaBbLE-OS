@@ -109,6 +109,7 @@
     - CLAUDE.md
     - commands
     - projects
+    - themes
   register: _claude_shared
 
 - name: Symlink shared context into ~/.claude-free (memories + instructions, not auth)
@@ -121,6 +122,36 @@
   when: item.stat.exists
   loop_control:
     label: "{{ item.item }}"
+
+- name: Deploy claude-free settings.json (RaBbLE theme, minimal)
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.claude-free/settings.json"
+    mode: '0600'
+    force: true
+    content: |
+      {
+        "theme": "custom:rabble-theme"
+      }
+
+- name: Approve fcc-no-auth key in claude-free profile (prevents rejection loop)
+  ansible.builtin.shell: |
+    python3 - <<'EOF'
+    import json, os, pathlib
+    p = pathlib.Path(os.environ['HOME']) / '.claude-free' / '.claude.json'
+    if not p.exists():
+        data = {}
+    else:
+        with open(p) as f:
+            data = json.load(f)
+    resp = data.setdefault('customApiKeyResponses', {'approved': [], 'rejected': []})
+    key = 'fcc-no-auth'
+    if key not in resp.get('approved', []):
+        resp.setdefault('approved', []).append(key)
+    resp['rejected'] = [k for k in resp.get('rejected', []) if k != key]
+    with open(p, 'w') as f:
+        json.dump(data, f, indent=2)
+    EOF
+  changed_when: false
 
 - name: Ensure systemd user directory exists
   ansible.builtin.file:
