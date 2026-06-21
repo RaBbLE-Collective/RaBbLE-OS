@@ -196,7 +196,13 @@
             "car": "",
             "default": ["", "", ""]
         },
-        "on-click": "pavucontrol"
+        // Scroll / right-click adjust through swayOSD → same themed OSD as the Fn
+        // keys (the "linear feel"). Left-click toggles a compact floating mixer
+        // popup (see scripts/audio-popup.sh + hypr windowrules), not a full tile.
+        "on-scroll-up": "swayosd-client --output-volume +5",
+        "on-scroll-down": "swayosd-client --output-volume -5",
+        "on-click-right": "swayosd-client --output-volume mute-toggle",
+        "on-click": "$HOME/.config/waybar/scripts/audio-popup.sh"
     },
     "custom/media": {
         "format": "{icon} {text}",

@@ -62,21 +62,65 @@
   ansible.builtin.copy:
     dest: "{{ lookup('env', 'HOME') }}/.local/bin/claude-free"
     mode: '0755'
+    force: true
     content: |
       #!/usr/bin/env bash
       # Claude Code routed through local free-claude-code proxy
       # Proxy: http://127.0.0.1:8082  (systemctl --user status free-claude-code)
       # Models: configured in ~/.config/RaBbLE/fcc.env  (fcc-ctl sync to update)
-      exec env ANTHROPIC_BASE_URL=http://127.0.0.1:8082 ANTHROPIC_API_KEY=fcc-no-auth claude "$@"
+      #
+      # ISOLATION: runs against a SEPARATE config dir (~/.claude-free) so setting an
+      # API key here can never clobber the real ~/.claude OAuth login. Without this,
+      # ANTHROPIC_API_KEY flips the shared profile into api-key auth mode and logs
+      # the paid/Pro session out. Keep the dir isolated.
+      exec env \
+        CLAUDE_CONFIG_DIR="${HOME}/.claude-free" \
+        ANTHROPIC_BASE_URL=http://127.0.0.1:8082 \
+        ANTHROPIC_API_KEY=fcc-no-auth \
+        claude "$@"
 
 - name: Deploy claude-paid launcher to ~/.local/bin
   ansible.builtin.copy:
     dest: "{{ lookup('env', 'HOME') }}/.local/bin/claude-paid"
     mode: '0755'
+    force: true
     content: |
       #!/usr/bin/env bash
-      # Claude Code against real Anthropic API — strips proxy override if set
-      exec env -u ANTHROPIC_BASE_URL claude "$@"
+      # Claude Code against real Anthropic API — strips proxy/api-key overrides if set,
+      # and pins the real config dir so it always uses the paid OAuth login.
+      exec env -u ANTHROPIC_BASE_URL -u ANTHROPIC_API_KEY -u CLAUDE_CONFIG_DIR claude "$@"
+
+# ── Share context into the isolated profile ───────────────────────────────────
+# claude-free runs against ~/.claude-free so its api-key auth can't clobber the
+# real ~/.claude OAuth login. But a bare profile loses your memories + global
+# instructions. Fix: symlink the *non-auth* context (CLAUDE.md, commands,
+# projects/ — which holds auto-memory AND history) into the isolated dir.
+# Credentials / settings stay separate — that's the whole point.
+- name: Ensure isolated claude-free profile directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.claude-free"
+    state: directory
+    mode: '0700'
+
+- name: Detect which ~/.claude context files exist to share
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.claude/{{ item }}"
+  loop:
+    - CLAUDE.md
+    - commands
+    - projects
+  register: _claude_shared
+
+- name: Symlink shared context into ~/.claude-free (memories + instructions, not auth)
+  ansible.builtin.file:
+    src: "{{ lookup('env', 'HOME') }}/.claude/{{ item.item }}"
+    dest: "{{ lookup('env', 'HOME') }}/.claude-free/{{ item.item }}"
+    state: link
+    force: true
+  loop: "{{ _claude_shared.results }}"
+  when: item.stat.exists
+  loop_control:
+    label: "{{ item.item }}"
 
 - name: Ensure systemd user directory exists
   ansible.builtin.file:
