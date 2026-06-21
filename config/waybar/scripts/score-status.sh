@@ -26,6 +26,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SESSIONS_PY="$SCRIPT_DIR/score-sessions.py"
+AGY_QUOTA_PY="$SCRIPT_DIR/score-agy-quota.py"
 
 CLAUDE_DIR="$HOME/.claude/projects"
 CODEX_DIR="$HOME/.codex/sessions"
@@ -484,34 +485,17 @@ main() {
         agy_count=$(pgrep -cx agy 2>/dev/null || true)
         agy_count=${agy_count:-0}
 
-        # Parse all CLI logs from the last 24h for both agy quota pools.
-        # We track the active model (model_config_manager.go:157) in log order and
-        # classify each RESOURCE_EXHAUSTED hit: Gemini/Flash → Gemini API quota;
-        # Claude/GPT/other → Antigravity service quota (Sonnet/Opus/GPT).
-        local agy_gemini_rl=0 agy_service_rl=0
-        local agy_gemini_resets="" agy_service_resets=""
-        if [[ -d "$agy_log_dir" ]]; then
-            local quota_raw
-            quota_raw=$(find "$agy_log_dir" -name 'cli-*.log' -mmin -10080 2>/dev/null \
-                | sort | xargs awk '
-                /model_config_manager.*label=/ {
-                    match($0, /label="([^"]+)"/, a); mdl = a[1]
-                }
-                /RESOURCE_EXHAUSTED.*Resets in/ {
-                    match($0, /Resets in ([0-9a-zA-Z]+)/, a)
-                    mdl_low = tolower(mdl)
-                    if (mdl_low ~ /gemini|flash/ || mdl == "")
-                        gemini = a[1]
-                    else
-                        service = a[1]
-                }
-                END { print gemini "|" service }
-                ' 2>/dev/null || echo "|")
-            agy_gemini_resets="${quota_raw%%|*}"
-            agy_service_resets="${quota_raw##*|}"
-            [[ -n "$agy_gemini_resets" ]] && agy_gemini_rl=1
-            [[ -n "$agy_service_resets" ]] && agy_service_rl=1
-        fi
+        # Live quota state for both agy pools — see score-agy-quota.py. A pool is
+        # only exhausted if its latest RESOURCE_EXHAUSTED has no successful model
+        # activity after it AND its computed reset wall-clock is still in the
+        # future, so a reset clears the ⊘ immediately (the old "any error in the
+        # last 7 days" heuristic kept it stuck for a week). Pre-formatted "resets
+        # in" countdowns are anchored to each event's own glog timestamp.
+        local AGY_GEMINI_RL=0 AGY_SERVICE_RL=0
+        local AGY_GEMINI_RESETS="" AGY_SERVICE_RESETS="" AGY_SERVICE_MODEL=""
+        eval "$(python3 "$AGY_QUOTA_PY" --shell 2>/dev/null)"
+        local agy_gemini_rl="$AGY_GEMINI_RL" agy_service_rl="$AGY_SERVICE_RL"
+        local agy_gemini_resets="$AGY_GEMINI_RESETS" agy_service_resets="$AGY_SERVICE_RESETS"
         local agy_rate_limited=0
         (( agy_gemini_rl || agy_service_rl )) && agy_rate_limited=1
 

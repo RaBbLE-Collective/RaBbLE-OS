@@ -661,6 +661,27 @@ def render_light(now: float, tcache: dict, live: bool) -> str:
     return _capture(body)
 
 
+_AGY_QUOTA_MOD = None
+
+
+def _agy_quota(now: float) -> dict:
+    """Live agy pool state via the sibling score-agy-quota.py (dashed filename,
+    so loaded by path). Falls back to a both-clear result on any error."""
+    global _AGY_QUOTA_MOD
+    try:
+        if _AGY_QUOTA_MOD is None:
+            import importlib.util
+            p = pathlib.Path(__file__).resolve().parent / "score-agy-quota.py"
+            spec = importlib.util.spec_from_file_location("score_agy_quota", p)
+            _AGY_QUOTA_MOD = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(_AGY_QUOTA_MOD)
+        return _AGY_QUOTA_MOD.compute(now)
+    except Exception:
+        empty = {"exhausted": False, "reset_epoch": None, "remaining_s": 0,
+                 "resets_in": "", "model": ""}
+        return {"gemini": dict(empty), "service": dict(empty)}
+
+
 def print_antigravity(now: float) -> None:
     import subprocess, glob as _glob
 
@@ -712,82 +733,35 @@ def print_antigravity(now: float) -> None:
 
     # ── Quota section ──────────────────────────────────────────────────────────
     # agy has TWO independent quota pools, neither shared with Claude Code:
-    #   1. Gemini API quota  — hit when a Gemini/Flash model is active
+    #   1. Gemini API quota          — hit when a Gemini/Flash model is active
     #   2. Antigravity service quota — hit when Claude/GPT models are active
-    # We distinguish them by tracking the active model from model_config_manager.go:157
-    # lines immediately before each RESOURCE_EXHAUSTED event.
+    # Live state comes from score-agy-quota.py: a pool counts as exhausted only
+    # while its latest RESOURCE_EXHAUSTED has no successful model activity after
+    # it AND its reset wall-clock (the event's own glog timestamp + "Resets in")
+    # is still in the future — so a reset clears the ⊘ right away instead of
+    # lingering for the whole 7-day window.
     print(f"\n{VIOLET}{'─'*60}{RESET}")
     print(f"{VIOLET}Quota{RESET}")
     print(f"{VIOLET}{'─'*60}{RESET}")
 
-    import re as _re
+    quota = _agy_quota(now)
+    gem, svc = quota["gemini"], quota["service"]
 
-    def _parse_resets(resets_str: str) -> int:
-        m = _re.match(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?", resets_str)
-        if not m:
-            return 0
-        h, mn, s = (int(x or 0) for x in m.groups())
-        return h * 3600 + mn * 60 + s
-
-    def _fmt_resets(resets_s: int) -> str:
-        if resets_s <= 0:
-            return "may have reset"
-        h, rem = divmod(resets_s, 3600)
-        mn = rem // 60
-        return f"{h}h{mn:02d}m"
-
-    gemini_rl = False
-    gemini_resets_s = 0
-    service_rl = False
-    service_resets_s = 0
-    service_model_logged = ""
-    if log_dir.is_dir():
-        try:
-            cur_mdl = ""  # tracks last seen model label across log lines (chron. order)
-            cur_file_mtime = now
-            for lf in sorted(log_dir.glob("cli-*.log")):
-                lf_mtime = lf.stat().st_mtime
-                if now - lf_mtime > 604_800:  # skip logs older than 7 days (quota window)
-                    continue
-                cur_file_mtime = lf_mtime
-                for line in lf.read_text(errors="replace").splitlines():
-                    mm = _re.search(r'model_config_manager.*label="([^"]+)"', line)
-                    if mm:
-                        cur_mdl = mm.group(1)
-                    m2 = _re.search(r"RESOURCE_EXHAUSTED.*?Resets in (\w+)", line)
-                    if m2:
-                        raw_s = _parse_resets(m2.group(1))
-                        # Adjust for time elapsed since this log was written.
-                        # cur_file_mtime is an approximation of log-write time.
-                        adjusted_s = raw_s - int(now - cur_file_mtime)
-                        mdl_low = cur_mdl.lower()
-                        if "gemini" in mdl_low or "flash" in mdl_low or not cur_mdl:
-                            gemini_rl = True
-                            gemini_resets_s = adjusted_s
-                        else:
-                            service_rl = True
-                            service_resets_s = adjusted_s
-                            service_model_logged = cur_mdl
-        except Exception:
-            pass
-
-    if gemini_rl:
+    if gem["exhausted"]:
         bar = make_bar(100.0)
-        reset_str = _fmt_resets(gemini_resets_s)
-        print(f"  {CYAN}Gemini API    {RESET} {bar} {MAGENTA}100%{RESET}  {MUTED}⊘ resets in {reset_str}{RESET}")
+        print(f"  {CYAN}Gemini API    {RESET} {bar} {MAGENTA}100%{RESET}  {MUTED}⊘ resets in {gem['resets_in']}{RESET}")
     else:
-        print(f"  {CYAN}Gemini API    {RESET} {MUTED}no quota errors in last 7 days{RESET}")
+        print(f"  {CYAN}Gemini API    {RESET} {GREEN}available{RESET}  {MUTED}no active quota limit{RESET}")
 
     # Antigravity service quota (Sonnet/Opus/GPT) — agy's own second quota pool,
     # independent of both Gemini API and Claude Code's Anthropic quota.
-    if service_rl:
+    if svc["exhausted"]:
         bar = make_bar(100.0)
-        reset_str = _fmt_resets(service_resets_s)
-        mdl_note = f" ({service_model_logged})" if service_model_logged else ""
-        print(f"  {VIOLET}Service quota {RESET} {bar} {MAGENTA}100%{RESET}  {MUTED}⊘ resets in {reset_str}{RESET}")
+        mdl_note = f" ({svc['model']})" if svc["model"] else ""
+        print(f"  {VIOLET}Service quota {RESET} {bar} {MAGENTA}100%{RESET}  {MUTED}⊘ resets in {svc['resets_in']}{RESET}")
         print(f"    {MUTED}Sonnet/Opus/GPT — Antigravity service{mdl_note}{RESET}")
     else:
-        print(f"  {VIOLET}Service quota {RESET} {MUTED}no quota errors in last 7 days{RESET}"
+        print(f"  {VIOLET}Service quota {RESET} {GREEN}available{RESET}"
               f"  {MUTED}(Sonnet/Opus/GPT){RESET}")
 
     # ── Sessions section ───────────────────────────────────────────────────────
