@@ -64,6 +64,7 @@ declare -A BUNDLE_SRC=(
   [gtk3]="config/gtk-3.0"
   [gtk4]="config/gtk-4.0"
   [themes]="config/themes"
+  [color-schemes]="config/color-schemes"
 )
 
 declare -A BUNDLE_DEST=(
@@ -86,6 +87,7 @@ declare -A BUNDLE_DEST=(
   [gtk3]="${HOME}/.config/gtk-3.0"
   [gtk4]="${HOME}/.config/gtk-4.0"
   [themes]="${HOME}/.local/share/themes"
+  [color-schemes]="${HOME}/.local/share/color-schemes"
 )
 
 declare -A BUNDLE_DESC=(
@@ -108,9 +110,10 @@ declare -A BUNDLE_DESC=(
   [gtk3]="GTK3 user stylesheet — Aether palette overlay (sidebar, selection, scrollbars, menus)"
   [gtk4]="GTK4 CSS variables — Aether palette (limited effect due to libadwaita sandboxing)"
   [themes]="GTK installed themes (RaBbLE-Aether) → ~/.local/share/themes"
+  [color-schemes]="KDE color scheme .colors file → ~/.local/share/color-schemes (KColorScheme registration)"
 )
 
-BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd claude vscodium kvantum kdeglobals qt5ct qt6ct gtk3 gtk4 themes)
+BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd claude vscodium kvantum kdeglobals color-schemes qt5ct qt6ct gtk3 gtk4 themes)
 
 # Post-apply hooks — run after a bundle's files are deployed.
 # Only set for bundles that need more than a file copy (e.g. patching a config key).

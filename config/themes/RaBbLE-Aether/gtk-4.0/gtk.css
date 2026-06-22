@@ -1,0 +1,283 @@
+/* RaBbLE-Aether GTK4 theme — dark base for non-libadwaita GTK4 apps
+ * (pavucontrol/gtkmm4, celluloid, zenity, etc.)
+ * Palette: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md
+ *
+ * GTK4 apps that use libadwaita ignore GTK_THEME and read color-scheme instead.
+ * Non-libadwaita GTK4 apps (gtkmm, plain gtk4) load this file as their theme CSS.
+ * The user stylesheet (~/.config/gtk-4.0/gtk.css) loads on top at priority 800.
+ */
+
+/* ── Legacy GTK4 named color tokens ─────────────────────────────────────── */
+@define-color theme_bg_color #0a0010;
+@define-color theme_base_color #1a1b2e;
+@define-color theme_fg_color #e8e6f0;
+@define-color theme_text_color #e8e6f0;
+@define-color theme_selected_bg_color #00f5ff;
+@define-color theme_selected_fg_color #0a0010;
+@define-color theme_tooltip_bg_color #1a1b2e;
+@define-color theme_tooltip_fg_color #e8e6f0;
+@define-color theme_unfocused_bg_color #0a0010;
+@define-color theme_unfocused_base_color #12132a;
+@define-color theme_unfocused_fg_color #6b6880;
+@define-color theme_unfocused_text_color #6b6880;
+@define-color theme_unfocused_selected_bg_color rgba(0, 245, 255, 0.3);
+@define-color theme_unfocused_selected_fg_color #e8e6f0;
+@define-color borders #2a2840;
+@define-color unfocused_borders #2a2840;
+@define-color warning_color #f1fa8c;
+@define-color error_color #e05c6f;
+@define-color success_color #50fa7b;
+@define-color insensitive_bg_color rgba(26, 27, 46, 0.6);
+@define-color insensitive_fg_color #6b6880;
+@define-color insensitive_base_color rgba(26, 27, 46, 0.6);
+
+/* ── Libadwaita color tokens (re-stated for apps that mix both) ──────────── */
+@define-color accent_bg_color #00f5ff;
+@define-color accent_fg_color #0a0010;
+@define-color accent_color #00f5ff;
+@define-color window_bg_color #0a0010;
+@define-color window_fg_color #e8e6f0;
+@define-color view_bg_color #1a1b2e;
+@define-color view_fg_color #e8e6f0;
+@define-color headerbar_bg_color #12132a;
+@define-color headerbar_fg_color #e8e6f0;
+@define-color sidebar_bg_color #12132a;
+@define-color sidebar_fg_color #e8e6f0;
+@define-color card_bg_color rgba(26, 27, 46, 0.8);
+@define-color card_fg_color #e8e6f0;
+@define-color popover_bg_color #1a1b2e;
+@define-color popover_fg_color #e8e6f0;
+@define-color dialog_bg_color #1a1b2e;
+@define-color dialog_fg_color #e8e6f0;
+
+/* ── Base surfaces ───────────────────────────────────────────────────────── */
+window, .background, .titlebar {
+  background-color: @theme_bg_color;
+  color: @theme_fg_color;
+}
+
+.view, textview, treeview, listview, columnview {
+  background-color: @theme_base_color;
+  color: @theme_text_color;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+headerbar, .headerbar {
+  background-color: #12132a;
+  color: @theme_fg_color;
+  border-bottom: 1px solid @borders;
+}
+
+headerbar:backdrop, .headerbar:backdrop {
+  background-color: @theme_bg_color;
+  color: @theme_unfocused_fg_color;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+button {
+  background-color: #1a1b2e;
+  color: @theme_fg_color;
+  border: 1px solid @borders;
+  border-radius: 4px;
+  padding: 4px 10px;
+}
+
+button:hover {
+  background-color: rgba(0, 245, 255, 0.1);
+  border-color: #00f5ff;
+}
+
+button:active, button:checked {
+  background-color: rgba(0, 245, 255, 0.2);
+  color: #00f5ff;
+}
+
+button:disabled {
+  background-color: @insensitive_bg_color;
+  color: @insensitive_fg_color;
+}
+
+/* ── Selection ───────────────────────────────────────────────────────────── */
+selection,
+row:selected,
+treeview row:selected,
+listview row:selected {
+  background-color: rgba(0, 245, 255, 0.2);
+  color: @theme_fg_color;
+}
+
+row:selected:focus,
+treeview row:selected:focus,
+listview row:selected:focus {
+  background-color: @theme_selected_bg_color;
+  color: @theme_selected_fg_color;
+}
+
+/* ── Entry / inputs ──────────────────────────────────────────────────────── */
+entry, spinbutton {
+  background-color: @theme_base_color;
+  color: @theme_text_color;
+  border: 1px solid @borders;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+entry:focus, spinbutton:focus {
+  border-color: #00f5ff;
+  outline: none;
+}
+
+entry:disabled, spinbutton:disabled {
+  background-color: @insensitive_base_color;
+  color: @insensitive_fg_color;
+}
+
+/* ── Scale / sliders ─────────────────────────────────────────────────────── */
+scale trough {
+  background-color: #2a2840;
+  border-radius: 4px;
+  min-height: 4px;
+}
+
+scale highlight, scale trough > progress {
+  background-color: #00f5ff;
+  border-radius: 4px;
+}
+
+scale slider {
+  background-color: #00f5ff;
+  border-radius: 50%;
+  min-width: 16px;
+  min-height: 16px;
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
+scrollbar trough {
+  background-color: #12132a;
+}
+
+scrollbar slider {
+  background-color: #2a2840;
+  border-radius: 4px;
+  min-width: 6px;
+  min-height: 6px;
+}
+
+scrollbar slider:hover {
+  background-color: #bf5fff;
+}
+
+/* ── Menus / popovers ────────────────────────────────────────────────────── */
+popover, popover > contents {
+  background-color: @popover_bg_color;
+  color: @theme_fg_color;
+  border: 1px solid @borders;
+  border-radius: 6px;
+}
+
+menu, menubar {
+  background-color: @theme_base_color;
+  color: @theme_fg_color;
+}
+
+menuitem:hover, popover row:hover {
+  background-color: rgba(0, 245, 255, 0.1);
+}
+
+/* ── Notebook / tabs ─────────────────────────────────────────────────────── */
+notebook {
+  background-color: @theme_bg_color;
+}
+
+notebook > header {
+  background-color: #12132a;
+  border-bottom: 1px solid @borders;
+}
+
+notebook tab {
+  padding: 6px 12px;
+  color: #6b6880;
+}
+
+notebook tab:checked {
+  color: @theme_fg_color;
+  border-bottom: 2px solid #00f5ff;
+}
+
+/* ── Frame / separator ───────────────────────────────────────────────────── */
+frame > border, .frame {
+  border: 1px solid @borders;
+  border-radius: 4px;
+}
+
+separator {
+  background-color: @borders;
+  min-width: 1px;
+  min-height: 1px;
+}
+
+/* ── Tooltip ─────────────────────────────────────────────────────────────── */
+tooltip {
+  background-color: @theme_tooltip_bg_color;
+  color: @theme_tooltip_fg_color;
+  border: 1px solid @borders;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+progressbar trough {
+  background-color: #2a2840;
+  border-radius: 4px;
+}
+
+progressbar progress {
+  background-color: #00f5ff;
+  border-radius: 4px;
+}
+
+/* ── Switch ──────────────────────────────────────────────────────────────── */
+switch {
+  background-color: #2a2840;
+  border-radius: 14px;
+  min-width: 56px;
+  min-height: 28px;
+}
+
+switch:checked {
+  background-color: #00f5ff;
+  color: #0a0010;
+}
+
+switch slider {
+  background-color: #e8e6f0;
+  border-radius: 50%;
+}
+
+/* ── Check / radio ───────────────────────────────────────────────────────── */
+checkbutton check, radiobutton radio {
+  background-color: @theme_base_color;
+  border: 1px solid @borders;
+  border-radius: 3px;
+}
+
+checkbutton check:checked, radiobutton radio:checked {
+  background-color: #00f5ff;
+  color: #0a0010;
+  border-color: #00f5ff;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.sidebar, .sidebar-pane {
+  background-color: #12132a;
+  color: @theme_fg_color;
+  border-right: 1px solid @borders;
+}
+
+/* ── Status bar ──────────────────────────────────────────────────────────── */
+statusbar {
+  background-color: #12132a;
+  color: #6b6880;
+  border-top: 1px solid @borders;
+  padding: 2px 8px;
+}

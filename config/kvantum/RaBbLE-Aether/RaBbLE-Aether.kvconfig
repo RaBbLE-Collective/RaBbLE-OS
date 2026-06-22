@@ -1,5 +1,5 @@
 [%General]
-author=RaBbLE Collective — adapted from Catppuccin/kvantum (MIT) and KvArcDark
+author=RaBbLE Collective — re-skin of Catppuccin/kvantum Mocha-Mauve (MIT)
 comment=RaBbLE-Aether — synthwave/outrun dark theme. Deep void bg, #f8f4ff text, magenta+cyan accents.
 x11drag=menubar_and_primary_toolbar
 alt_mnemonic=true

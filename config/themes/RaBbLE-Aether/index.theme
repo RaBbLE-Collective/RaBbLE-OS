@@ -6,6 +6,7 @@ Encoding=UTF-8
 
 [X-GNOME-Metatheme]
 GtkTheme=RaBbLE-Aether
+Gtk4Theme=RaBbLE-Aether
 MetacityTheme=Adwaita
 IconTheme=Papirus-Dark
 CursorTheme=Bibata-Modern-Classic
