@@ -101,13 +101,13 @@ for (i = 0; i < wm_steps; i++) {
 wm_w = wm_img[0].GetWidth();
 wm_h = wm_img[0].GetHeight();
 wm_x = right_cx - Math.Int(wm_w / 2);
-wm_y = Math.Int(screen_h * 0.42);
+wm_y = Math.Int(screen_h * 0.20);
 wm_sprite = Sprite(wm_img[0]);
 wm_sprite.SetPosition(wm_x, wm_y, 20);
 wm_sprite.SetOpacity(0);
 
-tagline_img = Image.Text("b e h a v i o r a l   l e a r n i n g   e n g i n e",
-                         violet.r, violet.g, violet.b, 0.78, font_mono);
+tagline_img = Image.Text("RaBbLE  ·  a Boundless behavioral Learning Engine",
+                         violet.r, violet.g, violet.b, 0.78, font_mono_sm);
 tagline_x = right_cx - Math.Int(tagline_img.GetWidth() / 2);
 tagline_y = wm_y + wm_h + 12;
 tagline_sprite = Sprite(tagline_img);
@@ -131,8 +131,8 @@ log_lines[11].ts = "[  0.112551]"; log_lines[11].tag = " OK ";   log_lines[11].m
 log_lines[12].ts = "[  0.122005]"; log_lines[12].tag = "RaBbLE"; log_lines[12].msg = "◈ Session detected · entropy elevated · curious mode engaged";
 log_lines[13].ts = "[  0.138003]"; log_lines[13].tag = " OK ";   log_lines[13].msg = "Network Manager: ACTIVE · connection established";
 
-log_baseline_y = Math.Int(screen_h * 0.80);
-line_h = 22;
+log_baseline_y = Math.Int(screen_h * 0.62);
+line_h = 20;
 
 for (i = 0; i < log_count; i++) {
   tag = log_lines[i].tag;
@@ -147,7 +147,7 @@ for (i = 0; i < log_count; i++) {
   }
 
   ts_img  = Image.Text(log_lines[i].ts + "  ", muted.r, muted.g, muted.b, 0.9, font_mono_sm);
-  tag_img = Image.Text(tag + "  ", tr, tg, tb, 1, font_mono_sm);
+  tag_img = Image.Text("[" + tag + "]  ", tr, tg, tb, 1, font_mono_sm);
   msg_img = Image.Text(log_lines[i].msg, text.r, text.g, text.b, 0.82, font_mono_sm);
 
   # Left-aligned block anchored to the right section start (mirrors wordmark column)
@@ -170,8 +170,8 @@ for (i = 0; i < log_count; i++) {
 # ── Progress bar ─────────────────────────────────────────────────────────────
 bar_w = Math.Int(screen_w * 0.34);
 bar_h = 6;
-bar_x = Math.Int((screen_w - bar_w) / 2);
-bar_y = Math.Int(screen_h * 0.88);
+bar_x = right_cx - Math.Int(bar_w / 2);
+bar_y = tagline_y + tagline_img.GetHeight() + 22;
 
 track_src = Image("assets/bar-track.png");
 fill_src  = Image("assets/bar-fill.png");
@@ -189,12 +189,12 @@ dot_sprite.SetPosition(bar_x - 7, bar_y + Math.Int(bar_h / 2) - 7, 42);
 dot_sprite.SetOpacity(0);
 
 pct_sprite = Sprite();
-pct_sprite.SetPosition(bar_x + bar_w + 16, bar_y - 4, 40);
+pct_sprite.SetPosition(right_cx - 20, bar_y + bar_h + 8, 40);
 
 ready_img = Image.Text("◈ Boundless and becoming · ready when you are",
                        violet.r, violet.g, violet.b, 1, font_mono_md);
 ready_sprite = Sprite(ready_img);
-ready_sprite.SetPosition(Math.Int((screen_w - ready_img.GetWidth()) / 2), bar_y + 26, 40);
+ready_sprite.SetPosition(right_cx - Math.Int(ready_img.GetWidth() / 2), Math.Int(screen_h * 0.67), 40);
 ready_sprite.SetOpacity(0);
 
 # ── systemd message line (fsck, etc.) ────────────────────────────────────────
@@ -303,15 +303,11 @@ fun refresh_callback() {
     entity_sprite.SetImage(entity_frame[global.cur_frame]);
   }
 
-  # completion: hold 0.8s after progress hits 1.0, then fade everything out
+  # track completion for ready-line reveal; no fade-out — hold last frame until
+  # Plymouth exits naturally (freeze rather than black screen)
   if (global.boot_progress >= 0.999 && global.done_tick == 0)
     global.done_tick = global.tick;
-  if (global.done_tick > 0 && global.tick > global.done_tick + 40) {
-    global.fade_master = global.fade_master - 0.025;
-    if (global.fade_master < 0)
-      global.fade_master = 0;
-  }
-  fade = global.fade_master;
+  fade = 1;
 
   # floor grid fades with everything on completion
   grid_sprite.SetOpacity(0.85 * fade);
@@ -355,8 +351,8 @@ fun refresh_callback() {
         if (enter_op > 1) enter_op = 1;
 
         exit_op = 1;
-        if (lines_after > 5) {
-          exit_op = 1 - (lines_after - 5) * 0.33;
+        if (lines_after > 12) {
+          exit_op = 1 - (lines_after - 12) * 0.5;
           if (exit_op < 0) exit_op = 0;
         }
 
@@ -390,7 +386,13 @@ fun refresh_callback() {
   pct = Math.Int(global.shown_progress * 100);
   if (pct > 100) pct = 100;
   if (pct != global.last_pct) {
-    pct_sprite.SetImage(Image.Text(pct + "%", muted.r, muted.g, muted.b, 1, font_mono_sm));
+    if (pct < 10)
+      pct_str = "0" + pct + "%";
+    else
+      pct_str = pct + "%";
+    pct_img = Image.Text(pct_str, muted.r, muted.g, muted.b, 1, font_mono_sm);
+    pct_sprite.SetImage(pct_img);
+    pct_sprite.SetPosition(right_cx - Math.Int(pct_img.GetWidth() / 2), bar_y + bar_h + 8, 40);
     global.last_pct = pct;
   }
   pct_sprite.SetOpacity(fade);
