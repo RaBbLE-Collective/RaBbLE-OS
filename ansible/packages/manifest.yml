@@ -261,6 +261,14 @@ packages:
     layer: boot
     ks: false
 
+  - name: terminus-fonts
+    category: boot.console
+    reason: HiDPI TTY bitmap font — ter-v32b for 4K (ProArt P16), ter-v22b for 1080p desktop; set per hardware target in group_vars
+    source: fedora
+    platform: all
+    layer: boot
+    ks: false
+
   # ═══════════════════════════════════════════════════════════════════════════
   # AUDIO — PipeWire stack
   # Full replacement for PulseAudio and JACK.
@@ -351,6 +359,18 @@ packages:
     platform: all
     layer: fonts
     ks: false
+
+  - name: ndiscover-exo-2-fonts
+    category: fonts
+    reason: Aether brand UI font (--font-ui) — used in SDDM greeter, World shell, and all RaBbLE surfaces
+    source: fedora
+    platform: all
+    layer: fonts
+    ks: false
+
+  # Orbitron Variable: not in Fedora repos — bundled as TTF in boot/plymouth/files/rabble-aether/fonts/
+  # Ansible copies to /usr/share/fonts/rabble-fonts/ and rebuilds font cache (boot/plymouth/tasks/config.yml)
+  # Also bundled in sddm-theme/assets/fonts/ for FontLoader use in the SDDM greeter
 
   # Bibata cursor: manual download — not available in Fedora repos
   # HYPRCURSOR_THEME=Bibata-Modern-Classic set in env.conf

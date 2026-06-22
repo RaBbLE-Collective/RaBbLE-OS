@@ -1,6 +1,11 @@
 ---
-# boot/grub2/tasks/packages.yml — STUB
-- name: grub2 packages — stub
-  ansible.builtin.debug:
-    msg: "spark ~ boot/grub2 >> packages stub, no-op // %DORMANT%"
+# boot/grub2/tasks/packages.yml
+
+- name: Install GRUB + console font packages
+  ansible.builtin.dnf:
+    name:
+      - grub2-tools        # grub2-mkfont — generates .pf2 from TTF for GRUB theme
+      - terminus-fonts     # HiDPI TTY font (ter-v32b for 4K, ter-v22b for 1080p)
+    state: present
+  become: true
   tags: [boot, grub, packages]

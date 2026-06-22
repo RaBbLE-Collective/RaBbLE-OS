@@ -1,6 +1,8 @@
 ---
 # boot/grub2/tasks/config.yml
 
+# ── GRUB default config ────────────────────────────────────────────────────────
+
 - name: Deploy /etc/default/grub
   ansible.builtin.template:
     src: grub.j2
@@ -14,8 +16,7 @@
 
 - name: Re-label existing BLS entries with RaBbLE-OS identity
   # kernel-install only stamps new kernels from /etc/os-release; existing
-  # entries keep whatever title was baked in at install time. This loop
-  # rewrites every title in-place, preserving the kernel version string.
+  # entries keep whatever title was baked in at install time.
   ansible.builtin.shell: |
     changed=0
     for entry in /boot/loader/entries/*.conf; do
@@ -34,3 +35,83 @@
   failed_when: bls_relabel.rc > 1
   notify: rebuild grub config
   tags: [boot, grub, config, identity]
+
+# ── GRUB theme ─────────────────────────────────────────────────────────────────
+
+- name: Create GRUB theme directory
+  ansible.builtin.file:
+    path: /boot/grub2/themes/rabble
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [boot, grub, theme]
+
+- name: Deploy GRUB theme.txt
+  ansible.builtin.copy:
+    src: theme/theme.txt
+    dest: /boot/grub2/themes/rabble/theme.txt
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: rebuild grub config
+  tags: [boot, grub, theme]
+
+- name: Find Noto Sans Regular TTF for GRUB font generation
+  ansible.builtin.find:
+    paths: /usr/share/fonts
+    patterns:
+      - "NotoSans-Regular.ttf"
+      - "Noto_Sans-Regular.ttf"
+      - "NotoSans[wght].ttf"
+    recurse: true
+  register: noto_sans_ttf
+  tags: [boot, grub, theme]
+
+- name: Generate GRUB theme fonts from Noto Sans
+  # grub2-mkfont embeds the name via -n so theme.txt references are predictable.
+  # Falls back gracefully — GRUB uses its built-in unifont if .pf2 is missing.
+  ansible.builtin.command:
+    cmd: >
+      grub2-mkfont
+      --size={{ item.size }}
+      --name="RaBbLE UI Regular"
+      --output=/boot/grub2/themes/rabble/noto{{ item.size }}.pf2
+      {{ noto_sans_ttf.files[0].path }}
+    creates: "/boot/grub2/themes/rabble/noto{{ item.size }}.pf2"
+  become: true
+  when: noto_sans_ttf.files | length > 0
+  loop:
+    - { size: 12 }
+    - { size: 16 }
+    - { size: 18 }
+    - { size: 36 }
+  notify: rebuild grub config
+  tags: [boot, grub, theme]
+
+# ── vconsole — TTY font ────────────────────────────────────────────────────────
+
+- name: Deploy /etc/vconsole.conf (HiDPI TTY font)
+  ansible.builtin.template:
+    src: vconsole.conf.j2
+    dest: /etc/vconsole.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload vconsole font
+  tags: [boot, grub, console, tty]
+
+# ── TTY color palette ──────────────────────────────────────────────────────────
+
+- name: Deploy Aether TTY color palette profile.d script
+  ansible.builtin.template:
+    src: rabble-tty-palette.sh.j2
+    dest: /etc/profile.d/rabble-tty-palette.sh
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  tags: [boot, grub, console, tty, palette]

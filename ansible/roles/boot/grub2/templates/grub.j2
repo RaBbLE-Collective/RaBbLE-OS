@@ -7,12 +7,14 @@ GRUB_DEFAULT={{ rabble_grub_default | default(0) }}
 GRUB_TIMEOUT_STYLE=menu
 
 # HiDPI graphics mode — set native res, fall back to auto
+# Use a logical resolution (e.g. 1920x1200) rather than native 4K so GRUB
+# fonts are readable; GFXPAYLOAD=keep passes this mode to the kernel / Plymouth.
 GRUB_GFXMODE={{ rabble_gfx_mode | default('auto') }}
 GRUB_GFXPAYLOAD_LINUX={{ rabble_grub_gfxpayload | default('keep') }}
 
-# Theme
+# Theme — theme.txt owns the background via desktop-color; no separate PNG needed.
 GRUB_THEME=/boot/grub2/themes/rabble/theme.txt
-GRUB_BACKGROUND=/boot/grub2/themes/rabble/background.png
+GRUB_FONT=/boot/grub2/themes/rabble/noto16.pf2
 
 # Kernel command line
 GRUB_CMDLINE_LINUX="rhgb quiet \

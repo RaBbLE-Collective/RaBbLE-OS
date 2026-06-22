@@ -2,3 +2,9 @@
 - name: rebuild grub config
   ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
   become: true
+
+- name: reload vconsole font
+  ansible.builtin.systemd:
+    name: systemd-vconsole-setup.service
+    state: restarted
+  become: true

@@ -1,0 +1,48 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# /etc/profile.d/rabble-tty-palette.sh
+# Apply RaBbLE Aether synthwave palette to Linux VT (TTY only).
+#
+# Uses Linux console \e]PnRRGGBB escape sequences — these are VT-specific and
+# do nothing (safely) inside terminal emulators.
+#
+# Palette source: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md
+# Slot  Name            Hex      Role
+# 0     black           0a0010   deep void (background)
+# 1     red             e05c6f   error / urgent
+# 2     green           50fa7b   success / git clean
+# 3     yellow          f1fa8c   warning / staged
+# 4     blue            12132a   surface (dark anchor)
+# 5     magenta         ff2d78   hot magenta — primary identity
+# 6     cyan            00f5ff   electric cyan — secondary neon
+# 7     white           e8e6f0   primary text
+# 8     bright-black    2a2840   border / dim surface
+# 9     bright-red      e05c6f   same red (no distinct bright variant)
+# A     bright-green    50fa7b   same green
+# B     bright-yellow   f1fa8c   same yellow
+# C     bright-blue     bf5fff   soft violet (bright blue slot)
+# D     bright-magenta  ff79c6   outrun pink
+# E     bright-cyan     00f5ff   electric cyan
+# F     bright-white    ffffff   maximum brightness
+
+[ "$TERM" = "linux" ] || return 0
+
+printf '\e]P00a0010'   # black      → deep void
+printf '\e]P1e05c6f'   # red        → error neon
+printf '\e]P250fa7b'   # green      → success neon
+printf '\e]P3f1fa8c'   # yellow     → warning neon
+printf '\e]P412132a'   # blue       → surface dark
+printf '\e]P5ff2d78'   # magenta    → hot magenta (identity)
+printf '\e]P600f5ff'   # cyan       → electric cyan
+printf '\e]P7e8e6f0'   # white      → primary text
+printf '\e]P82a2840'   # brk-black  → border
+printf '\e]P9e05c6f'   # brk-red    → error (same)
+printf '\e]PA50fa7b'   # brk-green  → success (same)
+printf '\e]PBf1fa8c'   # brk-yellow → warning (same)
+printf '\e]PCbf5fff'   # brk-blue   → soft violet
+printf '\e]PDff79c6'   # brk-magenta→ outrun pink
+printf '\e]PE00f5ff'   # brk-cyan   → electric cyan (same)
+printf '\e]PFffffff'   # brk-white  → full brightness
+
+# Clear the screen so the new palette takes effect cleanly.
+clear

@@ -2,3 +2,7 @@
 
 hardware_vendor: "generic"
 form_factor: "desktop"
+
+# ── Console / TTY ─────────────────────────────────────────────
+# Standard 1080p desktop — Terminus 22pt is readable without being huge.
+rabble_console_font: "ter-v22b"

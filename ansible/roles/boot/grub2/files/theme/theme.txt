@@ -1,0 +1,86 @@
+# RaBbLE-OS GRUB Theme — Aether Synthwave Outrun
+# Source of truth: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md
+#
+# Colors:  bg #0a0010  magenta #ff2d78  cyan #00f5ff  violet #bf5fff
+#          text #e8e6f0  muted #6b6880  surface #12132a  border #2a2840
+#
+# Fonts generated at deploy time by boot/grub2 Ansible role.
+# grub2-mkfont -s SIZE -n "RaBbLE UI Regular" -o notoSIZE.pf2 NotoSans-Regular.ttf
+# Falls back to GRUB built-in font if generation fails.
+
+desktop-color: "#0a0010"
+title-color: "#ff2d78"
+title-font: "RaBbLE UI Regular 36"
+message-color: "#e8e6f0"
+message-bg-color: "#0a0010"
+
+# ── Title ──────────────────────────────────────────────────────────────────────
++ label {
+  top    = 12%
+  left   = 0
+  width  = 100%
+  align  = "center"
+  text   = "RaBbLE-OS"
+  font   = "RaBbLE UI Regular 36"
+  color  = "#ff2d78"
+}
+
+# ── Subtitle / episode ─────────────────────────────────────────────────────────
++ label {
+  top    = 22%
+  left   = 0
+  width  = 100%
+  align  = "center"
+  text   = "Episode 1 — Genesis"
+  font   = "RaBbLE UI Regular 18"
+  color  = "#bf5fff"
+}
+
+# ── Separator line ─────────────────────────────────────────────────────────────
++ label {
+  top    = 30%
+  left   = 20%
+  width  = 60%
+  align  = "center"
+  text   = "────────────────────────────────────────────────────────"
+  font   = "RaBbLE UI Regular 12"
+  color  = "#2a2840"
+}
+
+# ── Boot menu ──────────────────────────────────────────────────────────────────
++ boot_menu {
+  top                   = 33%
+  left                  = 22%
+  width                 = 56%
+  height                = 52%
+  item_font             = "RaBbLE UI Regular 16"
+  item_color            = "#e8e6f0"
+  selected_item_color   = "#ff2d78"
+  item_height           = 32
+  item_padding          = 10
+  item_spacing          = 6
+  scrollbar             = false
+}
+
+# ── Key hint ───────────────────────────────────────────────────────────────────
++ label {
+  top    = 89%
+  left   = 0
+  width  = 100%
+  align  = "center"
+  text   = "↑↓ select  ·  Enter boot  ·  e edit  ·  c console  ·  Esc back"
+  font   = "RaBbLE UI Regular 12"
+  color  = "#6b6880"
+}
+
+# ── Timer / countdown ──────────────────────────────────────────────────────────
++ progress_bar {
+  id          = "__timeout__"
+  top         = 94%
+  left        = 30%
+  width       = 40%
+  height      = 6
+  fg_color    = "#ff2d78"
+  bg_color    = "#12132a"
+  border_color = "#2a2840"
+}

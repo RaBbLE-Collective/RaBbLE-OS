@@ -39,6 +39,15 @@ lemonade:
 #                src_dir: ..., build_dir: ..., install_prefix: ..., cuda_architectures: "86" }
 # NOTE: must repeat ALL keys — Ansible dict vars replace, not merge.
 
+# ── Console / TTY ─────────────────────────────────────────────
+# ProArt P16 is 3840x2400 — default Terminus 16px is unreadably tiny.
+# ter-v32b = 32pt bold, the right size for 4K @ 16".
+rabble_console_font: "ter-v32b"
+
+# GRUB at logical 1920x1200 so theme fonts are readable on the 4K panel;
+# GFXPAYLOAD=keep passes this framebuffer mode to kernel / Plymouth.
+rabble_gfx_mode: "1920x1200x32"
+
 # ── Boot / Plymouth ───────────────────────────────────────────
 # nvidia-drm.modeset=1: NVIDIA KMS — prevents DRM conflict when dGPU wakes.
 # plymouth.use-simpledrm=1: Plymouth stays on EFI framebuffer (simpledrm)
