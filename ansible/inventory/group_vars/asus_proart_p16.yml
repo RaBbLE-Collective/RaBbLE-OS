@@ -44,9 +44,22 @@ lemonade:
 # ter-v32b = 32pt bold, the right size for 4K @ 16".
 rabble_console_font: "ter-v32b"
 
-# GRUB at logical 1920x1200 so theme fonts are readable on the 4K panel;
-# GFXPAYLOAD=keep passes this framebuffer mode to kernel / Plymouth.
+# GRUB *menu* at logical 1920x1200 so theme fonts are readable on the 4K panel.
 rabble_gfx_mode: "1920x1200x32"
+
+# GFXPAYLOAD = the framebuffer handed to the kernel / simpledrm / Plymouth. It does
+# NOT have to match the GRUB menu mode above. It MUST be the panel's NATIVE 3840x2400.
+#
+# Root cause of the GRUB→Plymouth "black pane over 75% of the screen" (S153, confirmed
+# via dmesg): with GFXPAYLOAD=keep the kernel inherited the 1920x1200 menu mode, so
+# simpledrm came up at 1920x1200 and was painted 1:1 in the top-LEFT QUARTER of the 4K
+# panel (1920x1200 is exactly 1/4 the area of 3840x2400) — leaving 75% black with the
+# liminal bg visible in the quarter — until amdgpu KMS switched to native ~3s later.
+# A native payload makes simpledrm fill the panel AND removes the mid-boot resolution
+# switch (simpledrm 4K → amdgpu 4K, no change). ⚠ UNVERIFIED — reboot-test this.
+# NOTE: Plymouth then renders at 4K; entity/wordmark PNGs look small until their
+# capture resolution is bumped in build-assets.sh (separate visual-polish follow-up).
+rabble_grub_gfxpayload: "3840x2400x32"
 
 # ── Boot / Plymouth ───────────────────────────────────────────
 # fbcon=font:TER16x32: loads Terminus 16x32 kernel font for TTYs early,

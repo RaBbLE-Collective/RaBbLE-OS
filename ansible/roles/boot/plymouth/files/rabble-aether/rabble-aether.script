@@ -32,6 +32,25 @@ Window.SetBackgroundBottomColor(void.r, void.g, void.b);
 screen_w = Window.GetWidth();
 screen_h = Window.GetHeight();
 
+# ── Resolution scaling ───────────────────────────────────────────────────────
+# The fixed-size sprites (entity, wordmark, dot) and text are authored at a 1920-wide
+# reference (build-assets.sh renders at 1920x1080: entity 512², wordmark 352×84). They
+# do NOT auto-scale with the framebuffer, so we scale them by screen width here — the
+# theme then renders at the same PROPORTIONS from 720p to 4K (full-screen bg/grid/
+# scanlines already Scale() to fit). Sprites are scaled once at load, so all the
+# GetWidth()-based geometry below keeps working untouched.
+#   NOTE: current masters are 1920-class — on 4K (scale≈2.0) they UPSCALE, so expect
+#   some interpolation softness until true 4K+ masters are regenerated (see
+#   RaBbLE-Grimoire/RaBbLE-OS/fix/RaBbLE-OS-Fix-BootChain.md → "Boot asset masters").
+ref_w = 1920.0;
+scale = screen_w / ref_w;
+
+# Scaled font point sizes (Image.Text point sizes don't auto-scale). Clamp so text
+# stays legible on small framebuffers.
+fs_sm = Math.Int(10 * scale); if (fs_sm < 9)  fs_sm = 9;
+fs    = Math.Int(11 * scale); if (fs < 10)    fs = 10;
+fs_md = Math.Int(13 * scale); if (fs_md < 11) fs_md = 11;
+
 # ── Liminal background (unified boot-chain canvas) ──────────────────────────
 bg_img = Image("assets/bg-liminal.png");
 bg_img = bg_img.Scale(screen_w, screen_h);
@@ -43,9 +62,9 @@ quiet_mode = 0;
 if (mode == "shutdown" || mode == "reboot")
   quiet_mode = 1;
 
-font_mono      = "JetBrains Mono 11";
-font_mono_sm   = "JetBrains Mono 10";
-font_mono_md   = "JetBrains Mono 13";
+font_mono      = "JetBrains Mono " + fs;
+font_mono_sm   = "JetBrains Mono " + fs_sm;
+font_mono_md   = "JetBrains Mono " + fs_md;
 
 # ── Scanlines overlay ────────────────────────────────────────────────────────
 scan_img = Image("assets/scanlines.png");
@@ -65,12 +84,16 @@ grid_sprite.SetPosition(0, 0, 3);
 frame_count = 96;
 loop_start  = 78;
 
+# Entity target size = master size × scale (square). Sized once here so the
+# GetWidth()-based geometry below stays correct at any resolution.
 for (i = 1; i <= frame_count; i++) {
   if (i < 10)
     fname = "frames/entity-000" + i + ".png";
   else
     fname = "frames/entity-00" + i + ".png";
-  entity_frame[i] = Image(fname);
+  ef = Image(fname);
+  entity_frame[i] = ef.Scale(Math.Int(ef.GetWidth() * scale),
+                             Math.Int(ef.GetHeight() * scale));
 }
 
 # Entity: left quarter of screen, vertically centered (mirrors Boot.html landscape)
@@ -99,9 +122,11 @@ right_cx    = right_start + Math.Int(right_w / 2);
 wm_steps = 48;
 for (i = 0; i < wm_steps; i++) {
   if (i < 10)
-    wm_img[i] = Image("assets/wm-step-00" + i + ".png");
+    wmf = Image("assets/wm-step-00" + i + ".png");
   else
-    wm_img[i] = Image("assets/wm-step-0" + i + ".png");
+    wmf = Image("assets/wm-step-0" + i + ".png");
+  wm_img[i] = wmf.Scale(Math.Int(wmf.GetWidth() * scale),
+                        Math.Int(wmf.GetHeight() * scale));
 }
 
 wm_w = wm_img[0].GetWidth();
@@ -115,7 +140,7 @@ wm_sprite.SetOpacity(0);
 tagline_img = Image.Text("RaBbLE  ·  a Boundless behavioral Learning Engine",
                          violet.r, violet.g, violet.b, 0.78, font_mono_sm);
 tagline_x = right_cx - Math.Int(tagline_img.GetWidth() / 2);
-tagline_y = wm_y + wm_h + 12;
+tagline_y = wm_y + wm_h + Math.Int(12 * scale);
 tagline_sprite = Sprite(tagline_img);
 tagline_sprite.SetPosition(tagline_x, tagline_y, 20);
 tagline_sprite.SetOpacity(0);
@@ -147,7 +172,7 @@ log_lines[15].ts = "[  0.194003]"; log_lines[15].tag = "RaBbLE"; log_lines[15].m
 # Conveyor band: newest line sits at log_baseline_y (~0.70h, just below the entity's
 # lower zone), older lines stack upward toward ~0.45h — fills the reference's log band.
 log_baseline_y = Math.Int(screen_h * 0.70);
-line_h = 20;
+line_h = Math.Int(20 * scale);
 
 for (i = 0; i < log_count; i++) {
   tag = log_lines[i].tag;
@@ -166,7 +191,7 @@ for (i = 0; i < log_count; i++) {
   msg_img = Image.Text(log_lines[i].msg, text.r, text.g, text.b, 0.82, font_mono_sm);
 
   # Left-aligned block anchored to the right section start (mirrors wordmark column)
-  log_lines[i].ts_x  = right_start + 20;
+  log_lines[i].ts_x  = right_start + Math.Int(20 * scale);
   log_lines[i].tag_x = log_lines[i].ts_x + ts_img.GetWidth();
   log_lines[i].msg_x = log_lines[i].tag_x + tag_img.GetWidth();
 
@@ -184,13 +209,16 @@ for (i = 0; i < log_count; i++) {
 
 # ── Progress bar ─────────────────────────────────────────────────────────────
 bar_w = Math.Int(screen_w * 0.34);
-bar_h = 6;
+bar_h = Math.Int(6 * scale); if (bar_h < 3) bar_h = 3;
 bar_x = right_cx - Math.Int(bar_w / 2);
-bar_y = tagline_y + tagline_img.GetHeight() + 22;
+bar_y = tagline_y + tagline_img.GetHeight() + Math.Int(22 * scale);
 
 track_src = Image("assets/bar-track.png");
 fill_src  = Image("assets/bar-fill.png");
 dot_src   = Image("assets/dot.png");
+dot_src   = dot_src.Scale(Math.Int(dot_src.GetWidth() * scale),
+                          Math.Int(dot_src.GetHeight() * scale));
+dot_half  = Math.Int(dot_src.GetWidth() / 2);
 
 track_sprite = Sprite(track_src.Scale(bar_w, bar_h));
 track_sprite.SetPosition(bar_x, bar_y, 40);
@@ -200,11 +228,11 @@ fill_sprite = Sprite();
 fill_sprite.SetPosition(bar_x, bar_y, 41);
 
 dot_sprite = Sprite(dot_src);
-dot_sprite.SetPosition(bar_x - 7, bar_y + Math.Int(bar_h / 2) - 7, 42);
+dot_sprite.SetPosition(bar_x - dot_half, bar_y + Math.Int(bar_h / 2) - dot_half, 42);
 dot_sprite.SetOpacity(0);
 
 pct_sprite = Sprite();
-pct_sprite.SetPosition(right_cx - 20, bar_y + bar_h + 8, 40);
+pct_sprite.SetPosition(right_cx - 20, bar_y + bar_h + Math.Int(8 * scale), 40);
 
 ready_img = Image.Text("◈ Boundless and becoming · ready when you are",
                        violet.r, violet.g, violet.b, 1, font_mono_md);
@@ -214,7 +242,7 @@ ready_sprite.SetOpacity(0);
 
 # ── systemd message line (fsck, etc.) ────────────────────────────────────────
 message_sprite = Sprite();
-message_sprite.SetPosition(bar_x, bar_y - 30, 40);
+message_sprite.SetPosition(bar_x, bar_y - Math.Int(30 * scale), 40);
 
 # ── Password / question dialog ───────────────────────────────────────────────
 panel_src = Image("assets/panel.png");
@@ -225,7 +253,7 @@ dialog.entry_sprite = Sprite();
 
 fun show_dialog(prompt_text, entry_text) {
   panel_w = Math.Int(screen_w * 0.30);
-  panel_h = 96;
+  panel_h = Math.Int(96 * global.scale);
   panel_x = Math.Int((screen_w - panel_w) / 2);
   panel_y = Math.Int(screen_h * 0.70);
 
@@ -236,13 +264,13 @@ fun show_dialog(prompt_text, entry_text) {
   prompt_img = Image.Text(prompt_text, cyan.r, cyan.g, cyan.b, 1, font_mono);
   global.dialog.prompt_sprite.SetImage(prompt_img);
   global.dialog.prompt_sprite.SetPosition(
-    Math.Int((screen_w - prompt_img.GetWidth()) / 2), panel_y + 20, 201);
+    Math.Int((screen_w - prompt_img.GetWidth()) / 2), panel_y + Math.Int(20 * global.scale), 201);
   global.dialog.prompt_sprite.SetOpacity(1);
 
   entry_img = Image.Text(entry_text, magenta.r, magenta.g, magenta.b, 1, font_mono_md);
   global.dialog.entry_sprite.SetImage(entry_img);
   global.dialog.entry_sprite.SetPosition(
-    Math.Int((screen_w - entry_img.GetWidth()) / 2), panel_y + 52, 201);
+    Math.Int((screen_w - entry_img.GetWidth()) / 2), panel_y + Math.Int(52 * global.scale), 201);
   global.dialog.entry_sprite.SetOpacity(1);
 
   global.dialog.up = 1;
@@ -396,7 +424,7 @@ fun refresh_callback() {
   track_sprite.SetOpacity(0.55 * fade);
 
   if (w > 2) {
-    dot_sprite.SetPosition(bar_x + w - 7, bar_y + Math.Int(bar_h / 2) - 7, 42);
+    dot_sprite.SetPosition(bar_x + w - dot_half, bar_y + Math.Int(bar_h / 2) - dot_half, 42);
     dot_sprite.SetOpacity(fade);
   } else {
     dot_sprite.SetOpacity(0);
@@ -411,7 +439,7 @@ fun refresh_callback() {
       pct_str = pct + "%";
     pct_img = Image.Text(pct_str, muted.r, muted.g, muted.b, 1, font_mono_sm);
     pct_sprite.SetImage(pct_img);
-    pct_sprite.SetPosition(right_cx - Math.Int(pct_img.GetWidth() / 2), bar_y + bar_h + 8, 40);
+    pct_sprite.SetPosition(right_cx - Math.Int(pct_img.GetWidth() / 2), bar_y + bar_h + Math.Int(8 * scale), 40);
     global.last_pct = pct;
   }
   pct_sprite.SetOpacity(fade);
