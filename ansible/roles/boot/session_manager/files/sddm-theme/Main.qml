@@ -1,7 +1,7 @@
 // =============================================================================
-// Main.qml — RaBbLE Aether SDDM greeter
+// Main.qml — RaBbLE Aether SDDM greeter — Retrowave Edition
 //
-// Void and neon. Pure QML — no wallpaper, no image assets. Qt6 / SDDM 0.21.
+// Synthwave outrun grid. Pure QML — no image assets. Qt6 / SDDM 0.21.
 // Glows via QtQuick.Effects MultiEffect (ships with qt6-qtdeclarative).
 // Palette: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md only.
 // =============================================================================
@@ -19,17 +19,41 @@ Rectangle {
     readonly property color cMagenta: "#ff2d78"
     readonly property color cCyan:    "#00f5ff"
     readonly property color cViolet:  "#bf5fff"
+    readonly property color cPink:    "#ff79c6"
     readonly property color cText:    "#e8e6f0"
     readonly property color cMuted:   "#6b6880"
 
-    readonly property string monoFamily: "JetBrains Mono"
+    readonly property string monoFamily:    "JetBrains Mono"
+    readonly property string displayFamily: orbitronLoader.status === 1
+                                            ? orbitronLoader.name : "JetBrains Mono"
+
+    FontLoader { id: exo2Loader;    source: "assets/fonts/Exo2-Variable.ttf"    }
+    FontLoader { id: orbitronLoader; source: "assets/fonts/Orbitron-Variable.ttf" }
     property bool authBusy: false
+    property string currentUser: userModel.lastUser
+    property int currentSessionIndex: sessionModel.lastIndex
 
     function doLogin() {
-        if (authBusy || userInput.text === "")
+        if (authBusy || currentUser === "")
             return;
         authBusy = true;
-        sddm.login(userInput.text, passInput.text, sessionModel.lastIndex);
+        sddm.login(currentUser, passInput.text, currentSessionIndex);
+    }
+
+    function cycleUser() {
+        if (userModel.count < 2) return;
+        for (var i = 0; i < userModel.count; i++) {
+            if (userModel.get(i, "name") === currentUser) {
+                currentUser = userModel.get((i + 1) % userModel.count, "name");
+                return;
+            }
+        }
+        currentUser = userModel.get(0, "name");
+    }
+
+    function cycleSession() {
+        if (sessionModel.count < 2) return;
+        currentSessionIndex = (currentSessionIndex + 1) % sessionModel.count;
     }
 
     Connections {
@@ -43,240 +67,196 @@ Rectangle {
         function onLoginSucceeded() { }
     }
 
-    // ── Background: radial breath from surface to void ──────────────────────
-    Canvas {
+    // ── Background ────────────────────────────────────────────────────────────
+    Image {
         anchors.fill: parent
-        onPaint: {
-            var ctx = getContext("2d");
-            var r = Math.max(width, height) * 0.6;
-            var grad = ctx.createRadialGradient(width / 2, height / 2, 0,
-                                                width / 2, height / 2, r);
-            grad.addColorStop(0.0, root.cSurface);
-            grad.addColorStop(1.0, root.cVoid);
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, width, height);
-        }
+        source: "assets/bg.png"
+        fillMode: Image.PreserveAspectCrop
+        smooth: true
     }
 
-    // ── Scanlines: 2px dark bands, ~6% opacity ───────────────────────────────
-    Canvas {
-        anchors.fill: parent
-        opacity: 0.06
-        onPaint: {
-            var ctx = getContext("2d");
-            ctx.fillStyle = "#000000";
-            for (var y = 0; y < height; y += 4)
-                ctx.fillRect(0, y, width, 2);
-        }
+    // ── Clock ─────────────────────────────────────────────────────────────────
+    Timer {
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: clockText.refresh()
     }
 
-    // ── Center column ────────────────────────────────────────────────────────
+    Text {
+        id: clockText
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.topMargin: parent.height * 0.08
+
+        function refresh() {
+            var d = new Date();
+            var h = d.getHours();
+            var m = d.getMinutes();
+            var sfx = h >= 12 ? " pm" : " am";
+            h = h % 12 || 12;
+            text = h + ":" + (m < 10 ? "0" + m : m) + sfx;
+        }
+        Component.onCompleted: refresh()
+
+        color: root.cText
+        font.family: root.displayFamily
+        font.pixelSize: Math.min(root.width * 0.075, 72)
+        font.letterSpacing: 4
+        opacity: 0.82
+    }
+
+    // ── Center column: entity + form ──────────────────────────────────────────
     Column {
         id: centerCol
-        width: Math.min(420, root.width - 80)
-        anchors.centerIn: parent
-        spacing: 14
+        width: Math.min(400, root.width - 80)
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: parent.height * 0.01
+        spacing: 12
 
-        // sigil with pulsing magenta glow
+        // Entity: NeBuLA idle animation — 48 frames, 512×512 RGBA, transparent bg
         Item {
+            id: entityArea
             width: parent.width
-            height: 64
+            height: 320
 
-            Text {
-                id: sigil
+            Image {
+                id: entityAnim
                 anchors.centerIn: parent
-                text: "◈"
-                color: root.cViolet
-                font.pixelSize: 48
-            }
-            MultiEffect {
-                id: sigilGlow
-                source: sigil
-                anchors.fill: sigil
-                blurEnabled: true
-                blur: 1.0
-                blurMax: 24
-                colorization: 1.0
-                colorizationColor: root.cMagenta
-                opacity: 0.4
-                SequentialAnimation on opacity {
-                    loops: Animation.Infinite
-                    NumberAnimation { to: 0.9; duration: 1000; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.4; duration: 1000; easing.type: Easing.InOutSine }
+                width: 320
+                height: 320
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                source: "assets/entity-idle-%1.png".arg(
+                    ("000" + entityAnim.frameIdx).slice(-3))
+
+                property int frameIdx: 0
+
+                Timer {
+                    interval: 60
+                    running: true
+                    repeat: true
+                    onTriggered: entityAnim.frameIdx = (entityAnim.frameIdx + 1) % 48
                 }
             }
+            MultiEffect {
+                source: entityAnim
+                anchors.fill: entityAnim
+                blurEnabled: true
+                blur: 0.7
+                blurMax: 40
+                colorization: 0.2
+                colorizationColor: "#00f5ff"
+                opacity: 0.65
+            }
         }
 
-        // wordmark — neon cycle magenta -> cyan -> violet
+        // Username — Orbitron, color-cycles through Aether neons, works for any username
         Text {
-            id: wordmark
+            id: usernameText
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "RaBbLE"
-            color: root.cMagenta
-            font.family: root.monoFamily
-            font.bold: true
-            font.pixelSize: 48
+            text: root.currentUser !== "" ? root.currentUser : "guest"
+            font.family: root.displayFamily
+            font.pixelSize: 32
+            font.weight: Font.Black
+            font.letterSpacing: 3
+            color: root.cCyan
             SequentialAnimation on color {
                 loops: Animation.Infinite
-                ColorAnimation { to: root.cCyan;    duration: 2000 }
-                ColorAnimation { to: root.cViolet;  duration: 2000 }
-                ColorAnimation { to: root.cMagenta; duration: 2000 }
+                ColorAnimation { to: root.cMagenta; duration: 900; easing.type: Easing.InOutSine }
+                ColorAnimation { to: root.cViolet;  duration: 900; easing.type: Easing.InOutSine }
+                ColorAnimation { to: root.cCyan;    duration: 900; easing.type: Easing.InOutSine }
             }
         }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: "behavioral learning engine"
-            color: root.cViolet
-            opacity: 0.78
-            font.family: root.monoFamily
-            font.pixelSize: 11
-            font.letterSpacing: 3
-        }
+        Item { width: 1; height: 6 }
 
-        Item { width: 1; height: 10 }   // breathing room
-
-        // ── username ──
-        Rectangle {
-            id: userField
-            width: parent.width
-            height: 48
-            radius: 10
-            color: root.cRaised
-            border.width: 1
-            border.color: userInput.activeFocus ? "#66bf5fff" : root.cBorder
-
-            TextInput {
-                id: userInput
-                anchors.fill: parent
-                anchors.leftMargin: 16
-                anchors.rightMargin: 16
-                verticalAlignment: TextInput.AlignVCenter
-                color: root.cText
-                font.family: root.monoFamily
-                font.pixelSize: 16
-                clip: true
-                text: userModel.lastUser
-                KeyNavigation.tab: passInput
-                Keys.onReturnPressed: passInput.forceActiveFocus()
-                Keys.onEnterPressed: passInput.forceActiveFocus()
-            }
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.left: parent.left
-                anchors.leftMargin: 16
-                text: "user"
-                color: root.cMuted
-                font.family: root.monoFamily
-                font.pixelSize: 16
-                visible: userInput.text === "" && !userInput.activeFocus
-            }
-        }
-
-        // ── passphrase ──
+        // ── Passphrase field ──
         Rectangle {
             id: passField
             width: parent.width
             height: 48
-            radius: 10
+            radius: 24
             color: root.cRaised
-            border.width: 1
-            border.color: passInput.text.length > 0 ? "#3300f5ff"
-                        : passInput.activeFocus     ? "#66bf5fff"
-                                                    : root.cBorder
+
+            // Aether flowing gradient border — magenta → cyan → violet cycle
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width + 3
+                height: parent.height + 3
+                radius: parent.radius + 2
+                z: -1
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop {
+                        position: 0.0
+                        color: "#ff2d78"
+                        SequentialAnimation on color {
+                            loops: Animation.Infinite
+                            ColorAnimation { to: "#00f5ff"; duration: 1800; easing.type: Easing.InOutSine }
+                            ColorAnimation { to: "#bf5fff"; duration: 1800; easing.type: Easing.InOutSine }
+                            ColorAnimation { to: "#ff2d78"; duration: 1800; easing.type: Easing.InOutSine }
+                        }
+                    }
+                    GradientStop {
+                        position: 1.0
+                        color: "#00f5ff"
+                        SequentialAnimation on color {
+                            loops: Animation.Infinite
+                            ColorAnimation { to: "#bf5fff"; duration: 1800; easing.type: Easing.InOutSine }
+                            ColorAnimation { to: "#ff2d78"; duration: 1800; easing.type: Easing.InOutSine }
+                            ColorAnimation { to: "#00f5ff"; duration: 1800; easing.type: Easing.InOutSine }
+                        }
+                    }
+                }
+            }
 
             MultiEffect {
                 source: passField
                 anchors.fill: passField
                 blurEnabled: true
-                blur: 0.6
+                blur: 0.8
                 blurMax: 16
                 colorization: 1.0
-                colorizationColor: root.cCyan
-                opacity: passInput.text.length > 0 ? 0.35 : 0
+                colorizationColor: "#00f5ff"
+                opacity: passInput.text.length > 0 ? 0.3 : 0
                 z: -1
                 Behavior on opacity { NumberAnimation { duration: 200 } }
             }
+
             TextInput {
                 id: passInput
                 anchors.fill: parent
-                anchors.leftMargin: 16
-                anchors.rightMargin: 16
+                anchors.leftMargin: 20
+                anchors.rightMargin: 20
                 verticalAlignment: TextInput.AlignVCenter
+                horizontalAlignment: TextInput.AlignHCenter
                 color: root.cText
                 font.family: root.monoFamily
-                font.pixelSize: 16
+                font.pixelSize: 20
                 clip: true
                 echoMode: TextInput.Password
                 passwordCharacter: "•"
-                KeyNavigation.tab: userInput
                 Keys.onReturnPressed: root.doLogin()
                 Keys.onEnterPressed: root.doLogin()
             }
             Text {
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.left: parent.left
-                anchors.leftMargin: 16
-                text: "••••••••••••"
+                anchors.centerIn: parent
+                text: "••••"
                 color: root.cMuted
                 font.family: root.monoFamily
-                font.pixelSize: 16
+                font.pixelSize: 20
                 visible: passInput.text === "" && !passInput.activeFocus
             }
         }
 
-        // ── authenticate ──
-        Item {
-            width: parent.width
-            height: 48
-
-            Rectangle {
-                id: loginBtn
-                anchors.fill: parent
-                radius: 10
-                opacity: root.authBusy ? 0.55 : 1.0
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: root.cMagenta }
-                    GradientStop { position: 1.0; color: root.cViolet }
-                }
-                Text {
-                    anchors.centerIn: parent
-                    text: root.authBusy ? "AUTHENTICATING…" : "AUTHENTICATE"
-                    color: root.cText
-                    font.family: root.monoFamily
-                    font.bold: true
-                    font.pixelSize: 14
-                    font.letterSpacing: 1.1
-                }
-                MouseArea {
-                    id: loginMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.doLogin()
-                }
-            }
-            MultiEffect {
-                source: loginBtn
-                anchors.fill: loginBtn
-                blurEnabled: true
-                blur: 1.0
-                blurMax: loginMouse.containsMouse ? 32 : 20
-                colorization: 1.0
-                colorizationColor: root.cMagenta
-                opacity: loginMouse.containsMouse ? 0.65 : 0.35
-                z: -1
-                Behavior on opacity { NumberAnimation { duration: 150 } }
-            }
-        }
-
-        // ── reaction line ──
+        // ── Reaction line ──
         Text {
             id: errorLine
             anchors.horizontalCenter: parent.horizontalCenter
-            height: 18
-            text: "◈ authentication failed"
+            height: 16
+            text: "authentication failed"
             color: root.cMagenta
             font.family: root.monoFamily
             font.pixelSize: 12
@@ -291,47 +271,103 @@ Rectangle {
         }
     }
 
-    // ── Footer: power / reboot ───────────────────────────────────────────────
+    // ── Session label (above footer) ─────────────────────────────────────────
+    Text {
+        id: sessionLabel
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: footerRow.top
+        anchors.bottomMargin: 8
+        text: sessionModel.count > 0 ? sessionModel.get(root.currentSessionIndex, "name") : ""
+        color: root.cMuted
+        font.family: root.monoFamily
+        font.pixelSize: 11
+        font.letterSpacing: 2
+        opacity: 0.6
+    }
+
+    // ── Footer ────────────────────────────────────────────────────────────────
     Row {
+        id: footerRow
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 20
-        spacing: 56
+        anchors.bottomMargin: 24
+        spacing: 36
 
         Text {
             text: "⏻"
             visible: sddm.canPowerOff
-            font.pixelSize: 24
+            font.pixelSize: 22
             color: powerMouse.containsMouse ? root.cCyan : root.cMuted
             MouseArea {
                 id: powerMouse
                 anchors.fill: parent
-                anchors.margins: -8
+                anchors.margins: -10
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: sddm.powerOff()
             }
         }
+
         Text {
             text: "↺"
             visible: sddm.canReboot
-            font.pixelSize: 24
+            font.pixelSize: 22
             color: rebootMouse.containsMouse ? root.cCyan : root.cMuted
             MouseArea {
                 id: rebootMouse
                 anchors.fill: parent
-                anchors.margins: -8
+                anchors.margins: -10
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: sddm.reboot()
             }
         }
+
+        Text {
+            text: "⏾"
+            visible: sddm.canSuspend
+            font.pixelSize: 22
+            color: suspendMouse.containsMouse ? root.cCyan : root.cMuted
+            MouseArea {
+                id: suspendMouse
+                anchors.fill: parent
+                anchors.margins: -10
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: sddm.suspend()
+            }
+        }
+
+        // Change user — cycles userModel, updates username display
+        Text {
+            text: "⇌"
+            font.pixelSize: 22
+            color: userCycleMouse.containsMouse ? root.cCyan : root.cMuted
+            MouseArea {
+                id: userCycleMouse
+                anchors.fill: parent
+                anchors.margins: -10
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.cycleUser()
+            }
+        }
+
+        // Swap DE — cycles sessionModel, updates session label
+        Text {
+            text: "⊞"
+            font.pixelSize: 22
+            color: sessionCycleMouse.containsMouse ? root.cCyan : root.cMuted
+            MouseArea {
+                id: sessionCycleMouse
+                anchors.fill: parent
+                anchors.margins: -10
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.cycleSession()
+            }
+        }
     }
 
-    Component.onCompleted: {
-        if (userInput.text === "")
-            userInput.forceActiveFocus();
-        else
-            passInput.forceActiveFocus();
-    }
+    Component.onCompleted: passInput.forceActiveFocus()
 }

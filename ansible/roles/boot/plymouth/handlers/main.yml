@@ -1,6 +1,6 @@
 ---
 - name: rebuild font cache
-  ansible.builtin.command: fc-cache -f /usr/share/fonts/rabble-fonts
+  ansible.builtin.command: fc-cache -fv
   become: true
 
 - name: rebuild initrd

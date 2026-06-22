@@ -15,10 +15,10 @@
   become: true
   tags: [boot, plymouth, config]
 
-- name: Install Orbitron Bold font
+- name: Install Orbitron variable font
   ansible.builtin.copy:
-    src: rabble-aether/fonts/Orbitron-Bold.ttf
-    dest: /usr/share/fonts/rabble-fonts/Orbitron-Bold.ttf
+    src: rabble-aether/fonts/Orbitron-Variable.ttf
+    dest: /usr/share/fonts/rabble-fonts/Orbitron-Variable.ttf
     owner: root
     group: root
     mode: "0644"
@@ -46,7 +46,7 @@
       # add_drivers: forces amdgpu into initrd so Plymouth starts in DRM mode from
       # frame 1, eliminating the simpledrm→KMS transition black flash.
       # Pango falls back to DejaVu Sans if font paths are ever missing.
-      install_items+=" /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Bold.otf /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Regular.otf /usr/share/fonts/rabble-fonts/Orbitron-Bold.ttf "
+      install_items+=" /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Bold.otf /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Regular.otf /usr/share/fonts/rabble-fonts/Orbitron-Variable.ttf "
       add_drivers+=" amdgpu "
     owner: root
     group: root
