@@ -4,10 +4,16 @@
 # Colors:  bg #0a0010  magenta #ff2d78  cyan #00f5ff  violet #bf5fff
 #          text #e8e6f0  muted #6b6880  surface #12132a  border #2a2840
 #
-# Fonts generated at deploy time by boot/grub2 Ansible role.
+# Background: pre-rendered at 24bpp RGB (GRUB limitation: <=24bpp) via
+#   build-grub-bg.py  — composites entity + floor grid + wordmark.
+#   Falls back to desktop-color if grub-bg.png is missing.
+#
+# Fonts generated at deploy time by boot/grub2 Ansible role (Noto Sans only —
+# sizes 12/16/18/36, all named "RaBbLE UI Regular"):
 # grub2-mkfont -s SIZE -n "RaBbLE UI Regular" -o notoSIZE.pf2 NotoSans-Regular.ttf
 # Falls back to GRUB built-in font if generation fails.
 
+desktop-image: "grub-bg.png"
 desktop-color: "#0a0010"
 title-color: "#ff2d78"
 title-font: "RaBbLE UI Regular 36"

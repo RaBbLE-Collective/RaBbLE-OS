@@ -75,6 +75,73 @@ Rectangle {
         smooth: true
     }
 
+    // ── Top "waybar" strip (Aether-styled status bar) ───────────────────────────
+    // NOTE: the SDDM greeter cannot host the real Waybar or live battery/network
+    // widgets — those need a running user session. This is the Aether-styled strip
+    // from the mockup, showing what the greeter actually knows: a RaBbLE workspace
+    // pill (left) and session + caps-lock state (right). Live battery/wifi widgets
+    // are a follow-up that needs a small backend feeding the greeter.
+    Rectangle {
+        id: topBar
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 34
+        color: Qt.rgba(0.07, 0.075, 0.16, 0.55)   // cSurface @ ~55%
+
+        Rectangle {   // Aether hairline along the bottom edge
+            anchors.bottom: parent.bottom
+            width: parent.width
+            height: 1
+            color: root.cBorder
+        }
+
+        Rectangle {   // left: RaBbLE workspace pill
+            anchors.left: parent.left
+            anchors.leftMargin: 14
+            anchors.verticalCenter: parent.verticalCenter
+            width: rabbleTag.width + 20
+            height: 22
+            radius: 11
+            color: Qt.rgba(1.0, 0.176, 0.443, 0.16)   // magenta tint
+            border.color: root.cMagenta
+            border.width: 1
+            Text {
+                id: rabbleTag
+                anchors.centerIn: parent
+                text: "◈ RaBbLE"
+                color: root.cMagenta
+                font.family: root.monoFamily
+                font.pixelSize: 12
+                font.letterSpacing: 1
+            }
+        }
+
+        Row {   // right: caps-lock + session (real greeter state)
+            anchors.right: parent.right
+            anchors.rightMargin: 16
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 18
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: keyboard.capsLock ? "⇪ CAPS" : ""
+                color: root.cMagenta
+                font.family: root.monoFamily
+                font.pixelSize: 11
+                font.letterSpacing: 2
+            }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: sessionModel.count > 0
+                      ? sessionModel.get(root.currentSessionIndex, "name") : ""
+                color: root.cCyan
+                font.family: root.monoFamily
+                font.pixelSize: 11
+                font.letterSpacing: 2
+            }
+        }
+    }
+
     // ── Clock ─────────────────────────────────────────────────────────────────
     Timer {
         interval: 1000
@@ -85,9 +152,10 @@ Rectangle {
 
     Text {
         id: clockText
+        // Sit just above the entity (compact) instead of pinned near the top edge.
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: parent.height * 0.08
+        anchors.bottom: centerCol.top
+        anchors.bottomMargin: 6
 
         function refresh() {
             var d = new Date();
@@ -101,43 +169,59 @@ Rectangle {
 
         color: root.cText
         font.family: root.displayFamily
-        font.pixelSize: Math.min(root.width * 0.075, 72)
-        font.letterSpacing: 4
-        opacity: 0.82
+        font.pixelSize: Math.min(root.width * 0.085, 92)
+        font.weight: Font.Black
+        font.letterSpacing: 6
+        opacity: 0.95
     }
 
     // ── Center column: entity + form ──────────────────────────────────────────
     Column {
         id: centerCol
-        width: Math.min(400, root.width - 80)
+        width: Math.min(460, root.width - 80)
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: parent.height * 0.01
-        spacing: 12
+        anchors.verticalCenterOffset: parent.height * 0.03
+        spacing: 10
 
         // Entity: NeBuLA idle animation — 48 frames, 512×512 RGBA, transparent bg
+        // Sized to dominate the upper-center (mockup); overflows the 460 column
+        // slightly but it's transparent glow, so the form below stays centered.
         Item {
             id: entityArea
             width: parent.width
-            height: 320
+            height: 460
 
             Image {
                 id: entityAnim
                 anchors.centerIn: parent
-                width: 320
-                height: 320
+                width: 460
+                height: 460
                 fillMode: Image.PreserveAspectFit
                 smooth: true
                 source: "assets/entity-idle-%1.png".arg(
                     ("000" + entityAnim.frameIdx).slice(-3))
 
                 property int frameIdx: 0
+                // Ping-pong direction (+1 forward, -1 backward). STOPGAP loop —
+                // a true seamless loop is a planned future pass (see fix doc).
+                property int frameDir: 1
 
                 Timer {
                     interval: 60
                     running: true
                     repeat: true
-                    onTriggered: entityAnim.frameIdx = (entityAnim.frameIdx + 1) % 48
+                    onTriggered: {
+                        var next = entityAnim.frameIdx + entityAnim.frameDir;
+                        if (next >= 48) {
+                            entityAnim.frameDir = -1;
+                            next = 47;
+                        } else if (next <= 0) {
+                            entityAnim.frameDir = 1;
+                            next = 0;
+                        }
+                        entityAnim.frameIdx = next;
+                    }
                 }
             }
             MultiEffect {
@@ -152,11 +236,17 @@ Rectangle {
             }
         }
 
-        // Username — Orbitron, color-cycles through Aether neons, works for any username
+        // Username — Orbitron, color-cycles through Aether neons
+        // Transforms known lowercase username to canonical RaBbLE case
         Text {
             id: usernameText
             anchors.horizontalCenter: parent.horizontalCenter
-            text: root.currentUser !== "" ? root.currentUser : "guest"
+            text: {
+                var u = root.currentUser;
+                if (u === "") return "guest";
+                if (u.toLowerCase() === "rabble") return "RaBbLE";
+                return u.charAt(0).toUpperCase() + u.slice(1).toLowerCase();
+            }
             font.family: root.displayFamily
             font.pixelSize: 32
             font.weight: Font.Black
@@ -286,18 +376,31 @@ Rectangle {
     }
 
     // ── Footer ────────────────────────────────────────────────────────────────
+    // Contrast backing pill — the power glyphs were low-contrast against the
+    // magenta floor grid; this translucent surface + Aether border lifts them.
+    Rectangle {
+        anchors.horizontalCenter: footerRow.horizontalCenter
+        anchors.verticalCenter: footerRow.verticalCenter
+        width: footerRow.width + 48
+        height: footerRow.height + 22
+        radius: height / 2
+        color: Qt.rgba(0.039, 0.0, 0.063, 0.62)   // cVoid @ ~62%
+        border.color: root.cBorder
+        border.width: 1
+    }
+
     Row {
         id: footerRow
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 24
-        spacing: 36
+        anchors.bottomMargin: 28
+        spacing: 40
 
         Text {
             text: "⏻"
             visible: sddm.canPowerOff
-            font.pixelSize: 22
-            color: powerMouse.containsMouse ? root.cCyan : root.cMuted
+            font.pixelSize: 26
+            color: powerMouse.containsMouse ? root.cCyan : root.cText
             MouseArea {
                 id: powerMouse
                 anchors.fill: parent
@@ -311,8 +414,8 @@ Rectangle {
         Text {
             text: "↺"
             visible: sddm.canReboot
-            font.pixelSize: 22
-            color: rebootMouse.containsMouse ? root.cCyan : root.cMuted
+            font.pixelSize: 26
+            color: rebootMouse.containsMouse ? root.cCyan : root.cText
             MouseArea {
                 id: rebootMouse
                 anchors.fill: parent
@@ -326,8 +429,8 @@ Rectangle {
         Text {
             text: "⏾"
             visible: sddm.canSuspend
-            font.pixelSize: 22
-            color: suspendMouse.containsMouse ? root.cCyan : root.cMuted
+            font.pixelSize: 26
+            color: suspendMouse.containsMouse ? root.cCyan : root.cText
             MouseArea {
                 id: suspendMouse
                 anchors.fill: parent
@@ -341,8 +444,8 @@ Rectangle {
         // Change user — cycles userModel, updates username display
         Text {
             text: "⇌"
-            font.pixelSize: 22
-            color: userCycleMouse.containsMouse ? root.cCyan : root.cMuted
+            font.pixelSize: 26
+            color: userCycleMouse.containsMouse ? root.cCyan : root.cText
             MouseArea {
                 id: userCycleMouse
                 anchors.fill: parent
@@ -356,8 +459,8 @@ Rectangle {
         // Swap DE — cycles sessionModel, updates session label
         Text {
             text: "⊞"
-            font.pixelSize: 22
-            color: sessionCycleMouse.containsMouse ? root.cCyan : root.cMuted
+            font.pixelSize: 26
+            color: sessionCycleMouse.containsMouse ? root.cCyan : root.cText
             MouseArea {
                 id: sessionCycleMouse
                 anchors.fill: parent

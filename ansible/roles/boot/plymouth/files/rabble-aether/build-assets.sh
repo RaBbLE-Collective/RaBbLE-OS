@@ -134,7 +134,31 @@ for fname in frames:
 print(f'alpha pass: {len(frames)} frames processed')
 PYEOF
 
-# ── 3. Static overlay assets ─────────────────────────────────────────────────
+# ── 3. Liminal background (unified boot-chain canvas from BaBbLE) ──────────
+# Source of truth: RaBbLE-BaBbLE/RaBbLE_boot_Liminal_BG.png
+# Resized for Plymouth at 1920x1200 RGBA. Also generates GRUB 24bpp + SDDM bg.
+LIMINAL_SRC="${RABBLE_COLLECTIVE_ROOT:-$(dirname "$THEME_DIR")/../../../../../../}/RaBbLE-BaBbLE/RaBbLE_boot_Liminal_BG.png"
+if [ -f "$LIMINAL_SRC" ]; then
+    echo "── unifying liminal background across boot chain"
+    python3 -c "
+import sys; sys.path.insert(0, '.')
+from PIL import Image
+src = Image.open('$LIMINAL_SRC').convert('RGBA')
+# Plymouth (RGBA, compositing-ready)
+src.resize((1920, 1200), Image.LANCZOS).save('$A/bg-liminal.png', optimize=True)
+# SDDM (RGB, background)
+src.resize((1920, 1200), Image.LANCZOS).convert('RGB').save(
+    '$THEME_DIR/../../session_manager/files/sddm-theme/assets/bg.png', optimize=True)
+# GRUB (RGB, 24bpp for <=24bpp requirement)
+src.resize((1920, 1200), Image.LANCZOS).convert('RGB').save(
+    '$THEME_DIR/../../grub2/files/theme/grub-bg.png', optimize=True)
+print('liminal bg: plymouth + sddm + grub unified')
+"
+else
+    echo "⚠ Liminal BG not found at $LIMINAL_SRC — skipping unified background"
+fi
+
+# ── 4. Static overlay assets ─────────────────────────────────────────────────
 # Palette: #0a0010 void · #2a2840 border · #ff2d78 magenta · #00f5ff cyan
 # · #1a1b2e raised — RaBbLE-Palette.md only.
 A="$THEME_DIR/assets"; mkdir -p "$A"
@@ -148,7 +172,7 @@ ffmpeg -loglevel error -f lavfi -i "color=c=black@0.0:s=14x14,format=rgba" \
 ffmpeg -loglevel error -f lavfi -i "color=c=black@0.0:s=8x8,format=rgba" \
   -vf "geq=r=26:g=27:b=46:a=230" -frames:v 1 -y "$A/panel.png"
 
-# ── 4. Floor grid (cyan/magenta perspective, transparent PNG) ─────────────────
+# ── 5. Floor grid (cyan/magenta perspective, transparent PNG) ─────────────────
 # Ported from NeBuLA AmbientField._bakeGrid: VP at (W/2, H*0.74), 18 radial
 # fan lines alternating cyan/magenta + 11 horizontal power-curved lines.
 cat > "$WORK/grid.mjs" <<'EOF'
@@ -194,7 +218,7 @@ EOF
 echo "── baking floor grid"
 (cd "$WORK" && node grid.mjs "$A/floor-grid.png")
 
-# ── 5. Wordmark: 48 Orbitron 900 color-cycle PNGs from live Aether CSS ───────
+# ── 6. Wordmark: 48 Orbitron 900 color-cycle PNGs from live Aether CSS ───────
 # Loads a minimal page that imports aether.css from the dev server, then
 # applies .entity-wordmark.rabble-brand-flow exactly as the landing page does.
 # 48 frames are captured across the brand-harmony 7s animation cycle via

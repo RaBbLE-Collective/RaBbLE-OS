@@ -32,6 +32,12 @@ Window.SetBackgroundBottomColor(void.r, void.g, void.b);
 screen_w = Window.GetWidth();
 screen_h = Window.GetHeight();
 
+# ── Liminal background (unified boot-chain canvas) ──────────────────────────
+bg_img = Image("assets/bg-liminal.png");
+bg_img = bg_img.Scale(screen_w, screen_h);
+bg_sprite = Sprite(bg_img);
+bg_sprite.SetPosition(0, 0, 1);
+
 mode = Plymouth.GetMode();
 quiet_mode = 0;
 if (mode == "shutdown" || mode == "reboot")
@@ -114,24 +120,33 @@ tagline_sprite = Sprite(tagline_img);
 tagline_sprite.SetPosition(tagline_x, tagline_y, 20);
 tagline_sprite.SetOpacity(0);
 
-# ── Boot log (conveyor: bottom-center, lines scroll up, ~5 visible at once) ──
-log_count = 14;
-log_lines[0].ts  = "[  0.000000]"; log_lines[0].tag  = "INFO";   log_lines[0].msg  = "Initializing cgroup subsystems";
-log_lines[1].ts  = "[  0.000001]"; log_lines[1].tag  = "INFO";   log_lines[1].msg  = "BIOS-provided physical RAM map: ∞ bytes available";
-log_lines[2].ts  = "[  0.000034]"; log_lines[2].tag  = "INFO";   log_lines[2].msg  = "ACPI: RSDP 0xBF5FFF00 000024 (v02 RaBbLE)";
-log_lines[3].ts  = "[  0.001200]"; log_lines[3].tag  = " OK ";   log_lines[3].msg  = "Reached target Early Initialization";
-log_lines[4].ts  = "[  0.012004]"; log_lines[4].tag  = "INFO";   log_lines[4].msg  = "Calibrating behavioral noise floor...";
-log_lines[5].ts  = "[  0.012006]"; log_lines[5].tag  = " OK ";   log_lines[5].msg  = "Entropy baseline locked: δ = 0.4182 · variance within tolerance";
-log_lines[6].ts  = "[  0.028331]"; log_lines[6].tag  = "INFO";   log_lines[6].msg  = "Loading kernel module: rabble_pattern.ko";
-log_lines[7].ts  = "[  0.028332]"; log_lines[7].tag  = " OK ";   log_lines[7].msg  = "Pattern recognition engine: ONLINE · 14 pattern classes loaded";
-log_lines[8].ts  = "[  0.041007]"; log_lines[8].tag  = "INFO";   log_lines[8].msg  = "Mounting memoryfs on /substrate/memory type memoryfs (rw,relatime)";
-log_lines[9].ts  = "[  0.041009]"; log_lines[9].tag  = " OK ";   log_lines[9].msg  = "Memory substrate: MOUNTED · 047 sessions indexed";
-log_lines[10].ts = "[  0.088003]"; log_lines[10].tag = "INFO";   log_lines[10].msg = "Starting RaBbLE behavioral core...";
-log_lines[11].ts = "[  0.112551]"; log_lines[11].tag = " OK ";   log_lines[11].msg = "RaBbLE behavioral core: RUNNING · process ID 1337";
-log_lines[12].ts = "[  0.122005]"; log_lines[12].tag = "RaBbLE"; log_lines[12].msg = "◈ Session detected · entropy elevated · curious mode engaged";
-log_lines[13].ts = "[  0.138003]"; log_lines[13].tag = " OK ";   log_lines[13].msg = "Network Manager: ACTIVE · connection established";
+# ── Boot log (prebaked theatrical lore — conveyor, newest at baseline, scrolls up) ──
+# DESIGN NOTE (S153): live systemd-message injection was tried and reverted — it read
+# as messy noise in practice. The boot splash is a *performance*, so the log is fully
+# prebaked behavioral lore (mirrors RaBbLE-Boot.html). Real systemd messages (fsck,
+# device waits) still surface on the separate `message_sprite` line above the bar.
+# Format per line: muted timestamp · color-coded [TAG] · text message.
+log_count = 16;
+log_lines[0].ts  = "[  0.000000]"; log_lines[0].tag  = "INFO";   log_lines[0].msg  = "Initializing behavioral substrate…";
+log_lines[1].ts  = "[  0.012004]"; log_lines[1].tag  = " OK ";   log_lines[1].msg  = "Entropy baseline locked · δ = 0.4182 · within tolerance";
+log_lines[2].ts  = "[  0.041007]"; log_lines[2].tag  = "INFO";   log_lines[2].msg  = "Mounting memory substrate (rw,relatime)";
+log_lines[3].ts  = "[  0.041009]"; log_lines[3].tag  = " OK ";   log_lines[3].msg  = "Memory substrate: MOUNTED · 047 sessions indexed";
+log_lines[4].ts  = "[  0.088003]"; log_lines[4].tag  = "INFO";   log_lines[4].msg  = "Starting RaBbLE behavioral core…";
+log_lines[5].ts  = "[  0.112551]"; log_lines[5].tag  = " OK ";   log_lines[5].msg  = "RaBbLE behavioral core: RUNNING · process ID 1337";
+log_lines[6].ts  = "[  0.122004]"; log_lines[6].tag  = "INFO";   log_lines[6].msg  = "Loading user profile: ID:HUMAN_001 · session 048";
+log_lines[7].ts  = "[  0.122005]"; log_lines[7].tag  = "RaBbLE"; log_lines[7].msg  = "✷ Morning session detected · entropy elevated · curious mode engaged";
+log_lines[8].ts  = "[  0.130002]"; log_lines[8].tag  = "INFO";   log_lines[8].msg  = "Starting Network Manager…";
+log_lines[9].ts  = "[  0.130003]"; log_lines[9].tag  = " OK ";   log_lines[9].msg  = "Network Manager: ACTIVE · connection established";
+log_lines[10].ts = "[  0.152641]"; log_lines[10].tag = "WARN";   log_lines[10].msg = "Creativity index below peak window — schedule generative session before 11:00";
+log_lines[11].ts = "[  0.164002]"; log_lines[11].tag = "INFO";   log_lines[11].msg = "Starting artifact renderer (sandboxed iframe bridge)…";
+log_lines[12].ts = "[  0.164003]"; log_lines[12].tag = " OK ";   log_lines[12].msg = "Artifact renderer: READY · sandbox policy: allow-scripts";
+log_lines[13].ts = "[  0.170000]"; log_lines[13].tag = "INFO";   log_lines[13].msg = "Starting session logger…";
+log_lines[14].ts = "[  0.170010]"; log_lines[14].tag = " OK ";   log_lines[14].msg = "Session 048 opened · log path: /var/log/rabble/048.log";
+log_lines[15].ts = "[  0.194003]"; log_lines[15].tag = "RaBbLE"; log_lines[15].msg = "✷ entity: spawning holographic projection…";
 
-log_baseline_y = Math.Int(screen_h * 0.62);
+# Conveyor band: newest line sits at log_baseline_y (~0.70h, just below the entity's
+# lower zone), older lines stack upward toward ~0.45h — fills the reference's log band.
+log_baseline_y = Math.Int(screen_h * 0.70);
 line_h = 20;
 
 for (i = 0; i < log_count; i++) {
@@ -164,7 +179,7 @@ for (i = 0; i < log_count; i++) {
   log_lines[i].msg_sprite = Sprite(msg_img);
   log_lines[i].msg_sprite.SetPosition(log_lines[i].msg_x, log_baseline_y, 30);
   log_lines[i].msg_sprite.SetOpacity(0);
-  log_lines[i].reveal_tick = 10 + i * 11;
+  log_lines[i].reveal_tick = 10 + i * 9;
 }
 
 # ── Progress bar ─────────────────────────────────────────────────────────────
@@ -274,6 +289,8 @@ fun message_callback(msg) {
     global.message_sprite.SetOpacity(0);
     return;
   }
+  # Real systemd messages (fsck, device waits) surface here only — NOT in the
+  # prebaked lore log. Keeps the performance clean while still showing real status.
   msg_img = Image.Text(msg, muted.r, muted.g, muted.b, 1, font_mono_sm);
   global.message_sprite.SetImage(msg_img);
   global.message_sprite.SetOpacity(0.9);
@@ -309,7 +326,8 @@ fun refresh_callback() {
     global.done_tick = global.tick;
   fade = 1;
 
-  # floor grid fades with everything on completion
+  # liminal background + floor grid fade with everything on completion
+  bg_sprite.SetOpacity(0.9 * fade);
   grid_sprite.SetOpacity(0.85 * fade);
 
   # entity dims while a password dialog is up
@@ -329,7 +347,8 @@ fun refresh_callback() {
   wm_sprite.SetOpacity(wm_opacity * fade);
   tagline_sprite.SetOpacity(wm_opacity * 0.9 * fade);
 
-  # boot log conveyor: lines appear at baseline, scroll up, fade out past position 5
+  # boot log conveyor: prebaked lore lines reveal in sequence, newest at baseline,
+  # older lines scroll upward and fade out past the top of the band
   if (quiet_mode == 0) {
     visible_count = 0;
     for (i = 0; i < log_count; i++) {

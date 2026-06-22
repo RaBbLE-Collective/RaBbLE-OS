@@ -81,3 +81,47 @@
       - libva-nvidia-driver  # The current Fedora 43 naming convention for Vid Accel
       - libva-utils
     state: present
+
+# ─── Step 3: Deferred NVIDIA load (boot-chain partner to rd.driver.blacklist=nvidia) ──
+# The GRUB cmdline carries `rd.driver.blacklist=nvidia` (group_vars) so the dGPU is
+# kept OUT of the initramfs — this removes the mid-boot DRM reset that was flashing
+# the Plymouth splash black. AMD (890M) drives KMS/display from frame one.
+#
+# Because the dGPU is a PRIME-offload / compute device (DRI_PRIME=1, CUDA), it does
+# NOT need to be up during boot. This service loads it once the login surface exists,
+# so it is ready for offload/compute without ever touching the boot critical path.
+# modeset comes from the modprobe.d options above (loading nvidia_drm pulls nvidia +
+# nvidia_modeset); nvidia_uvm is loaded explicitly for CUDA.
+- name: Deploy nvidia-load.service (load dGPU after the login surface)
+  copy:
+    dest: /etc/systemd/system/nvidia-load.service
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # RaBbLE-OS: load the NVIDIA dGPU after SDDM, off the boot critical path.
+      # Partner to rd.driver.blacklist=nvidia (deferred from initramfs).
+      [Unit]
+      Description=RaBbLE-OS — load NVIDIA dGPU for PRIME offload / CUDA after login surface
+      After=sddm.service
+      Wants=sddm.service
+      ConditionPathExists=/usr/sbin/modprobe
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      # nvidia_drm pulls in nvidia + nvidia_modeset; uvm is for CUDA compute.
+      ExecStart=-/usr/sbin/modprobe nvidia_drm
+      ExecStart=-/usr/sbin/modprobe nvidia_uvm
+
+      [Install]
+      WantedBy=graphical.target
+  become: true
+
+- name: Enable nvidia-load.service
+  ansible.builtin.systemd:
+    name: nvidia-load.service
+    enabled: true
+    daemon_reload: true
+    scope: system
+  become: true

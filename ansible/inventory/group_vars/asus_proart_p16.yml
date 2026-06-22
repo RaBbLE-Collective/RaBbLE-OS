@@ -49,14 +49,22 @@ rabble_console_font: "ter-v32b"
 rabble_gfx_mode: "1920x1200x32"
 
 # ── Boot / Plymouth ───────────────────────────────────────────
-# nvidia-drm.modeset=1: NVIDIA KMS — prevents DRM conflict when dGPU wakes.
-# plymouth.use-simpledrm=1: Plymouth stays on EFI framebuffer (simpledrm)
-#   instead of waiting for amdgpu DRM — eliminates the ~10s black screen during
-#   the simpledrm→amdgpu KMS transition. amdgpu still loads in initrd for SDDM.
+# fbcon=font:TER16x32: loads Terminus 16x32 kernel font for TTYs early,
+#   before vconsole setup — fixes tiny TTY font until fbcon reset.
 # vt.global_cursor_default=0: hides the blinking text cursor between GRUB and Plymouth.
+# rd.driver.blacklist=nvidia: defers NVIDIA dGPU from initramfs so it doesn't
+#   trigger a DRM reset mid-boot (was causing black flash). The dGPU is a
+#   PRIME-offload/compute device (AMD 890M drives display), so it is loaded off the
+#   boot critical path by nvidia-load.service after sddm.service — see
+#   roles/hardware/x64/asus_proart_p16/tasks/nvidia.yml.
+# plymouth.use-simpledrm removed: amdgpu is forced into the initramfs via the dracut
+#   conf in roles/boot/plymouth/tasks/config.yml (add_drivers+=" amdgpu "), so Plymouth
+#   uses native AMD KMS from frame one — no simpledrm→KMS handoff flash.
+#   ⚠ UNVERIFIED on real hardware — confirm via the boot-chain verification recipe
+#   (RaBbLE-Grimoire/RaBbLE-OS/fix/RaBbLE-OS-Fix-BootChain.md) before trusting.
 # rd.udev.log_level=3: suppresses initrd udev noise before Plymouth takes over.
 rabble_grub_extra_cmdline: >-
-  nvidia-drm.modeset=1
-  plymouth.use-simpledrm=1
+  fbcon=font:TER16x32
   vt.global_cursor_default=0
+  rd.driver.blacklist=nvidia
   rd.udev.log_level=3

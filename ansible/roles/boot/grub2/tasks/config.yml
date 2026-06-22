@@ -48,10 +48,23 @@
   become: true
   tags: [boot, grub, theme]
 
+# Deploy theme.txt + the pre-rendered liminal background only — NOT build-grub-bg.py,
+# which is a build-time generator and has no business living in /boot.
 - name: Deploy GRUB theme.txt
   ansible.builtin.copy:
     src: theme/theme.txt
     dest: /boot/grub2/themes/rabble/theme.txt
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: rebuild grub config
+  tags: [boot, grub, theme]
+
+- name: Deploy GRUB liminal background (24bpp RGB, GRUB requires <=24bpp)
+  ansible.builtin.copy:
+    src: theme/grub-bg.png
+    dest: /boot/grub2/themes/rabble/grub-bg.png
     owner: root
     group: root
     mode: "0644"
