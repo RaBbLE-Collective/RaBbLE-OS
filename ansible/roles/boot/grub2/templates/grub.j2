@@ -4,13 +4,19 @@
 
 GRUB_TIMEOUT={{ rabble_grub_timeout | default(3) }}
 GRUB_DEFAULT={{ rabble_grub_default | default(0) }}
-GRUB_TIMEOUT_STYLE=menu
+# EP1: 'menu' — Recovery Mode accessible without Shift.
+# Post-EP1: set rabble_grub_timeout_style: hidden in group_vars for seamless GRUB→Plymouth.
+GRUB_TIMEOUT_STYLE={{ rabble_grub_timeout_style | default('menu') }}
 
-# HiDPI graphics mode — set native res, fall back to auto
-# Use a logical resolution (e.g. 1920x1200) rather than native 4K so GRUB
-# fonts are readable; GFXPAYLOAD=keep passes this mode to the kernel / Plymouth.
-GRUB_GFXMODE={{ rabble_gfx_mode | default('auto') }}
+# HiDPI graphics mode — explicit fallback list prevents GOP auto-negotiation to a
+# mismatched resolution, which causes flicker during the GRUB→Plymouth handoff.
+GRUB_GFXMODE={{ rabble_gfx_mode | default('1920x1080,1920x1200,1280x720,auto') }}
 GRUB_GFXPAYLOAD_LINUX={{ rabble_grub_gfxpayload | default('keep') }}
+
+# gfxterm color — both fg and bg black: terminal output invisible against the void
+# background, eliminating the black box that occludes grub-bg.png during boot.
+GRUB_COLOR_NORMAL="black/black"
+GRUB_COLOR_HIGHLIGHT="light-magenta/black"
 
 # Theme — theme.txt owns the background via desktop-color; no separate PNG needed.
 GRUB_THEME=/boot/grub2/themes/rabble/theme.txt

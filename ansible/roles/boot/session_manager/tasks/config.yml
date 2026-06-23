@@ -57,3 +57,28 @@
     mode: "0644"
   become: true
   tags: [boot, sddm, config]
+
+# ── Plymouth→SDDM gap fix — 300ms pre-sleep ────────────────────────────────
+# Gives SDDM time to paint its first frame before Plymouth releases DRM.
+# Without this, there's a 200–400ms black flash at the handoff.
+
+- name: Create plymouth-quit drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/plymouth-quit.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [boot, plymouth, config]
+
+- name: Deploy plymouth-quit SDDM first-frame drop-in
+  ansible.builtin.copy:
+    src: plymouth-quit-sddm.conf
+    dest: /etc/systemd/system/plymouth-quit.service.d/sddm-first-frame.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload systemd daemon
+  tags: [boot, plymouth, config]

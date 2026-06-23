@@ -103,6 +103,11 @@ entity_cy = Math.Int(screen_h * 0.50);
 entity_x  = entity_cx - Math.Int(entity_size / 2);
 entity_y  = entity_cy - Math.Int(entity_size / 2);
 
+# Slide-to-center: boot position (left quarter) → SDDM hand-off position (center)
+entity_cx_start  = entity_cx;                    # = screen_w * 0.25
+entity_cx_center = Math.Int(screen_w * 0.50);   # SDDM picks up entity centered
+slide_ticks = 40;                                # ~2.4s at 60ms/tick
+
 cur_frame = 1;
 if (quiet_mode == 1)
   cur_frame = loop_start;
@@ -132,7 +137,7 @@ for (i = 0; i < wm_steps; i++) {
 wm_w = wm_img[0].GetWidth();
 wm_h = wm_img[0].GetHeight();
 wm_x = right_cx - Math.Int(wm_w / 2);
-wm_y = Math.Int(screen_h * 0.20);
+wm_y = Math.Int(screen_h * 0.28);  # was 0.20: shifted below ceiling grid (~22%)
 wm_sprite = Sprite(wm_img[0]);
 wm_sprite.SetPosition(wm_x, wm_y, 20);
 wm_sprite.SetOpacity(0);
@@ -171,7 +176,7 @@ log_lines[15].ts = "[  0.194003]"; log_lines[15].tag = "RaBbLE"; log_lines[15].m
 
 # Conveyor band: newest line sits at log_baseline_y (~0.70h, just below the entity's
 # lower zone), older lines stack upward toward ~0.45h — fills the reference's log band.
-log_baseline_y = Math.Int(screen_h * 0.70);
+log_baseline_y = Math.Int(screen_h * 0.63);  # was 0.70: shifted above floor grid (~72%)
 line_h = Math.Int(20 * scale);
 
 for (i = 0; i < log_count; i++) {
@@ -237,7 +242,7 @@ pct_sprite.SetPosition(right_cx - 20, bar_y + bar_h + Math.Int(8 * scale), 40);
 ready_img = Image.Text("◈ Boundless and becoming · ready when you are",
                        violet.r, violet.g, violet.b, 1, font_mono_md);
 ready_sprite = Sprite(ready_img);
-ready_sprite.SetPosition(right_cx - Math.Int(ready_img.GetWidth() / 2), Math.Int(screen_h * 0.67), 40);
+ready_sprite.SetPosition(right_cx - Math.Int(ready_img.GetWidth() / 2), Math.Int(screen_h * 0.58), 40);  # was 0.67: above floor grid
 ready_sprite.SetOpacity(0);
 
 # ── systemd message line (fsck, etc.) ────────────────────────────────────────
@@ -307,6 +312,7 @@ last_fill_w = -1;
 last_pct = -1;
 done_tick = 0;
 fade_master = 1;
+slide_started_tick = 0;
 
 fun progress_callback(duration, progress) {
   global.boot_progress = progress;
@@ -444,9 +450,37 @@ fun refresh_callback() {
   }
   pct_sprite.SetOpacity(fade);
 
-  # ready line once boot is effectively complete
-  if (global.boot_progress >= 0.97)
-    ready_sprite.SetOpacity(fade);
+  # Boot-complete: slide entity left-quarter→center; fade right section.
+  # SDDM takes over with entity already centered — handoff is a continuation.
+  if (global.boot_progress >= 0.97 && global.slide_started_tick == 0)
+    global.slide_started_tick = global.tick;
+
+  if (global.slide_started_tick > 0) {
+    t_raw = (global.tick - global.slide_started_tick) / slide_ticks;
+    t = (t_raw > 1.0) ? 1.0 : t_raw;
+    ease = t * t * (3.0 - 2.0 * t);             # smooth-step S-curve
+
+    cx_now = Math.Int(entity_cx_start + (entity_cx_center - entity_cx_start) * ease);
+    entity_sprite.SetPosition(cx_now - Math.Int(entity_size / 2),
+                               entity_cy - Math.Int(entity_size / 2), 10);
+
+    s = 1.0 - ease;
+    wm_sprite.SetOpacity(s * wm_opacity * fade);
+    tagline_sprite.SetOpacity(s * wm_opacity * 0.9 * fade);
+    track_sprite.SetOpacity(s * 0.55 * fade);
+    fill_sprite.SetOpacity(s * fade);
+    dot_sprite.SetOpacity(s * fade);
+    pct_sprite.SetOpacity(s * fade);
+    ready_sprite.SetOpacity(s * fade);
+    for (i = 0; i < log_count; i++) {
+      log_lines[i].ts_sprite.SetOpacity(s * 0.9 * fade);
+      log_lines[i].tag_sprite.SetOpacity(s * fade);
+      log_lines[i].msg_sprite.SetOpacity(s * 0.82 * fade);
+    }
+  } else {
+    if (global.boot_progress >= 0.97)
+      ready_sprite.SetOpacity(fade);
+  }
 }
 
 Plymouth.SetRefreshFunction(refresh_callback);

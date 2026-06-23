@@ -181,16 +181,18 @@ Rectangle {
         width: Math.min(460, root.width - 80)
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: parent.height * 0.03
+        anchors.verticalCenterOffset: -parent.height * 0.08  // was +0.03: passField lands at ~69% (3% above floor grid)
         spacing: 10
 
         // Entity: NeBuLA idle animation — 48 frames, 512×512 RGBA, transparent bg
-        // Sized to dominate the upper-center (mockup); overflows the 460 column
-        // slightly but it's transparent glow, so the form below stays centered.
+        // 460px retained (confirmed in-bounds on live hardware).
+        // opacity 0 + 500ms fade-in masks the Plymouth→SDDM DRM handoff gap.
         Item {
             id: entityArea
             width: parent.width
             height: 460
+            opacity: 0
+            Behavior on opacity { NumberAnimation { duration: 500 } }
 
             Image {
                 id: entityAnim
@@ -472,5 +474,8 @@ Rectangle {
         }
     }
 
-    Component.onCompleted: passInput.forceActiveFocus()
+    Component.onCompleted: {
+        passInput.forceActiveFocus();
+        entityArea.opacity = 1;
+    }
 }
