@@ -17,6 +17,8 @@
       - unzip
       - p7zip
       - jq
+      - yamllint
+      - ShellCheck
       # security
       - polkit
       # firmware
