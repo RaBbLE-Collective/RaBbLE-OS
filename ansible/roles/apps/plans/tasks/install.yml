@@ -10,9 +10,10 @@
   become: true
   tags: [plans, install, packages]
 
-- name: plans | create install directory
+# Create the parent dir only — the scaffold command creates plans_install_dir itself.
+- name: plans | create parent directory for install
   ansible.builtin.file:
-    path: "{{ plans_install_dir }}"
+    path: "{{ plans_install_dir | dirname }}"
     state: directory
     owner: "{{ plans_user }}"
     group: "{{ plans_user }}"
@@ -27,12 +28,14 @@
   register: _plans_scaffold
   tags: [plans, install]
 
+# `create .` fails — the CLI requires a valid package name (not ".").
+# Run from the parent dir with the basename of plans_install_dir as the project name.
 - name: plans | scaffold Agent-Native Plan template
   ansible.builtin.command:
     cmd: >
-      npx --yes @agent-native/core@latest create .
+      npx --yes @agent-native/core@latest create {{ plans_install_dir | basename }}
       --standalone --template plan --no-git --skip-install
-    chdir: "{{ plans_install_dir }}"
+    chdir: "{{ plans_install_dir | dirname }}"
   become: false
   when: not _plans_scaffold.stat.exists
   tags: [plans, install]
