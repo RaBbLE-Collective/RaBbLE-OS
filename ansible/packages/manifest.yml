@@ -132,6 +132,22 @@ packages:
     layer: core
     ks: false
 
+  - name: yamllint
+    category: core.utils
+    reason: YAML linting — post-edit hook for Ansible roles catches wrong package names and task errors before live runs
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
+  - name: ShellCheck
+    category: core.utils
+    reason: Shell script linting — post-edit hook surfaces bash errors before committing
+    source: fedora
+    platform: all
+    layer: core
+    ks: false
+
   - name: polkit
     category: core.security
     reason: Privilege escalation framework — required for any pkexec/GUI elevation workflow
