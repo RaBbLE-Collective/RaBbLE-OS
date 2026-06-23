@@ -1,18 +1,9 @@
-[General]
-ColorScheme=CatppuccinMochaMauve
-Name=Catppuccin Mocha Mauve
-shadeSortColumn=true
-
-[KDE]
-contrast=4
-widgetStyle=kvantum
-
-# Catppuccin Mocha Mauve color scheme — clean dark baseline (MIT).
-# Base: #1e1e2e · Text: #cdd6f4 · Accent: #cba6f7 (mauve)
-# KDE apps (Dolphin, Kate) read view/window text color from HERE.
-# Kvantum only styles widget frames; it does NOT control palette text.
-# To overlay Aether colors: update config/color-schemes/CatppuccinMochaMauve.colors
-# and re-run: ./RaBbLE-OS-dotctl.sh apply color-schemes kdeglobals
+# Catppuccin Mocha Mauve — KDE color scheme
+# License: MIT (https://github.com/catppuccin/kde)
+# Palette: https://catppuccin.com/palette (Mocha, Mauve accent)
+#
+# Base: #1e1e2e | Text: #cdd6f4 | Accent (Mauve): #cba6f7
+# Clean dark baseline — integrate Aether colors on top methodically.
 
 [ColorEffects:Disabled]
 Color=49,52,68
@@ -41,6 +32,34 @@ DecorationFocus=203,166,247
 DecorationHover=137,180,250
 ForegroundActive=203,166,247
 ForegroundInactive=147,153,178
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=249,226,175
+ForegroundNormal=205,214,244
+ForegroundPositive=166,227,161
+ForegroundVisited=180,190,254
+
+[Colors:Complementary]
+BackgroundAlternate=24,24,37
+BackgroundNormal=30,30,46
+DecorationFocus=203,166,247
+DecorationHover=137,180,250
+ForegroundActive=203,166,247
+ForegroundInactive=147,153,178
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=249,226,175
+ForegroundNormal=205,214,244
+ForegroundPositive=166,227,161
+ForegroundVisited=180,190,254
+
+[Colors:Header]
+BackgroundAlternate=24,24,37
+BackgroundNormal=24,24,37
+DecorationFocus=203,166,247
+DecorationHover=137,180,250
+ForegroundActive=203,166,247
+ForegroundInactive=108,112,134
 ForegroundLink=137,180,250
 ForegroundNegative=243,139,168
 ForegroundNeutral=249,226,175
@@ -103,6 +122,15 @@ ForegroundNeutral=249,226,175
 ForegroundNormal=205,214,244
 ForegroundPositive=166,227,161
 ForegroundVisited=180,190,254
+
+[General]
+ColorScheme=CatppuccinMochaMauve
+Name=Catppuccin Mocha Mauve
+shadeSortColumn=true
+
+[KDE]
+contrast=4
+widgetStyle=kvantum
 
 [WM]
 activeBackground=49,52,68
