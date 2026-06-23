@@ -52,7 +52,7 @@
 
 - name: plans | install dependencies (pnpm install)
   ansible.builtin.command:
-    cmd: pnpm install --frozen-lockfile
+    cmd: pnpm install --no-frozen-lockfile
     chdir: "{{ plans_install_dir }}"
   become: false
   environment:
