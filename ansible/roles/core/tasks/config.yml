@@ -11,3 +11,27 @@
   become: true
   notify: rebuild grub config
   tags: [base, config, identity]
+
+# ── Boot speed — remove unnecessary wait gates ──────────────────────────────
+# NetworkManager-wait-online delays remote-fs.target ~4s via the iscsi.service
+# After=network-online.target chain (even though iscsi is conditioned out, systemd
+# waits for the full chain before scheduling). Hyprland desktop does not need
+# network-online.target before login; NetworkManager reconnects after session.
+- name: Disable NetworkManager-wait-online.service (not needed for desktop boot)
+  ansible.builtin.systemd:
+    name: NetworkManager-wait-online.service
+    enabled: false
+    masked: true
+  become: true
+  tags: [base, config, boot-speed]
+
+# var-lib-machines.mount is for systemd-nspawn container images, not in use.
+# It is WantedBy=remote-fs.target and when not masked it attempts a mount that
+# may add startup latency. Mask it so remote-fs.target doesn't spin up even a
+# Wants= activation attempt.
+- name: Mask var-lib-machines.mount (container images not in use)
+  ansible.builtin.systemd:
+    name: var-lib-machines.mount
+    masked: true
+  become: true
+  tags: [base, config, boot-speed]

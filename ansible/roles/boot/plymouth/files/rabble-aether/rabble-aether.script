@@ -137,7 +137,7 @@ for (i = 0; i < wm_steps; i++) {
 wm_w = wm_img[0].GetWidth();
 wm_h = wm_img[0].GetHeight();
 wm_x = right_cx - Math.Int(wm_w / 2);
-wm_y = Math.Int(screen_h * 0.28);  # was 0.20: shifted below ceiling grid (~22%)
+wm_y = Math.Int(screen_h * 0.42);  # S156: measured ceiling ends at 35%, 0.28 was IN grid; 0.42 = 7% safety margin below ceiling
 wm_sprite = Sprite(wm_img[0]);
 wm_sprite.SetPosition(wm_x, wm_y, 20);
 wm_sprite.SetOpacity(0);
@@ -260,7 +260,7 @@ fun show_dialog(prompt_text, entry_text) {
   panel_w = Math.Int(screen_w * 0.30);
   panel_h = Math.Int(96 * global.scale);
   panel_x = Math.Int((screen_w - panel_w) / 2);
-  panel_y = Math.Int(screen_h * 0.70);
+  panel_y = Math.Int(screen_h * 0.58);  # S156: floor starts at 68%; moved up from 0.70 which was into the floor grid
 
   global.dialog.panel_sprite.SetImage(panel_src.Scale(panel_w, panel_h));
   global.dialog.panel_sprite.SetPosition(panel_x, panel_y, 200);

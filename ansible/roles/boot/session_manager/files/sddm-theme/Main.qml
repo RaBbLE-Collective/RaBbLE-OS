@@ -181,7 +181,7 @@ Rectangle {
         width: Math.min(460, root.width - 80)
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: -parent.height * 0.08  // was +0.03: passField lands at ~69% (3% above floor grid)
+        anchors.verticalCenterOffset: -parent.height * 0.02  // S156: down 6% from -0.08; measured ceiling ends at 35%, entity face now in void zone (35–68%)
         spacing: 10
 
         // Entity: NeBuLA idle animation — 48 frames, 512×512 RGBA, transparent bg
