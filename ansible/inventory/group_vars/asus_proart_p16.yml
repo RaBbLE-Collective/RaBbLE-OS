@@ -66,18 +66,19 @@ rabble_grub_gfxpayload: "3840x2400x32"
 #   before vconsole setup — fixes tiny TTY font until fbcon reset.
 # vt.global_cursor_default=0: hides the blinking text cursor between GRUB and Plymouth.
 # rd.driver.blacklist=nvidia: defers NVIDIA dGPU from initramfs so it doesn't
-#   trigger a DRM reset mid-boot (was causing black flash). The dGPU is a
-#   PRIME-offload/compute device (AMD 890M drives display), so it is loaded off the
-#   boot critical path by nvidia-load.service after sddm.service — see
-#   roles/hardware/x64/asus_proart_p16/tasks/nvidia.yml.
-# plymouth.use-simpledrm removed: amdgpu is forced into the initramfs via the dracut
-#   conf in roles/boot/plymouth/tasks/config.yml (add_drivers+=" amdgpu "), so Plymouth
-#   uses native AMD KMS from frame one — no simpledrm→KMS handoff flash.
-#   ⚠ UNVERIFIED on real hardware — confirm via the boot-chain verification recipe
-#   (RaBbLE-Grimoire/RaBbLE-OS/fix/RaBbLE-OS-Fix-BootChain.md) before trusting.
+#   trigger a DRM reset mid-boot. AMD 890M drives eDP all the way into Hyprland;
+#   NVIDIA is PRIME-offload/compute only, loaded by nvidia-load.service after SDDM.
+#   See roles/hardware/x64/asus_proart_p16/tasks/nvidia.yml.
+# plymouth.use-simpledrm=1: REQUIRED — keeps Plymouth on the EFI framebuffer
+#   (simpledrm, DRM minor 0) for the full splash. Without it: simpledrm starts
+#   immediately, Plymouth attaches to it, then amdgpu takes over fb0 ~2s later
+#   (DRM minor 1), displacing simpledrm. Plymouth's device goes dead → black screen.
+#   amdgpu-in-initrd does NOT prevent this: simpledrm always wins the race and
+#   Plymouth binds to the first DRM device it finds. Verified broken on ProArt P16.
 # rd.udev.log_level=3: suppresses initrd udev noise before Plymouth takes over.
 rabble_grub_extra_cmdline: >-
   fbcon=font:TER16x32
   vt.global_cursor_default=0
   rd.driver.blacklist=nvidia
   rd.udev.log_level=3
+  plymouth.use-simpledrm=1
