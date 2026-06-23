@@ -28,6 +28,16 @@
   register: _plans_scaffold
   tags: [plans, install]
 
+# Remove incomplete scaffold dir (e.g. left by a failed prior run) so create can proceed.
+# Safe: only runs when package.json is absent, meaning scaffold never completed.
+- name: plans | remove incomplete scaffold dir if present
+  ansible.builtin.file:
+    path: "{{ plans_install_dir }}"
+    state: absent
+  become: true
+  when: not _plans_scaffold.stat.exists
+  tags: [plans, install]
+
 # `create .` fails — the CLI requires a valid package name (not ".").
 # Run from the parent dir with the basename of plans_install_dir as the project name.
 - name: plans | scaffold Agent-Native Plan template
