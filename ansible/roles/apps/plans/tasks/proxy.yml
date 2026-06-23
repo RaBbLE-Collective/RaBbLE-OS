@@ -1,0 +1,34 @@
+---
+# apps/plans/tasks/proxy.yml
+# nginx reverse proxy: exposes /_rabble/ (RaBbLE-branded) as alias for
+# the upstream Plan app's /_agent-native/ routes on port {{ plans_nginx_port }}.
+
+- name: plans | install nginx vhost config
+  ansible.builtin.template:
+    src: rabble-plans-nginx.conf.j2
+    dest: /etc/nginx/conf.d/rabble-plans.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: plans | reload nginx
+  tags: [plans, proxy]
+
+- name: plans | enable and start nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+    daemon_reload: true
+  become: true
+  tags: [plans, proxy]
+
+- name: plans | open localhost port in firewalld (if active)
+  ansible.builtin.command:
+    cmd: >
+      firewall-cmd --zone=trusted --add-port={{ plans_nginx_port }}/tcp --permanent
+  become: true
+  register: _fw_result
+  changed_when: "'ALREADY_ENABLED' not in _fw_result.stdout"
+  failed_when: _fw_result.rc not in [0, 1]
+  tags: [plans, proxy]

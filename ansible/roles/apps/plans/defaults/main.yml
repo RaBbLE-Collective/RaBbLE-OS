@@ -1,0 +1,27 @@
+---
+# apps/plans/defaults/main.yml
+# Self-hosted Agent-Native Plan app — RaBbLE edition.
+# MIT-licensed upstream; themed and path-rewritten here.
+
+plans_enabled: true
+
+# Install directory — plan app source + build land here
+plans_install_dir: /opt/rabble/plans
+
+# The plan app listens on this internal port (not exposed externally)
+plans_app_port: 3001
+
+# nginx fronts the app on this port with the /_rabble/ path alias
+plans_nginx_port: 3000
+
+# systemd service name
+plans_service: rabble-plans
+
+# pnpm version to install globally (npm global)
+plans_pnpm_version: "latest"
+
+# MCP server name registered in Claude Code config
+plans_mcp_server_name: rabble-plans
+
+# User who owns the plan app process (runs as user, not root)
+plans_user: "{{ ansible_user_id }}"

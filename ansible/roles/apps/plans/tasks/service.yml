@@ -1,0 +1,45 @@
+---
+# apps/plans/tasks/service.yml
+# Install and enable the rabble-plans systemd user service.
+# Runs as the target user (not root) — uses systemd --user.
+
+- name: plans | ensure user systemd directory exists
+  ansible.builtin.file:
+    path: "/home/{{ plans_user }}/.config/systemd/user"
+    state: directory
+    owner: "{{ plans_user }}"
+    group: "{{ plans_user }}"
+    mode: "0755"
+  become: true
+  tags: [plans, service]
+
+- name: plans | install rabble-plans systemd user service
+  ansible.builtin.copy:
+    src: rabble-plans.service
+    dest: "/home/{{ plans_user }}/.config/systemd/user/{{ plans_service }}.service"
+    owner: "{{ plans_user }}"
+    group: "{{ plans_user }}"
+    mode: "0644"
+  become: true
+  notify: plans | restart service
+  tags: [plans, service]
+
+- name: plans | create data directory for SQLite DB
+  ansible.builtin.file:
+    path: "{{ plans_install_dir }}/data"
+    state: directory
+    owner: "{{ plans_user }}"
+    group: "{{ plans_user }}"
+    mode: "0750"
+  become: true
+  tags: [plans, service]
+
+- name: plans | enable and start rabble-plans (user service)
+  ansible.builtin.systemd:
+    name: "{{ plans_service }}"
+    state: started
+    enabled: true
+    scope: user
+    daemon_reload: true
+  become: false
+  tags: [plans, service]

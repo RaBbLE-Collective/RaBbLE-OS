@@ -1,0 +1,66 @@
+---
+# apps/plans/tasks/mcp.yml
+# Register the self-hosted RaBbLE Plans MCP server in Claude Code's config.
+# Uses the /_rabble/mcp path — no _agent-native ever appears in config.
+#
+# Claude Code reads MCP servers from ~/.claude/claude_code_config.json
+# (or the MCP section of claude_desktop_config.json for desktop).
+# We write both so whichever client is running picks it up.
+
+- name: plans | ensure ~/.claude directory exists
+  ansible.builtin.file:
+    path: "/home/{{ plans_user }}/.claude"
+    state: directory
+    owner: "{{ plans_user }}"
+    group: "{{ plans_user }}"
+    mode: "0700"
+  become: true
+  tags: [plans, mcp]
+
+- name: plans | read existing Claude Code MCP config (if present)
+  ansible.builtin.slurp:
+    src: "/home/{{ plans_user }}/.claude/claude_code_config.json"
+  register: _claude_cfg_raw
+  failed_when: false
+  become: false
+  tags: [plans, mcp]
+
+- name: plans | parse existing Claude config
+  ansible.builtin.set_fact:
+    _claude_cfg: >-
+      {{ (_claude_cfg_raw.content | b64decode | from_json)
+         if _claude_cfg_raw.content is defined
+         else {} }}
+  tags: [plans, mcp]
+
+- name: plans | merge rabble-plans MCP entry into config
+  ansible.builtin.set_fact:
+    _claude_cfg_merged: >-
+      {{ _claude_cfg | combine({
+        'mcpServers': ((_claude_cfg.mcpServers | default({})) | combine({
+          plans_mcp_server_name: {
+            'url': 'http://localhost:' ~ plans_nginx_port ~ '/_rabble/mcp',
+            'type': 'sse'
+          }
+        }))
+      }, recursive=True) }}
+  tags: [plans, mcp]
+
+- name: plans | write merged Claude Code MCP config
+  ansible.builtin.copy:
+    content: "{{ _claude_cfg_merged | to_nice_json }}\n"
+    dest: "/home/{{ plans_user }}/.claude/claude_code_config.json"
+    owner: "{{ plans_user }}"
+    group: "{{ plans_user }}"
+    mode: "0600"
+  become: true
+  tags: [plans, mcp]
+
+- name: plans | show MCP registration summary
+  ansible.builtin.debug:
+    msg:
+      - "RaBbLE Plans MCP registered as '{{ plans_mcp_server_name }}'"
+      - "  URL: http://localhost:{{ plans_nginx_port }}/_rabble/mcp"
+      - "  Plan UI: http://localhost:{{ plans_nginx_port }}"
+      - "Restart Claude Code (or run /mcp → Reconnect) to pick up the new server."
+  tags: [plans, mcp]

@@ -1,0 +1,26 @@
+[Unit]
+Description=RaBbLE Plans — local visual plan server
+Documentation=https://github.com/BuilderIO/agent-native
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/opt/rabble/plans
+ExecStart=/usr/bin/node /opt/rabble/plans/build/server/index.js
+Restart=on-failure
+RestartSec=5
+
+Environment=NODE_ENV=production
+Environment=PORT=3001
+# Data directory — plans SQLite DB lives here
+Environment=DATABASE_URL=file:/opt/rabble/plans/data/plans.db
+# No external hosted service used — fully local
+Environment=AGENT_NATIVE_PLANS_MODE=local
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rabble-plans
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,73 @@
+/*
+ * aether-theme-override.css — Aether palette applied to Agent-Native Plan app.
+ * Injected at build time into the self-hosted Plan template's global.css.
+ * All colors from RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md.
+ * Never invent hex values — only use palette entries.
+ *
+ * The Plan app's CSS vars use HSL channel notation: H S% L%
+ */
+
+:root,
+.dark {
+  /* ── Canvas surface ──────────────────────────────────────────────────── */
+  --background:       260 100% 3%;   /* #0a0010  void */
+  --foreground:       240  14% 92%;  /* #e8e6f0  text */
+
+  /* ── Raised surfaces ─────────────────────────────────────────────────── */
+  --card:             248  37% 12%;  /* #12132a  surface */
+  --card-foreground:  240  14% 92%;  /* #e8e6f0  text */
+  --popover:          248  37% 12%;  /* #12132a  surface */
+  --popover-foreground: 240 14% 92%;
+
+  /* ── Accent / interactive ─────────────────────────────────────────────── */
+  --primary:          340 100% 58%;  /* #ff2d78  magenta */
+  --primary-foreground: 260 100% 3%; /* #0a0010  void — text on magenta */
+  --accent:           340 100% 58%;  /* #ff2d78  magenta */
+  --accent-foreground: 260 100% 3%;
+
+  /* ── Secondary (cyan) ────────────────────────────────────────────────── */
+  --secondary:        186 100% 50%;  /* #00f5ff  cyan */
+  --secondary-foreground: 260 100% 3%;
+
+  /* ── Muted / borders ─────────────────────────────────────────────────── */
+  --muted:            252   7% 24%;  /* #2a2840  border */
+  --muted-foreground: 252   7% 47%;  /* #6b6880  muted */
+  --border:           252   7% 24%;  /* #2a2840  border */
+  --input:            252   7% 24%;  /* #2a2840  border */
+
+  /* ── Focus ring (violet) ─────────────────────────────────────────────── */
+  --ring:             280  60% 69%;  /* #bf5fff  violet */
+
+  /* ── Destructive ─────────────────────────────────────────────────────── */
+  --destructive:      340 100% 58%;  /* #ff2d78  magenta (reuse) */
+  --destructive-foreground: 260 100% 3%;
+
+  /* ── Wireframe sketch tokens (--wf-*) ───────────────────────────────── */
+  /* The rough.js renderer reads these for stroke color, fill, and labels. */
+  --wf-paper:         260 100%  3%;  /* void — sketch surface */
+  --wf-ink:           240  14% 92%;  /* text — sketch stroke */
+  --wf-line:          252   7% 24%;  /* border — divider strokes */
+  --wf-muted:         252   7% 47%;  /* muted — label text */
+  --wf-accent:        340 100% 58%;  /* magenta — highlighted elements */
+  --wf-accent-soft:   340 100% 10%;  /* magenta tint — soft fill */
+  --wf-ok:            186 100% 40%;  /* cyan (darker for text) — OK state */
+  --wf-warn:          280  60% 69%;  /* violet — warning state */
+}
+
+/* ── Typography: keep Orbitron for display, JetBrains Mono for code ── */
+/* These fonts are already installed system-wide by the desktop/fonts role. */
+:root {
+  --font-display: "Orbitron", "JetBrains Mono", monospace;
+  --font-sans:    "Exo 2", "JetBrains Mono", monospace;
+  --font-mono:    "JetBrains Mono", "Fira Code", monospace;
+}
+
+/* ── Rough.js sketch overlay color ───────────────────────────────────── */
+/* The wireframe renderer applies rough.js on canvas; the seed + color
+   inherit from the CSS vars above — no direct override needed here.     */
+
+/* ── Scrollbars (Aether styled) ──────────────────────────────────────── */
+::-webkit-scrollbar               { width: 6px; height: 6px; }
+::-webkit-scrollbar-track         { background: hsl(260 100% 3%); }
+::-webkit-scrollbar-thumb         { background: hsl(252 7% 24%); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover   { background: hsl(340 100% 58% / 0.6); }

@@ -24,6 +24,7 @@
 #   --tags ai-harnesses          → sCoRE local AI layer (claude-code, codex, opencode, aider, gemini-cli, ollama, vllm, free-claude-code, builder-skills)
 #   --tags free-claude-code      → free-claude-code proxy only
 #   --tags builder-skills        → BuilderIO slash-command skills only
+#   --tags plans                 → RaBbLE Plans local server (scaffold + theme + nginx + MCP)
 #   --tags dotfiles              → Dotfile symlinks only (user-level)
 #
 # Packages/config split (combine with above):
@@ -301,7 +302,8 @@
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Collective — RaBbLE development tooling
-# Node.js/npm, wrangler (Cloudflare Workers CLI), age (secrets), gh (GitHub CLI).
+# wrangler (Cloudflare Workers CLI), age (secrets), gh (GitHub CLI).
+# Node.js/npm/nginx are now in Layer 0 (core/tasks/packages.yml).
 # Run once on any machine developing or deploying the Collective.
 # Skip on headless servers: --skip-tags collective
 # ─────────────────────────────────────────────────────────────────────────────
@@ -312,6 +314,26 @@
   tags: [collective]
   roles:
     - role: apps/rabble-collective
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Plans — RaBbLE Plans local visual plan server
+# Self-hosted Agent-Native Plan app (MIT) with Aether theming.
+# Scaffolds /opt/rabble/plans, applies Aether CSS, starts systemd user service,
+# configures nginx /_rabble/mcp proxy, registers MCP in ~/.claude config.
+#
+# MCP endpoint: http://localhost:3000/_rabble/mcp
+# Plan UI:      http://localhost:3000
+#
+# Prerequisite: Node.js + nginx must be installed (Layer 0 / base).
+# Skip on headless servers: --skip-tags plans
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Plans — RaBbLE visual plan server"
+  hosts: all
+  become: false
+  tags: [plans]
+  roles:
+    - role: apps/plans
 
 # ─────────────────────────────────────────────────────────────────────────────
 # AI Harnesses — sCoRE local AI layer

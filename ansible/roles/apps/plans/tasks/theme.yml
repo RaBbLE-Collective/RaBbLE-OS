@@ -1,0 +1,22 @@
+---
+# apps/plans/tasks/theme.yml
+# Inject Aether palette into the self-hosted Plan app's CSS.
+# Appends our override at the END of global.css so it wins the cascade.
+
+- name: plans | find global.css in scaffolded template
+  ansible.builtin.find:
+    paths: "{{ plans_install_dir }}"
+    patterns: "global.css"
+    recurse: true
+  register: _plans_global_css
+  tags: [plans, theme]
+
+- name: plans | inject Aether theme override into global.css
+  ansible.builtin.blockinfile:
+    path: "{{ item.path }}"
+    block: "{{ lookup('ansible.builtin.file', role_path + '/files/aether-theme-override.css') }}"
+    marker: "/* {mark} AETHER THEME OVERRIDE (ansible managed) */"
+    insertafter: EOF
+  loop: "{{ _plans_global_css.files }}"
+  notify: plans | rebuild app
+  tags: [plans, theme]

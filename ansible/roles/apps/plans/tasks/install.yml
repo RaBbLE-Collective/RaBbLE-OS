@@ -1,0 +1,58 @@
+---
+# apps/plans/tasks/install.yml
+# Scaffold the Agent-Native Plan app (MIT) into /opt/rabble/plans and build it.
+
+- name: plans | install pnpm globally
+  community.general.npm:
+    name: pnpm
+    global: true
+    state: present
+  become: true
+  tags: [plans, install, packages]
+
+- name: plans | create install directory
+  ansible.builtin.file:
+    path: "{{ plans_install_dir }}"
+    state: directory
+    owner: "{{ plans_user }}"
+    group: "{{ plans_user }}"
+    mode: "0755"
+  become: true
+  tags: [plans, install]
+
+# Scaffold only when the app hasn't been created yet (idempotent by checking package.json).
+- name: plans | check if app is already scaffolded
+  ansible.builtin.stat:
+    path: "{{ plans_install_dir }}/package.json"
+  register: _plans_scaffold
+  tags: [plans, install]
+
+- name: plans | scaffold Agent-Native Plan template
+  ansible.builtin.command:
+    cmd: >
+      npx --yes @agent-native/core@latest create .
+      --standalone --template plan --no-git --skip-install
+    chdir: "{{ plans_install_dir }}"
+  become: false
+  when: not _plans_scaffold.stat.exists
+  tags: [plans, install]
+
+- name: plans | install dependencies (pnpm install)
+  ansible.builtin.command:
+    cmd: pnpm install --frozen-lockfile
+    chdir: "{{ plans_install_dir }}"
+  become: false
+  environment:
+    NODE_ENV: production
+  when: not _plans_scaffold.stat.exists
+  tags: [plans, install]
+
+- name: plans | build the app
+  ansible.builtin.command:
+    cmd: pnpm build
+    chdir: "{{ plans_install_dir }}"
+  become: false
+  environment:
+    NODE_ENV: production
+  when: not _plans_scaffold.stat.exists
+  tags: [plans, install]

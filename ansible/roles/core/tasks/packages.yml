@@ -35,6 +35,11 @@
       - zsh
       - zsh-syntax-highlighting
       - zsh-autosuggestions
+      # runtime — Node.js as a system-wide runtime (AI harnesses, plans service, collective tooling)
+      - nodejs
+      - nodejs-npm
+      # proxy — nginx for local service path-rewriting (plans, future local services)
+      - nginx
     state: present
   become: true
   tags: [base, packages]

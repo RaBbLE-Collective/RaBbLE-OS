@@ -1,16 +1,10 @@
 ---
 # apps/rabble-collective/tasks/main.yml
 # Tools needed to develop and deploy the RaBbLE Collective:
-#   nodejs/npm  — wrangler prerequisite and general build tooling
 #   wrangler    — Cloudflare Workers CLI (npm global, not a Fedora package)
 #   gh          — GitHub CLI: RC publishing, PR/release management
 #   age         — encryption for the two-tier secrets model (SOPS/age layer)
-
-- name: collective | install Node.js
-  ansible.builtin.dnf:
-    name: nodejs
-    state: present
-  tags: [collective, packages]
+# Node.js/npm is now installed system-wide in core/tasks/packages.yml.
 
 - name: collective | install GitHub CLI
   ansible.builtin.dnf:

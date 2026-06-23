@@ -1052,11 +1052,27 @@ packages:
   # Role: ansible/roles/apps/rabble-collective/
 
   - name: nodejs
-    category: apps.collective
-    reason: JavaScript runtime — prerequisite for wrangler (Cloudflare Workers CLI) and Collective build tooling (Aether/NeBuLA esbuild)
+    category: base
+    reason: JavaScript runtime — system-wide; used by wrangler, AI harnesses (claude-code/codex/opencode/gemini-cli), and the RaBbLE Plans local server. Moved from apps.collective to Layer 0 (core).
     source: fedora
     platform: all
-    layer: apps
+    layer: base
+    ks: false
+
+  - name: nodejs-npm
+    category: base
+    reason: npm package manager — ships with nodejs but listed separately to make the intent explicit; required by pnpm bootstrap
+    source: fedora
+    platform: all
+    layer: base
+    ks: false
+
+  - name: nginx
+    category: base
+    reason: Reverse proxy — used by RaBbLE Plans to expose /_rabble/mcp (RaBbLE-branded alias for /_agent-native/mcp); available system-wide for future local services
+    source: fedora
+    platform: all
+    layer: base
     ks: false
 
   - name: gh
@@ -1077,6 +1093,18 @@ packages:
 
   # wrangler: installed via npm install -g (community.general.npm) — not a Fedora package
   # See: ansible/roles/apps/rabble-collective/tasks/main.yml
+
+  # ── apps.plans — RaBbLE Plans local visual plan server ───────────────────
+  # Self-hosted Agent-Native Plan app (MIT license) with Aether theming.
+  # MCP endpoint: http://localhost:3000/_rabble/mcp
+  # Plan UI:      http://localhost:3000
+  # Run via: ansible-playbook site.yml --tags plans -K
+  # Role: ansible/roles/apps/plans/
+  #
+  # npm-managed (not Fedora packages):
+  #   pnpm   → npm install -g pnpm
+  #   @agent-native/core → scaffolds the plan template at install time
+  #   node server (built output) → runs as a user systemd service
 
   # ── apps.ai-harnesses — sCoRE local AI layer ─────────────────────────────
   # Code agents and LLM CLI tools that sCoRE wraps as subprocess providers.
