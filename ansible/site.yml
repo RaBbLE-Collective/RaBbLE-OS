@@ -316,20 +316,19 @@
     - role: apps/rabble-collective
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Plans — RaBbLE Plans local visual plan server
-# Self-hosted Agent-Native Plan app (MIT) with Aether theming.
-# Scaffolds /opt/rabble/plans, applies Aether CSS, starts systemd user service,
-# configures nginx /_rabble/mcp proxy, registers MCP in ~/.claude config.
+# Plans — ARCHIVED / NOT ACTIVE
 #
-# MCP endpoint: http://localhost:3000/_rabble/mcp
-# Plan UI:      http://localhost:3000
+# The Agent-Native self-hosted plan server (apps/plans role) is archived.
+# Direction: plans are structured markdown in RaBbLE-Grimoire/log/plans/.
+# The visual render surface is a future NeBuLA/World feature (EP2).
+# See: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-VisualPlan-Protocol.md
 #
-# Prerequisite: Node.js + nginx must be installed (Layer 0 / base).
-# Skip on headless servers: --skip-tags plans
+# This play is intentionally never matched (hosts: plans_server_disabled)
+# so it never runs accidentally. Remove the role entirely post-EP2 cleanup.
 # ─────────────────────────────────────────────────────────────────────────────
 
-- name: "Plans — RaBbLE visual plan server"
-  hosts: all
+- name: "Plans — RaBbLE visual plan server (ARCHIVED)"
+  hosts: plans_server_disabled
   become: false
   tags: [plans]
   roles:

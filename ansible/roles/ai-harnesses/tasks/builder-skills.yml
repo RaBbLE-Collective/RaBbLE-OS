@@ -1,25 +1,22 @@
 ---
-# BuilderIO/skills — Modular slash-command skills for Claude Code
-# https://github.com/BuilderIO/skills  (MIT)
+# Agent-Native skills — quick-recap only
 #
-# Installs skills (/visual-plan, /visual-recap, /quick-recap, etc.) into
-# Claude Code's global skills directory (~/.claude/commands/).
-# Skills are invoked as slash commands during Claude Code sessions.
+# visual-plan and visual-recap were removed (S157): they route to agent-native/BuilderIO
+# hosted servers and the visual render is RaBbLE's job (NeBuLA/World, EP2 target).
+# See: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-VisualPlan-Protocol.md
 #
-# Non-interactive install: picks the default skills (visual-plan + visual-recap).
-# Re-run this task to sync/update installed skills.
+# quick-recap is kept: it provides the session status block convention (🟢/🟡/🔴)
+# used across all RaBbLE agent sessions. No hosted dependency.
 
-- name: Ensure Claude Code global commands directory exists
+- name: Ensure Claude Code global skills directory exists
   ansible.builtin.file:
-    path: "{{ lookup('env', 'HOME') }}/.claude/commands"
+    path: "{{ lookup('env', 'HOME') }}/.claude/skills"
     state: directory
     mode: '0755'
 
-- name: Install BuilderIO/skills via npx (non-interactive, default skill set)
+- name: Install quick-recap skill via npx
   ansible.builtin.command: >
     npx --yes @agent-native/skills@latest add
-    --skill visual-plan
-    --skill visual-recap
     --skill quick-recap
     --scope user
     --client claude-code
@@ -32,6 +29,16 @@
   changed_when: "'already installed' not in (_skills_install.stdout | default(''))"
   failed_when: _skills_install.rc != 0
 
-- name: Report BuilderIO skills install
+- name: Remove visual-plan skill if present (archived S157)
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.claude/skills/visual-plan"
+    state: absent
+
+- name: Remove visual-recap skill if present (archived S157)
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.claude/skills/visual-recap"
+    state: absent
+
+- name: Report skills install
   ansible.builtin.debug:
-    msg: "BuilderIO/skills: {{ _skills_install.stdout_lines | default(['install output not captured']) }}"
+    msg: "skills: {{ _skills_install.stdout_lines | default(['install output not captured']) }}"
