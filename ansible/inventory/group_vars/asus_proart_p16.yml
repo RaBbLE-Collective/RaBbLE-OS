@@ -69,16 +69,26 @@ rabble_grub_gfxpayload: "3840x2400x32"
 #   trigger a DRM reset mid-boot. AMD 890M drives eDP all the way into Hyprland;
 #   NVIDIA is PRIME-offload/compute only, loaded by nvidia-load.service after SDDM.
 #   See roles/hardware/x64/asus_proart_p16/tasks/nvidia.yml.
-# plymouth.use-simpledrm=1: REQUIRED — keeps Plymouth on the EFI framebuffer
-#   (simpledrm, DRM minor 0) for the full splash. Without it: simpledrm starts
-#   immediately, Plymouth attaches to it, then amdgpu takes over fb0 ~2s later
-#   (DRM minor 1), displacing simpledrm. Plymouth's device goes dead → black screen.
-#   amdgpu-in-initrd does NOT prevent this: simpledrm always wins the race and
-#   Plymouth binds to the first DRM device it finds. Verified broken on ProArt P16.
 # rd.udev.log_level=3: suppresses initrd udev noise before Plymouth takes over.
+#
+# ⚠ plymouth.use-simpledrm=1 — REMOVED (S165, simpledrm-pin reversal). Read before re-adding:
+#   S160 added this flag on the theory that simpledrm wins the early DRM race and amdgpu
+#   later displaces it ("Verified broken on ProArt P16" without it). But the splash stayed
+#   BLACK *with* the flag set, S160 → S164. That S160 conclusion was confounded: the tests
+#   ran on a STALE initramfs (the dracut --force handler never fired until S162), so no
+#   config it toggled could have taken effect. With the initramfs now correctly rebuilt
+#   (S162), we test the OPPOSITE hypothesis: the pin is the *cause*. It locks Plymouth to the
+#   EFI/simpledrm framebuffer; when amdgpu (this panel's GPU — eDP-1 hangs off card1/AMD)
+#   does its KMS modeset it takes the CRTC and the simpledrm scanout goes dark, while
+#   Plymouth keeps drawing to the now-invisible simpledrm surface → persistent black.
+#   amdgpu is already force-loaded into the initramfs (dracut conf: add_drivers+=amdgpu),
+#   so dropping the pin lets Plymouth bind amdgpu native KMS from frame one — no handoff.
+#   This is the standard config for a single-panel-on-amdgpu laptop.
+#   DO NOT mark this fixed without evidence: spells/boot-debug-toggle.sh --on → reboot →
+#   spells/boot-diagnose.sh (the toggle adds/removes the plymouth:debug diagnostic flag).
 rabble_grub_extra_cmdline: >-
+  plymouth:debug
   fbcon=font:TER16x32
   vt.global_cursor_default=0
   rd.driver.blacklist=nvidia
   rd.udev.log_level=3
-  plymouth.use-simpledrm=1
