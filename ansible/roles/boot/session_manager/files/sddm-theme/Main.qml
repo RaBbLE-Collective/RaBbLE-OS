@@ -32,6 +32,7 @@ Rectangle {
     property bool authBusy: false
     property string currentUser: userModel.lastUser
     property int currentSessionIndex: sessionModel.lastIndex
+    property string notifyMsg: ""
 
     function doLogin() {
         if (authBusy || currentUser === "")
@@ -41,7 +42,11 @@ Rectangle {
     }
 
     function cycleUser() {
-        if (userModel.count < 2) return;
+        if (userModel.count < 2) {
+            root.notifyMsg = "no other users";
+            notifyAnim.restart();
+            return;
+        }
         for (var i = 0; i < userModel.count; i++) {
             if (userModel.get(i, "name") === currentUser) {
                 currentUser = userModel.get((i + 1) % userModel.count, "name");
@@ -52,7 +57,11 @@ Rectangle {
     }
 
     function cycleSession() {
-        if (sessionModel.count < 2) return;
+        if (sessionModel.count < 2) {
+            root.notifyMsg = "no other sessions";
+            notifyAnim.restart();
+            return;
+        }
         currentSessionIndex = (currentSessionIndex + 1) % sessionModel.count;
     }
 
@@ -152,10 +161,9 @@ Rectangle {
 
     Text {
         id: clockText
-        // Sit just above the entity (compact) instead of pinned near the top edge.
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: centerCol.top
-        anchors.bottomMargin: 6
+        anchors.top: topBar.bottom
+        anchors.topMargin: parent.height * 0.10
 
         function refresh() {
             var d = new Date();
@@ -169,74 +177,74 @@ Rectangle {
 
         color: root.cText
         font.family: root.displayFamily
-        font.pixelSize: Math.min(root.width * 0.085, 92)
+        font.pixelSize: Math.min(root.width * 0.095, 104)
         font.weight: Font.Black
         font.letterSpacing: 6
         opacity: 0.95
     }
 
-    // ── Center column: entity + form ──────────────────────────────────────────
+    // ── Entity — independent, centered slightly below mid ─────────────────────
+    // opacity 0 + 500ms fade-in masks the Plymouth→SDDM DRM handoff gap.
+    Item {
+        id: entityArea
+        width: 520
+        height: 520
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: 0
+        opacity: 0
+        Behavior on opacity { NumberAnimation { duration: 500 } }
+
+        Image {
+            id: entityAnim
+            anchors.centerIn: parent
+            width: 520
+            height: 520
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            source: "assets/entity-idle-%1.png".arg(
+                ("000" + entityAnim.frameIdx).slice(-3))
+
+            property int frameIdx: 0
+            property int frameDir: 1
+
+            Timer {
+                interval: 60
+                running: true
+                repeat: true
+                onTriggered: {
+                    var next = entityAnim.frameIdx + entityAnim.frameDir;
+                    if (next >= 48) {
+                        entityAnim.frameDir = -1;
+                        next = 47;
+                    } else if (next <= 0) {
+                        entityAnim.frameDir = 1;
+                        next = 0;
+                    }
+                    entityAnim.frameIdx = next;
+                }
+            }
+        }
+        MultiEffect {
+            source: entityAnim
+            anchors.fill: entityAnim
+            blurEnabled: true
+            blur: 0.7
+            blurMax: 40
+            colorization: 0.2
+            colorizationColor: "#00f5ff"
+            opacity: 0.65
+        }
+    }
+
+    // ── Form column: username + passphrase — sits at the vanishing line ────────
     Column {
         id: centerCol
         width: Math.min(460, root.width - 80)
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: -parent.height * 0.02  // S156: down 6% from -0.08; measured ceiling ends at 35%, entity face now in void zone (35–68%)
+        anchors.top: parent.top
+        anchors.topMargin: parent.height * 0.57
         spacing: 10
-
-        // Entity: NeBuLA idle animation — 48 frames, 512×512 RGBA, transparent bg
-        // 460px retained (confirmed in-bounds on live hardware).
-        // opacity 0 + 500ms fade-in masks the Plymouth→SDDM DRM handoff gap.
-        Item {
-            id: entityArea
-            width: parent.width
-            height: 460
-            opacity: 0
-            Behavior on opacity { NumberAnimation { duration: 500 } }
-
-            Image {
-                id: entityAnim
-                anchors.centerIn: parent
-                width: 460
-                height: 460
-                fillMode: Image.PreserveAspectFit
-                smooth: true
-                source: "assets/entity-idle-%1.png".arg(
-                    ("000" + entityAnim.frameIdx).slice(-3))
-
-                property int frameIdx: 0
-                // Ping-pong direction (+1 forward, -1 backward). STOPGAP loop —
-                // a true seamless loop is a planned future pass (see fix doc).
-                property int frameDir: 1
-
-                Timer {
-                    interval: 60
-                    running: true
-                    repeat: true
-                    onTriggered: {
-                        var next = entityAnim.frameIdx + entityAnim.frameDir;
-                        if (next >= 48) {
-                            entityAnim.frameDir = -1;
-                            next = 47;
-                        } else if (next <= 0) {
-                            entityAnim.frameDir = 1;
-                            next = 0;
-                        }
-                        entityAnim.frameIdx = next;
-                    }
-                }
-            }
-            MultiEffect {
-                source: entityAnim
-                anchors.fill: entityAnim
-                blurEnabled: true
-                blur: 0.7
-                blurMax: 40
-                colorization: 0.2
-                colorizationColor: "#00f5ff"
-                opacity: 0.65
-            }
-        }
 
         // Username — Orbitron, color-cycles through Aether neons
         // Transforms known lowercase username to canonical RaBbLE case
@@ -250,7 +258,7 @@ Rectangle {
                 return u.charAt(0).toUpperCase() + u.slice(1).toLowerCase();
             }
             font.family: root.displayFamily
-            font.pixelSize: 32
+            font.pixelSize: 54
             font.weight: Font.Black
             font.letterSpacing: 3
             color: root.cCyan
@@ -360,6 +368,27 @@ Rectangle {
                 PauseAnimation { duration: 3000 }
                 NumberAnimation { target: errorLine; property: "opacity"; to: 0; duration: 600 }
             }
+        }
+    }
+
+    // ── Notify toast (no other user / no other session) ───────────────────────
+    Text {
+        id: notifyLine
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: sessionLabel.top
+        anchors.bottomMargin: 6
+        text: root.notifyMsg
+        color: root.cViolet
+        font.family: root.monoFamily
+        font.pixelSize: 13
+        font.letterSpacing: 1
+        opacity: 0
+
+        SequentialAnimation {
+            id: notifyAnim
+            NumberAnimation { target: notifyLine; property: "opacity"; to: 1; duration: 200 }
+            PauseAnimation { duration: 2000 }
+            NumberAnimation { target: notifyLine; property: "opacity"; to: 0; duration: 400 }
         }
     }
 
