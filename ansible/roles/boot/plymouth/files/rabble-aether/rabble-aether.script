@@ -457,7 +457,9 @@ fun refresh_callback() {
 
   if (global.slide_started_tick > 0) {
     t_raw = (global.tick - global.slide_started_tick) / slide_ticks;
-    t = (t_raw > 1.0) ? 1.0 : t_raw;
+    # Plymouth's script language has no ternary operator (?:) — clamp with if.
+    t = t_raw;
+    if (t > 1.0) t = 1.0;
     ease = t * t * (3.0 - 2.0 * t);             # smooth-step S-curve
 
     cx_now = Math.Int(entity_cx_start + (entity_cx_center - entity_cx_start) * ease);
