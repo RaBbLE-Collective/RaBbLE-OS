@@ -2,13 +2,13 @@
 # =============================================================================
 # llama.cpp — source build or pre-built binary install
 # =============================================================================
-# install_method: source (default) or prebuilt
-#   source   — clone + cmake + ninja. ~5-15 min. Full Vulkan/CUDA control.
-#              Vulkan deps: vulkan-{headers,loader-devel}, glslang, glslc,
-#                           spirv-{headers,tools}-devel
+# install_method: prebuilt (default) or source
 #   prebuilt — download GitHub release zip. Seconds. No build deps needed.
 #              Ships Vulkan only; CUDA prebuilts exist but require extra config
 #              (set llama_cpp.prebuilt_artifact to the exact release filename).
+#   source   — clone + cmake + ninja. ~5-15 min. Full Vulkan/CUDA control.
+#              Vulkan deps: vulkan-{headers,loader-devel}, glslang, glslc,
+#                           spirv-{headers,tools}-devel
 #
 # version: latest (default), HEAD (source only), or specific tag e.g. b4600
 #   latest  — resolves to current GitHub release tag at provision time.
@@ -83,6 +83,20 @@
   ansible.builtin.set_fact:
     _llama_rebuild_needed: true
   when: llama_cpp.version == "HEAD"
+  tags: [runtime, llama-cpp]
+
+# ── Stamp directory (both paths) ─────────────────────────────────────────────
+# Must exist before either path writes the version stamp.
+
+- name: Ensure llama-cpp stamp directory exists
+  become: true
+  ansible.builtin.file:
+    path: /usr/local/share/llama-cpp
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: _llama_rebuild_needed
   tags: [runtime, llama-cpp]
 
 # =============================================================================
@@ -234,19 +248,6 @@
   tags: [runtime, llama-cpp]
 
 # ── Write version stamp ───────────────────────────────────────────────────────
-
-- name: Ensure llama-cpp stamp directory exists
-  become: true
-  ansible.builtin.file:
-    path: /usr/local/share/llama-cpp
-    state: directory
-    owner: root
-    group: root
-    mode: '0755'
-  when:
-    - llama_cpp.install_method | default('source') == "source"
-    - _llama_rebuild_needed
-  tags: [runtime, llama-cpp]
 
 - name: Write llama.cpp version stamp
   become: true

@@ -48,7 +48,7 @@ lemonade:
 #     cuda_architectures: "86"=RTX3060, "89"=RTX4060, "native"=auto
 llama_cpp:
   enabled: true
-  install_method: "source"
+  install_method: "prebuilt"
   backend: "vulkan"
   repo: "https://github.com/ggerganov/llama.cpp"
   version: "latest"
