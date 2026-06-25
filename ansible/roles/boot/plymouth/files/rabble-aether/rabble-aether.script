@@ -3,14 +3,18 @@
 #
 # Frame-player port of RaBbLE-Boot.html: the entity animation is pre-captured
 # from the live NeBuLA canvas (see build-assets.sh) and played back here while
-# the boot log, wordmark, progress bar, floor grid, and prompts are scripted live.
+# the boot log, wordmark, progress bar, and prompts are scripted live.
+#
+# Background: the liminal BG image (bg-liminal.png, shared GRUB→Plymouth→SDDM)
+# carries the full environment. No software-generated floor grid is drawn — the
+# scene relies entirely on that single unified image for a uniform boot chain.
 #
 # Timeline (refresh ticks at ~50/s):
 #   frames 1..77   entity convergence -> eye emergence, played once
 #   frames 78..96  eye idle pulse, ping-ponged until boot completes
 #   ticks  10..165 boot log scrolls bottom-center (conveyor, ~5 lines visible)
 #   ticks  75..200 wordmark + tagline fade in (right section, Orbitron)
-#   always         floor grid (cyan/magenta perspective), real progress bar
+#   always         liminal BG + real progress bar
 #
 # Palette: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md only.
 # Layout: see RaBbLE-Grimoire/RaBbLE-OS/layers/RaBbLE-OS-Layer-Boot-Plymouth-EP1.md
@@ -44,6 +48,13 @@ ENTITY_SLIDE_TICKS = 40;  # slide duration (~2.4 s at 60ms/tick)
 #
 # Wordmark (right section)
 WM_Y_FRAC       = 0.42;   # wordmark top edge (below ceiling, above log band)
+WM_CX_FRAC      = 0.62;   # centre-X of the whole right-hand text column (wordmark,
+                          #   tagline, progress bar, %, ready line) as a fraction of
+                          #   screen_w. -1 = auto (geometric centre of the area right of
+                          #   the entity, ≈0.69). LOWER this to slide the column LEFT
+                          #   (toward the entity); RAISE toward 0.75 to push it right.
+                          #   Starting point 0.62 — tune to taste. The boot log stays
+                          #   left-aligned (it is NOT moved by this).
 WM_TAGLINE_GAP  = 12;     # px gap between wordmark bottom and tagline (pre-scale)
 WM_FADE_START   = 75;     # tick when wordmark begins fading in
 WM_FADE_TICKS   = 125;    # ticks over which fade completes (75+125=200)
@@ -52,6 +63,10 @@ WM_FADE_TICKS   = 125;    # ticks over which fade completes (75+125=200)
 LOG_BASELINE_FRAC = 0.63; # Y of newest log line (older lines scroll upward)
 LOG_LINE_H        = 20;   # line height in px at reference resolution (pre-scale)
 LOG_LEFT_MARGIN   = 20;   # px indent from right-section left edge (pre-scale)
+LOG_WINDOW        = 5;    # max log lines kept fully visible; older lines fade out as
+                          #   they scroll up, BEFORE they can climb into the wordmark
+                          #   band above. (Previously the fade only began past 12 lines,
+                          #   so the log overlapped the wordmark — S172 fix.)
 #
 # Progress bar
 BAR_W_FRAC      = 0.34;   # bar width as fraction of screen width
@@ -109,13 +124,11 @@ scan_img = scan_img.Scale(screen_w, screen_h);
 scan_sprite = Sprite(scan_img);
 scan_sprite.SetPosition(0, 0, 500);
 
-# ── Floor grid (cyan/magenta perspective, pre-rendered PNG) ──────────────────
-# Ported from NeBuLA AmbientField._bakeGrid: VP at (W/2, H*0.74),
-# 18 radial fan lines (alternating cyan/magenta) + 11 horizontal power lines.
-grid_img = Image("assets/floor-grid.png");
-grid_img = grid_img.Scale(screen_w, screen_h);
-grid_sprite = Sprite(grid_img);
-grid_sprite.SetPosition(0, 0, 3);
+# Floor grid REMOVED (S172): the software-baked cyan/magenta perspective grid was
+# dropped in favour of relying entirely on bg-liminal.png, which already carries
+# the environment. This keeps the boot chain uniform (one shared BG across
+# GRUB→Plymouth→SDDM) and removes a redundant overlay. Re-add by restoring the
+# floor-grid.png sprite here + step 5 in build-assets.sh if a live grid is wanted.
 
 # ── Entity frames ────────────────────────────────────────────────────────────
 frame_count = 96;
@@ -154,9 +167,16 @@ entity_sprite = Sprite(entity_frame[cur_frame]);
 entity_sprite.SetPosition(entity_x, entity_y, 10);
 
 # ── Right-section geometry (wordmark + tagline live here) ────────────────────
+# right_cx is the shared centre-X for the wordmark/tagline/bar/%/ready column.
+# WM_CX_FRAC overrides it (see LAYOUT CONSTANTS) so the whole column can slide
+# left/right without touching the geometry below. The log keeps using right_start
+# (left edge), so it is unaffected by the column shift.
 right_start = entity_cx + Math.Int(entity_size / 2);
 right_w     = screen_w - right_start;
-right_cx    = right_start + Math.Int(right_w / 2);
+if (WM_CX_FRAC < 0)
+  right_cx = right_start + Math.Int(right_w / 2);
+else
+  right_cx = Math.Int(screen_w * WM_CX_FRAC);
 
 # ── Wordmark: pre-rendered Orbitron Bold color-cycle steps ───────────────────
 # Pango font discovery is unreliable in initrd — PNGs rendered by build-assets.sh
@@ -395,9 +415,8 @@ fun refresh_callback() {
     global.done_tick = global.tick;
   fade = 1;
 
-  # liminal background + floor grid fade with everything on completion
+  # liminal background fades with everything on completion (no floor grid — S172)
   bg_sprite.SetOpacity(0.9 * fade);
-  grid_sprite.SetOpacity(0.85 * fade);
 
   # entity dims while a password dialog is up
   entity_opacity = fade;
@@ -438,9 +457,11 @@ fun refresh_callback() {
         enter_op = age / 8;
         if (enter_op > 1) enter_op = 1;
 
+        # Windowed fade: keep LOG_WINDOW lines fully visible, then fade older lines
+        # out over ~2 line-heights so the band never climbs into the wordmark above.
         exit_op = 1;
-        if (lines_after > 12) {
-          exit_op = 1 - (lines_after - 12) * 0.5;
+        if (lines_after >= LOG_WINDOW) {
+          exit_op = 1 - (lines_after - (LOG_WINDOW - 1)) * 0.6;
           if (exit_op < 0) exit_op = 0;
         }
 
