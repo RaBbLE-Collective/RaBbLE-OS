@@ -4,8 +4,9 @@
 - name: Install GRUB + console font packages
   ansible.builtin.dnf:
     name:
-      - grub2-tools        # grub2-mkfont — generates .pf2 from TTF for GRUB theme
-      - terminus-fonts     # HiDPI TTY font (ter-v32b for 4K, ter-v22b for 1080p)
+      - grub2-tools             # grub2-mkfont — generates .pf2 from TTF for GRUB theme
+      - terminus-fonts          # HiDPI TTY font (ter-v32b for 4K, ter-v22b for 1080p)
+      - google-noto-sans-fonts  # NotoSans-Regular.ttf — source for GRUB .pf2 font generation
     state: present
   become: true
   tags: [boot, grub, packages]

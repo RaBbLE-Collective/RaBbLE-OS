@@ -8,3 +8,4 @@
     name: systemd-vconsole-setup.service
     state: restarted
   become: true
+  ignore_errors: true  # setfont requires a live VT; harmless in SSH/VM sessions — font loads on next boot

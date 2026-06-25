@@ -158,6 +158,7 @@ Type=oneshot
 User=rabble
 WorkingDirectory=/home/rabble/RaBbLE/RaBbLE-OS
 Environment=RABBLE_TAGS=base,boot,desktop
+Environment=TERM=xterm-256color
 ExecStartPre=+/bin/mkdir -p /var/lib/rabble-os
 ExecStart=/bin/bash /home/rabble/RaBbLE/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh \
     --unattended \
