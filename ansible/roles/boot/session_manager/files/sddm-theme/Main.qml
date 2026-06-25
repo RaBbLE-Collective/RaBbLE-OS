@@ -32,10 +32,10 @@ Rectangle {
     // Edit here to move things. Fractions are relative to live screen height.
     // Safe content zone for the Liminal BG: 0.42 – 0.65 (void between grids).
     // See RaBbLE-Grimoire/RaBbLE-OS/desktop/RaBbLE-OS-Desktop-SDDM-Layout.md
-    readonly property real  lClockTop:   0.10    // clock: topMargin from topBar as fraction of screen h
+    readonly property real  lClockTop:   0.15    // clock: topMargin from topBar as fraction of screen h
     readonly property int   lEntitySize: 520     // entity: frame px (glow scales with it)
     readonly property real  lEntityV:   -0.04    // entity: vertical offset from center (negative = up)
-    readonly property real  lFormTop:    0.57    // login form: top edge as fraction of screen h
+    readonly property real  lFormTop:    0.56    // login form: top edge as fraction of screen h
 
     // ── Fonts ─────────────────────────────────────────────────────────────────
     FontLoader { id: exo2Loader;     source: "assets/fonts/Exo2-Variable.ttf"     }
