@@ -32,6 +32,43 @@ Window.SetBackgroundBottomColor(void.r, void.g, void.b);
 screen_w = Window.GetWidth();
 screen_h = Window.GetHeight();
 
+# ── LAYOUT CONSTANTS — tweak here, nowhere else ──────────────────────────────
+# All positions are fractions of screen_w / screen_h (0.0–1.0) so the layout
+# scales from 720p to 4K without touching the geometry code below.
+#
+# Entity
+ENTITY_CX_FRAC  = 0.25;   # entity centre-X during boot (left quarter)
+ENTITY_CY_FRAC  = 0.50;   # entity centre-Y (vertical midpoint)
+ENTITY_CX_END   = 0.50;   # centre-X after the slide-to-centre at boot complete
+ENTITY_SLIDE_TICKS = 40;  # slide duration (~2.4 s at 60ms/tick)
+#
+# Wordmark (right section)
+WM_Y_FRAC       = 0.42;   # wordmark top edge (below ceiling, above log band)
+WM_TAGLINE_GAP  = 12;     # px gap between wordmark bottom and tagline (pre-scale)
+WM_FADE_START   = 75;     # tick when wordmark begins fading in
+WM_FADE_TICKS   = 125;    # ticks over which fade completes (75+125=200)
+#
+# Boot log
+LOG_BASELINE_FRAC = 0.63; # Y of newest log line (older lines scroll upward)
+LOG_LINE_H        = 20;   # line height in px at reference resolution (pre-scale)
+LOG_LEFT_MARGIN   = 20;   # px indent from right-section left edge (pre-scale)
+#
+# Progress bar
+BAR_W_FRAC      = 0.34;   # bar width as fraction of screen width
+BAR_H_PX        = 6;      # bar height in px (pre-scale; clamped to ≥3)
+BAR_PCT_GAP     = 8;      # px gap below bar to percent label (pre-scale)
+BAR_MSG_ABOVE   = 30;     # px above bar for systemd message line (pre-scale)
+BAR_TAGLINE_GAP = 22;     # px gap between tagline bottom and bar top (pre-scale)
+#
+# "Ready" line
+READY_Y_FRAC    = 0.58;   # Y of the "◈ Boundless and becoming" line
+#
+# Password dialog
+DIALOG_Y_FRAC   = 0.58;   # Y of the dialog panel top edge
+DIALOG_W_FRAC   = 0.30;   # dialog panel width as fraction of screen width
+DIALOG_H_PX     = 96;     # dialog panel height in px (pre-scale)
+# ─────────────────────────────────────────────────────────────────────────────
+
 # ── Resolution scaling ───────────────────────────────────────────────────────
 # The fixed-size sprites (entity, wordmark, dot) and text are authored at a 1920-wide
 # reference (build-assets.sh renders at 1920x1080: entity 512², wordmark 352×84). They
@@ -98,15 +135,15 @@ for (i = 1; i <= frame_count; i++) {
 
 # Entity: left quarter of screen, vertically centered (mirrors Boot.html landscape)
 entity_size = entity_frame[1].GetWidth();
-entity_cx = Math.Int(screen_w * 0.25);
-entity_cy = Math.Int(screen_h * 0.50);
+entity_cx = Math.Int(screen_w * ENTITY_CX_FRAC);
+entity_cy = Math.Int(screen_h * ENTITY_CY_FRAC);
 entity_x  = entity_cx - Math.Int(entity_size / 2);
 entity_y  = entity_cy - Math.Int(entity_size / 2);
 
-# Slide-to-center: boot position (left quarter) → SDDM hand-off position (center)
-entity_cx_start  = entity_cx;                    # = screen_w * 0.25
-entity_cx_center = Math.Int(screen_w * 0.50);   # SDDM picks up entity centered
-slide_ticks = 40;                                # ~2.4s at 60ms/tick
+# Slide-to-center: boot position → SDDM hand-off position (centered)
+entity_cx_start  = entity_cx;
+entity_cx_center = Math.Int(screen_w * ENTITY_CX_END);
+slide_ticks = ENTITY_SLIDE_TICKS;
 
 cur_frame = 1;
 if (quiet_mode == 1)
@@ -137,7 +174,7 @@ for (i = 0; i < wm_steps; i++) {
 wm_w = wm_img[0].GetWidth();
 wm_h = wm_img[0].GetHeight();
 wm_x = right_cx - Math.Int(wm_w / 2);
-wm_y = Math.Int(screen_h * 0.42);  # S156: measured ceiling ends at 35%, 0.28 was IN grid; 0.42 = 7% safety margin below ceiling
+wm_y = Math.Int(screen_h * WM_Y_FRAC);
 wm_sprite = Sprite(wm_img[0]);
 wm_sprite.SetPosition(wm_x, wm_y, 20);
 wm_sprite.SetOpacity(0);
@@ -145,7 +182,7 @@ wm_sprite.SetOpacity(0);
 tagline_img = Image.Text("RaBbLE  ·  a Boundless behavioral Learning Engine",
                          violet.r, violet.g, violet.b, 0.78, font_mono_sm);
 tagline_x = right_cx - Math.Int(tagline_img.GetWidth() / 2);
-tagline_y = wm_y + wm_h + Math.Int(12 * scale);
+tagline_y = wm_y + wm_h + Math.Int(WM_TAGLINE_GAP * scale);
 tagline_sprite = Sprite(tagline_img);
 tagline_sprite.SetPosition(tagline_x, tagline_y, 20);
 tagline_sprite.SetOpacity(0);
@@ -174,10 +211,9 @@ log_lines[13].ts = "[  0.170000]"; log_lines[13].tag = "INFO";   log_lines[13].m
 log_lines[14].ts = "[  0.170010]"; log_lines[14].tag = " OK ";   log_lines[14].msg = "Session 048 opened · log path: /var/log/rabble/048.log";
 log_lines[15].ts = "[  0.194003]"; log_lines[15].tag = "RaBbLE"; log_lines[15].msg = "✷ entity: spawning holographic projection…";
 
-# Conveyor band: newest line sits at log_baseline_y (~0.70h, just below the entity's
-# lower zone), older lines stack upward toward ~0.45h — fills the reference's log band.
-log_baseline_y = Math.Int(screen_h * 0.63);  # was 0.70: shifted above floor grid (~72%)
-line_h = Math.Int(20 * scale);
+# Conveyor band: newest line at log_baseline_y, older lines scroll upward.
+log_baseline_y = Math.Int(screen_h * LOG_BASELINE_FRAC);
+line_h = Math.Int(LOG_LINE_H * scale);
 
 for (i = 0; i < log_count; i++) {
   tag = log_lines[i].tag;
@@ -195,8 +231,7 @@ for (i = 0; i < log_count; i++) {
   tag_img = Image.Text("[" + tag + "]  ", tr, tg, tb, 1, font_mono_sm);
   msg_img = Image.Text(log_lines[i].msg, text.r, text.g, text.b, 0.82, font_mono_sm);
 
-  # Left-aligned block anchored to the right section start (mirrors wordmark column)
-  log_lines[i].ts_x  = right_start + Math.Int(20 * scale);
+  log_lines[i].ts_x  = right_start + Math.Int(LOG_LEFT_MARGIN * scale);
   log_lines[i].tag_x = log_lines[i].ts_x + ts_img.GetWidth();
   log_lines[i].msg_x = log_lines[i].tag_x + tag_img.GetWidth();
 
@@ -213,10 +248,10 @@ for (i = 0; i < log_count; i++) {
 }
 
 # ── Progress bar ─────────────────────────────────────────────────────────────
-bar_w = Math.Int(screen_w * 0.34);
-bar_h = Math.Int(6 * scale); if (bar_h < 3) bar_h = 3;
+bar_w = Math.Int(screen_w * BAR_W_FRAC);
+bar_h = Math.Int(BAR_H_PX * scale); if (bar_h < 3) bar_h = 3;
 bar_x = right_cx - Math.Int(bar_w / 2);
-bar_y = tagline_y + tagline_img.GetHeight() + Math.Int(22 * scale);
+bar_y = tagline_y + tagline_img.GetHeight() + Math.Int(BAR_TAGLINE_GAP * scale);
 
 track_src = Image("assets/bar-track.png");
 fill_src  = Image("assets/bar-fill.png");
@@ -237,17 +272,17 @@ dot_sprite.SetPosition(bar_x - dot_half, bar_y + Math.Int(bar_h / 2) - dot_half,
 dot_sprite.SetOpacity(0);
 
 pct_sprite = Sprite();
-pct_sprite.SetPosition(right_cx - 20, bar_y + bar_h + Math.Int(8 * scale), 40);
+pct_sprite.SetPosition(right_cx, bar_y + bar_h + Math.Int(BAR_PCT_GAP * scale), 40);
 
 ready_img = Image.Text("◈ Boundless and becoming · ready when you are",
                        violet.r, violet.g, violet.b, 1, font_mono_md);
 ready_sprite = Sprite(ready_img);
-ready_sprite.SetPosition(right_cx - Math.Int(ready_img.GetWidth() / 2), Math.Int(screen_h * 0.58), 40);  # was 0.67: above floor grid
+ready_sprite.SetPosition(right_cx - Math.Int(ready_img.GetWidth() / 2), Math.Int(screen_h * READY_Y_FRAC), 40);
 ready_sprite.SetOpacity(0);
 
 # ── systemd message line (fsck, etc.) ────────────────────────────────────────
 message_sprite = Sprite();
-message_sprite.SetPosition(bar_x, bar_y - Math.Int(30 * scale), 40);
+message_sprite.SetPosition(bar_x, bar_y - Math.Int(BAR_MSG_ABOVE * scale), 40);
 
 # ── Password / question dialog ───────────────────────────────────────────────
 panel_src = Image("assets/panel.png");
@@ -257,10 +292,10 @@ dialog.prompt_sprite = Sprite();
 dialog.entry_sprite = Sprite();
 
 fun show_dialog(prompt_text, entry_text) {
-  panel_w = Math.Int(screen_w * 0.30);
-  panel_h = Math.Int(96 * global.scale);
+  panel_w = Math.Int(screen_w * DIALOG_W_FRAC);
+  panel_h = Math.Int(DIALOG_H_PX * global.scale);
   panel_x = Math.Int((screen_w - panel_w) / 2);
-  panel_y = Math.Int(screen_h * 0.58);  # S156: floor starts at 68%; moved up from 0.70 which was into the floor grid
+  panel_y = Math.Int(screen_h * DIALOG_Y_FRAC);
 
   global.dialog.panel_sprite.SetImage(panel_src.Scale(panel_w, panel_h));
   global.dialog.panel_sprite.SetPosition(panel_x, panel_y, 200);
@@ -370,8 +405,8 @@ fun refresh_callback() {
     entity_opacity = 0.30 * fade;
   entity_sprite.SetOpacity(entity_opacity);
 
-  # wordmark fade-in (ticks 75..200) + color cycle every 3 ticks
-  wm_opacity = (global.tick - 75) / 125;
+  # wordmark fade-in + color cycle every 3 ticks
+  wm_opacity = (global.tick - WM_FADE_START) / WM_FADE_TICKS;
   if (quiet_mode == 1)
     wm_opacity = 0.85;
   if (wm_opacity < 0) wm_opacity = 0;
@@ -445,7 +480,7 @@ fun refresh_callback() {
       pct_str = pct + "%";
     pct_img = Image.Text(pct_str, muted.r, muted.g, muted.b, 1, font_mono_sm);
     pct_sprite.SetImage(pct_img);
-    pct_sprite.SetPosition(right_cx - Math.Int(pct_img.GetWidth() / 2), bar_y + bar_h + Math.Int(8 * scale), 40);
+    pct_sprite.SetPosition(right_cx - Math.Int(pct_img.GetWidth() / 2), bar_y + bar_h + Math.Int(BAR_PCT_GAP * scale), 40);
     global.last_pct = pct;
   }
   pct_sprite.SetOpacity(fade);

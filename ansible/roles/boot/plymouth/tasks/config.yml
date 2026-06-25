@@ -43,15 +43,24 @@
     dest: /etc/dracut.conf.d/90-rabble-plymouth-fonts.conf
     content: |
       # rabble-aether Plymouth theme — fonts + theme assets + GPU driver for splash
+      #
       # install_items (theme dir): explicit inclusion because 95plymouth dracut
       #   module does not reliably auto-include script-module themes with large
       #   PNG frame arrays. Directory path → dracut recurses entire tree.
-      # add_drivers (amdgpu): present in initrd for DRM availability, but does NOT
-      #   prevent the simpledrm→amdgpu takeover; that requires plymouth.use-simpledrm=1
-      #   in the kernel cmdline (set in group_vars/asus_proart_p16.yml).
-      # Pango falls back to DejaVu Sans if font paths are ever missing.
+      #
+      # label-pango.so: Plymouth's text rendering plugin. Without it, every call to
+      #   Image.Text() fails silently and 14+ "Could not load module" errors appear in
+      #   the Plymouth debug log. dracut auto-resolves pango/fontconfig shared libs.
+      #
+      # fc-match: invoked by the label plugin to resolve font names via fontconfig.
+      #   Without it, 100+ "sh: /usr/bin/fc-match: No such file or directory" entries
+      #   flood the journal per boot. dracut auto-resolves its shared libs (libfontconfig).
+      #
+      # add_drivers (amdgpu): present in initrd for DRM availability + seamless=1 support.
       install_items+=" /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Bold.otf /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Regular.otf /usr/share/fonts/rabble-fonts/Orbitron-Variable.ttf "
       install_items+=" /usr/share/plymouth/themes/rabble-aether/ "
+      install_items+=" /usr/lib64/plymouth/label-pango.so "
+      install_items+=" /usr/bin/fc-match "
       add_drivers+=" amdgpu "
     owner: root
     group: root

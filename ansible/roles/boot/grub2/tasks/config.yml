@@ -51,8 +51,8 @@
 # Deploy theme.txt + the pre-rendered liminal background only — NOT build-grub-bg.py,
 # which is a build-time generator and has no business living in /boot.
 - name: Deploy GRUB theme.txt
-  ansible.builtin.copy:
-    src: theme/theme.txt
+  ansible.builtin.template:
+    src: theme.j2
     dest: /boot/grub2/themes/rabble/theme.txt
     owner: root
     group: root
@@ -97,10 +97,13 @@
   become: true
   when: noto_sans_ttf.files | length > 0
   loop:
-    - { size: 12 }
-    - { size: 16 }
-    - { size: 18 }
-    - { size: 36 }
+    - { size: 12 }   # 1080p hint
+    - { size: 16 }   # 1080p body / GRUB default
+    - { size: 18 }   # 1080p subtitle
+    - { size: 24 }   # 4K hint
+    - { size: 32 }   # 4K body / GRUB default
+    - { size: 36 }   # 1080p title / 4K subtitle
+    - { size: 72 }   # 4K title
   notify: rebuild grub config
   tags: [boot, grub, theme]
 

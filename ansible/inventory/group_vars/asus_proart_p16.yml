@@ -44,8 +44,15 @@ lemonade:
 # ter-v32b = 32pt bold, the right size for 4K @ 16".
 rabble_console_font: "ter-v32b"
 
-# GRUB *menu* at logical 1920x1200 so theme fonts are readable on the 4K panel.
-rabble_gfx_mode: "1920x1200x32"
+# GRUB *menu* at native 4K so gfxmode matches GFXPAYLOAD — no mode-switch black flash.
+# HiDPI fonts (rabble_grub_theme_*) are doubled below to keep physical text size the same.
+# Fallback list: if GOP doesn't expose 3840x2400 the 1920x1200 mode still works.
+rabble_gfx_mode: "3840x2400x32,1920x1200x32,auto"
+rabble_grub_font_base_size: 32
+rabble_grub_theme_hint:  24
+rabble_grub_theme_body:  32
+rabble_grub_theme_sub:   36
+rabble_grub_theme_title: 72
 
 # GFXPAYLOAD = the framebuffer handed to the kernel / simpledrm / Plymouth. It does
 # NOT have to match the GRUB menu mode above. It MUST be the panel's NATIVE 3840x2400.
@@ -94,7 +101,6 @@ rabble_grub_gfxpayload: "3840x2400x32"
 #   amdgpu.seamless=1 (added S167) is the correct final fix: it keeps the framebuffer live
 #   during the KMS modeset, making the handoff transparent instead of causing a blank.
 rabble_grub_extra_cmdline: >-
-  plymouth:debug
   fbcon=font:TER16x32
   vt.global_cursor_default=0
   rd.driver.blacklist=nvidia

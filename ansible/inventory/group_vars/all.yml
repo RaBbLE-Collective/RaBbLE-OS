@@ -40,3 +40,14 @@ rabble_fedora_version: "43"
 
 # ── Desktop ───────────────────────────────────────────────────────────────────
 rabble_default_shell: zsh    # zsh | bash
+
+# ── GRUB boot display ─────────────────────────────────────────────────────────
+# Font size used for GRUB's own console/gfxterm UI. Theme font sizes derive from
+# this to keep text proportional across resolutions. Override in group_vars per host.
+# Standard: 16 (≈1080p). HiDPI (4K native): 32 (doubles physical size).
+rabble_grub_font_base_size: 16
+# Theme font sizes for theme.j2 — sized for the GRUB gfxmode resolution.
+rabble_grub_theme_hint:  12   # key hints, muted separator
+rabble_grub_theme_body:  16   # boot menu items, timer bar
+rabble_grub_theme_sub:   18   # subtitle / episode label
+rabble_grub_theme_title: 36   # "RaBbLE-OS" header

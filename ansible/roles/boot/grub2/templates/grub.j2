@@ -20,7 +20,7 @@ GRUB_COLOR_HIGHLIGHT="light-magenta/black"
 
 # Theme — theme.txt owns the background via desktop-color; no separate PNG needed.
 GRUB_THEME=/boot/grub2/themes/rabble/theme.txt
-GRUB_FONT=/boot/grub2/themes/rabble/noto16.pf2
+GRUB_FONT=/boot/grub2/themes/rabble/noto{{ rabble_grub_font_base_size | default(16) }}.pf2
 
 # Kernel command line
 GRUB_CMDLINE_LINUX="rhgb quiet \
