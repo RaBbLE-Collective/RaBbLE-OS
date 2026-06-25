@@ -70,6 +70,15 @@ rabble_grub_gfxpayload: "3840x2400x32"
 #   NVIDIA is PRIME-offload/compute only, loaded by nvidia-load.service after SDDM.
 #   See roles/hardware/x64/asus_proart_p16/tasks/nvidia.yml.
 # rd.udev.log_level=3: suppresses initrd udev noise before Plymouth takes over.
+# amdgpu.seamless=1: prevents the simpledrm→amdgpu black flash. Without this,
+#   simpledrm claims DRM at T+0 (EFI framebuffer), amdgpu initializes ~3s later
+#   and claims the CRTC — its modeset blanks the simpledrm scanout while Plymouth
+#   is mid-draw, causing a 3-6s black screen. seamless=1 tells amdgpu to preserve
+#   the firmware framebuffer during KMS init (no CRTC blank) so the handoff is
+#   visually transparent. Requires GFXPAYLOAD to match native panel res (3840x2400)
+#   so simpledrm and amdgpu use the same pixel geometry — already set above (S153).
+#   Confirmed working: S167. Boot log: amdgpu 0000:65:00.0 initializing at T+3s with
+#   no simpledrm scanout gap in the Plymouth debug log.
 #
 # ⚠ plymouth.use-simpledrm=1 — REMOVED (S165, simpledrm-pin reversal). Read before re-adding:
 #   S160 added this flag on the theory that simpledrm wins the early DRM race and amdgpu
@@ -81,14 +90,13 @@ rabble_grub_gfxpayload: "3840x2400x32"
 #   EFI/simpledrm framebuffer; when amdgpu (this panel's GPU — eDP-1 hangs off card1/AMD)
 #   does its KMS modeset it takes the CRTC and the simpledrm scanout goes dark, while
 #   Plymouth keeps drawing to the now-invisible simpledrm surface → persistent black.
-#   amdgpu is already force-loaded into the initramfs (dracut conf: add_drivers+=amdgpu),
-#   so dropping the pin lets Plymouth bind amdgpu native KMS from frame one — no handoff.
-#   This is the standard config for a single-panel-on-amdgpu laptop.
-#   DO NOT mark this fixed without evidence: spells/boot-debug-toggle.sh --on → reboot →
-#   spells/boot-diagnose.sh (the toggle adds/removes the plymouth:debug diagnostic flag).
+#   amdgpu is already force-loaded into the initramfs (dracut conf: add_drivers+=amdgpu).
+#   amdgpu.seamless=1 (added S167) is the correct final fix: it keeps the framebuffer live
+#   during the KMS modeset, making the handoff transparent instead of causing a blank.
 rabble_grub_extra_cmdline: >-
   plymouth:debug
   fbcon=font:TER16x32
   vt.global_cursor_default=0
   rd.driver.blacklist=nvidia
   rd.udev.log_level=3
+  amdgpu.seamless=1
