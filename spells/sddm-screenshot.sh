@@ -48,6 +48,31 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# ── Sudo passthrough — reconstruct desktop-user Wayland environment ───────────
+# sddm-greeter-qt6 --test-mode must run as the Wayland session owner.
+# When invoked via sudo, HOME/XDG_RUNTIME_DIR/WAYLAND_DISPLAY all point at
+# root's (non-existent) session, causing an immediate SIGABRT.
+GREETER_AS_USER=false
+if [[ "${EUID}" -eq 0 && -n "${SUDO_USER:-}" ]]; then
+    GREETER_AS_USER=true
+    REAL_USER="${SUDO_USER}"
+    REAL_UID=$(id -u "${REAL_USER}")
+    REAL_HOME=$(getent passwd "${REAL_USER}" | cut -d: -f6)
+    HOME="${REAL_HOME}"
+    QML_CACHE="${REAL_HOME}/.cache/sddm-greeter-qt6/qmlcache"
+    # Discover WAYLAND_DISPLAY from any process owned by the desktop user
+    _WD="${WAYLAND_DISPLAY:-}"
+    if [[ -z "${_WD}" ]]; then
+        for _pid in $(pgrep -u "${REAL_UID}" 2>/dev/null); do
+            _WD=$(tr '\0' '\n' < "/proc/${_pid}/environ" 2>/dev/null \
+                  | grep '^WAYLAND_DISPLAY=' | head -1 | cut -d= -f2- || true)
+            [[ -n "${_WD}" ]] && break
+        done
+    fi
+    WAYLAND_DISPLAY="${_WD:-wayland-1}"
+    XDG_RUNTIME_DIR="/run/user/${REAL_UID}"
+fi
+
 # ── Preflight ─────────────────────────────────────────────────────────────────
 if ! command -v sddm-greeter-qt6 &>/dev/null; then
     echo "✗  sddm-greeter-qt6 not found — is sddm installed?" >&2
@@ -108,9 +133,19 @@ else
     GRIM_ARGS=(-o "${MONITOR}")
 fi
 
-# Launch greeter
+# Launch greeter — must run as the Wayland session owner, not root
 echo "  launching greeter (delay ${DELAY}s)…"
-QT_QPA_PLATFORM=wayland sddm-greeter-qt6 --test-mode --theme "${THEME_DIR}" &>/dev/null &
+if [[ "${GREETER_AS_USER}" == true ]]; then
+    sudo -u "${REAL_USER}" env \
+        QT_QPA_PLATFORM=wayland \
+        WAYLAND_DISPLAY="${WAYLAND_DISPLAY}" \
+        XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR}" \
+        HOME="${HOME}" \
+        sddm-greeter-qt6 --test-mode --theme "${THEME_DIR}" &>/dev/null &
+else
+    QT_QPA_PLATFORM=wayland sddm-greeter-qt6 --test-mode \
+        --theme "${THEME_DIR}" &>/dev/null &
+fi
 GPID=$!
 
 # Give the greeter time to render (entity fade-in = 500ms; add headroom)
