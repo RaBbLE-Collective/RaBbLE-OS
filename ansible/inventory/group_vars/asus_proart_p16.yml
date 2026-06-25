@@ -97,22 +97,24 @@ rabble_grub_gfxpayload: "3840x2400x32"
 #   modeset (the dummy switch) → ~1-2s visible black, and the tick-based splash animation
 #   snaps forward on recovery because boot kept progressing during the freeze.
 #
-#   Fix: don't let simpledrm come up at all. simpledrm is BUILT-IN (modules.builtin), so it
-#   can't be modprobe-blacklisted — initcall_blacklist disables its platform-driver init.
-#   Then amdgpu is the ONLY DRM device: no second device, no migration, no dummy switch.
-#   The GOP framebuffer (GRUB's last 4K frame) holds statically from GRUB hand-off until
-#   amdgpu+Plymouth start fresh (~T+4.2) and animate once, cleanly, into SDDM.
-#   TRADE-OFF: Plymouth starts ~2.5s later (static hold up front) instead of starting on
-#   simpledrm and then blacking out. Net: no flash, no speed-jump — but a longer still frame.
-#   REVERT: drop the initcall_blacklist token below and reboot; simpledrm returns.
+#   Fix attempted (S172): initcall_blacklist=simpledrm_platform_driver_init — prevents
+#   simpledrm from coming up entirely, so amdgpu is the only DRM device: no migration, no
+#   dummy switch. The GOP framebuffer holds from GRUB hand-off until amdgpu+Plymouth start.
+#   REVERTED (S173): suppressing simpledrm caused SDDM to fail to load and introduced
+#   additional boot hiccups. The Plymouth handoff black frames are accepted for EP1.
+#   CURRENT STATE: amdgpu.seamless=1 (see above). Black frames during handoff remain.
+#   Deferred: GRUB black box (pre-kernel) is a separate unresolved issue for post-EP1.
 #
 # ⚠ plymouth.use-simpledrm=1 — also REMOVED (S165). The OPPOSITE pin (lock Plymouth TO
 #   simpledrm) caused a permanent black because amdgpu's modeset kills the simpledrm scanout
-#   while Plymouth keeps drawing to it. Suppressing simpledrm entirely (above) avoids both
-#   failure modes. amdgpu is force-loaded into the initramfs (dracut: add_drivers+=amdgpu).
+#   while Plymouth keeps drawing to it. amdgpu is force-loaded into the initramfs (dracut: add_drivers+=amdgpu).
 rabble_grub_extra_cmdline: >-
   fbcon=font:TER16x32
   vt.global_cursor_default=0
   rd.driver.blacklist=nvidia
   rd.udev.log_level=3
-  initcall_blacklist=simpledrm_platform_driver_init
+  amdgpu.seamless=1
+# NOTE: initcall_blacklist=simpledrm_platform_driver_init was tried (S172) and REVERTED (S173).
+#   Suppressing simpledrm caused SDDM to fail to load and introduced more boot hiccups than
+#   the original Plymouth handoff black. amdgpu.seamless=1 + accepted black frames is the
+#   stable choice for EP1. GRUB black box (pre-kernel) is a separate deferred issue.
