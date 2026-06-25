@@ -13,9 +13,14 @@ _vmctl_completions() {
             COMPREPLY=($(compgen -W "--force --timeout" -- "$cur"))
             return ;;
         cast|cast-ks|recast)
-            COMPREPLY=($(compgen -W "--raw-disk" -- "$cur"))
+            COMPREPLY=($(compgen -W "--raw-disk --branch" -- "$cur"))
             compopt -o filenames 2>/dev/null
             COMPREPLY+=($(compgen -f -X '!*.iso' -- "$cur"))
+            return ;;
+        --branch)
+            local br
+            br=$(git -C "$(dirname "${BASH_SOURCE[0]}")/.." branch --format='%(refname:short)' 2>/dev/null)
+            COMPREPLY=($(compgen -W "$br" -- "$cur"))
             return ;;
         restore)
             local vm="${RABBLE_VM_NAME:-rabble-os-dev}"

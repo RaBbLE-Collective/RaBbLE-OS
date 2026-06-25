@@ -11,8 +11,8 @@
 #   partition-setup <device>                  — format BTRFS VM partition
 #   setup                                     — one-time host preparation
 #   cast <iso>                                — interactive Anaconda install
-#   cast-ks [--raw-disk <dev>] <iso>          — automated Kickstart install
-#   recast [--raw-disk <dev>] <iso>           — destroy + cast-ks in one step
+#   cast-ks [--raw-disk <dev>] [--branch <name>] <iso>  — automated Kickstart install
+#   recast  [--raw-disk <dev>] [--branch <name>] <iso>  — destroy + cast-ks in one step
 #   status                                    — VM dashboard (state, IP, disk, uptime)
 #   start                                     — start the VM
 #   stop [--force] [--timeout N]              — graceful shutdown with timeout
@@ -47,6 +47,13 @@ FORCE_QCOW2="${RABBLE_VM_FORCE_QCOW2:-}"    # Set to 1 to force qcow2 even if pa
 QUIET="${RABBLE_VM_QUIET:-}"
 LIBVIRT_URI="qemu:///system"
 export LIBVIRT_DEFAULT_URI="$LIBVIRT_URI"
+
+# Repo dir (this script lives at the RaBbLE-OS repo root) — used to resolve the
+# default install branch from the current checkout.
+REPO_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+# Branch the VM clones the Collective/Grimoire/OS from. Defaults to the OS repo's
+# current checkout so the VM tests what you're working on. Override with --branch.
+RABBLE_BRANCH="${RABBLE_BRANCH:-}"
 
 # ── Colour palette ─────────────────────────────────────────────────────────────
 RED='\033[0;31m';  GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -251,8 +258,18 @@ ensure_iso_accessible() {
     local iso
     iso="$(realpath "$1")"
 
-    # If qemu can already read it, nothing to do.
-    if sudo -n -u qemu test -r "$iso" 2>/dev/null; then
+    # Fast non-sudo pre-check: skip if qemu already has read access via either
+    # an explicit ACL entry or world-readable mode + parent directory ACL.
+    # (sudo -n -u qemu test -r requires passwordless sudoers — too fragile.)
+    if getfacl -p "$iso" 2>/dev/null | grep -q "^user:qemu:r"; then
+        return
+    fi
+    local iso_dir
+    iso_dir="$(dirname "$iso")"
+    local mode
+    mode="$(stat -c '%a' "$iso" 2>/dev/null || echo 0)"
+    if (( (8#$mode & 4) != 0 )) && \
+       getfacl -p "$iso_dir" 2>/dev/null | grep -q "^user:qemu:x"; then
         return
     fi
 
@@ -326,6 +343,28 @@ cmd_setup() {
         success "Default NAT network: active ✓"
     fi
 
+    # 5. ISO ACLs — grant qemu traversal to the repo's ISO/ directory so cast-ks
+    #    can access ISOs stored outside /var/lib/libvirt/images without needing
+    #    interactive sudo at cast time. Safe to re-run (setfacl is idempotent).
+    local iso_dir="${REPO_DIR}/ISO"
+    if [[ -d "$iso_dir" ]]; then
+        info "Setting qemu ACLs for ISO directory..."
+        local path=""
+        local home_root
+        home_root="$(dirname "$HOME")"
+        IFS='/' read -ra parts <<< "$(realpath "$iso_dir")"
+        for part in "${parts[@]}"; do
+            [[ -z "$part" ]] && continue
+            path="${path}/${part}"
+            [[ "$path" == "$home_root"* ]] || continue
+            [[ -d "$path" ]] || break
+            sudo setfacl -m u:qemu:x "$path" 2>/dev/null || true
+        done
+        # Grant read on any ISOs already present
+        find "$iso_dir" -maxdepth 1 -name '*.iso' -exec sudo setfacl -m u:qemu:r {} \; 2>/dev/null || true
+        success "ISO ACLs: set for ${iso_dir} ✓"
+    fi
+
     echo ""
     if [[ "$ok" == "true" ]]; then
         success "Host is ready. Cast a VM with: $0 cast <iso-path>"
@@ -371,7 +410,7 @@ cmd_cast() {
         warn "VM '${VM_NAME}' already exists — cleaning up before recast..."
         vm_running && virsh destroy "$VM_NAME" 2>/dev/null || true
         virsh undefine "$VM_NAME" --snapshots-metadata --nvram 2>/dev/null || true
-        [[ -f "$VM_DISK" ]] && rm -f "$VM_DISK"
+        [[ -f "$VM_DISK" ]] && sudo rm -f "$VM_DISK"
         success "Cleaned up previous VM."
     fi
 
@@ -470,14 +509,22 @@ cmd_cast_ks() {
                 VM_PARTITION_DEVICE="$raw_disk"
                 VM_USE_PARTITION=true
                 ;;
+            --branch)
+                RABBLE_BRANCH="$2"
+                shift 2
+                [[ -z "$RABBLE_BRANCH" ]] && error "--branch requires a branch name"
+                ;;
             --help)
-                echo "Usage: $0 cast-ks [--raw-disk <device>] <path-to-fedora-netinst.iso>"
+                echo "Usage: $0 cast-ks [--raw-disk <device>] [--branch <name>] <path-to-fedora-netinst.iso>"
                 echo ""
                 echo "Options:"
                 echo "  --raw-disk <device>  Use raw partition device instead of qcow2 (e.g., /dev/nvme0n1p6)"
+                echo "  --branch <name>      Git branch the VM clones Collective/Grimoire/OS from"
+                echo "                       (default: this OS repo's current checkout)"
                 echo ""
                 echo "Examples:"
                 echo "  $0 cast-ks ISO/Fedora-Everything-netinst.iso"
+                echo "  $0 cast-ks --branch new-horizons ISO/Fedora-Everything-netinst.iso"
                 echo "  $0 cast-ks --raw-disk /dev/nvme0n1p6 ISO/Fedora-Everything-netinst.iso"
                 exit 0
                 ;;
@@ -488,6 +535,12 @@ cmd_cast_ks() {
         esac
     done
 
+    # Resolve the install branch: explicit --branch wins, else the OS repo's checkout.
+    if [[ -z "$RABBLE_BRANCH" ]]; then
+        RABBLE_BRANCH="$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+        [[ -z "$RABBLE_BRANCH" || "$RABBLE_BRANCH" == "HEAD" ]] && RABBLE_BRANCH="new-horizons"
+    fi
+
     [[ -z "$iso" ]] && error "Usage: $0 cast-ks [--raw-disk <device>] <path-to-fedora-netinst.iso>"
     [[ ! -f "$iso" ]] && error "ISO not found: $iso"
     [[ ! -f "RaBbLE-OS.ks" ]] && error "RaBbLE-OS.ks not found in current directory"
@@ -496,7 +549,7 @@ cmd_cast_ks() {
         warn "VM '${VM_NAME}' already exists — cleaning up before recast..."
         vm_running && virsh destroy "$VM_NAME" 2>/dev/null || true
         virsh undefine "$VM_NAME" --snapshots-metadata --nvram 2>/dev/null || true
-        [[ -f "$VM_DISK" ]] && rm -f "$VM_DISK"
+        [[ -f "$VM_DISK" ]] && sudo rm -f "$VM_DISK"
         success "Cleaned up previous VM."
     fi
 
@@ -508,28 +561,33 @@ cmd_cast_ks() {
         | tail -1)" || os_variant="fedora43"
     [[ -z "$os_variant" ]] && os_variant="fedora43"
 
-    local graphics video
-    graphics="$(detect_graphics)"
-    video="$(detect_video "$graphics")"
+    # KS install is text-only (Anaconda); GL acceleration is unnecessary and
+    # breaks when libvirtd's qemu can't reach the user's Wayland socket.
+    local graphics="spice"
+    local video="virtio"
 
     ensure_iso_accessible "$iso"
 
     section "Automated KS Install: ${VM_NAME}"
     info "ISO:      ${iso}"
     info "KS file:  RaBbLE-OS.ks"
+    info "Branch:   ${RABBLE_BRANCH}  (Collective/Grimoire/OS clone target)"
     info "Variant:  ${os_variant}"
     info "Graphics: ${graphics} / video: ${video}"
     echo ""
 
-    # Generate password hash and inject into a temp copy of the KS
+    # Generate password hash + resolve branch, inject both into a temp copy of the KS
     local ks_password="${RABBLE_PASSWORD:-rabble}"
     local ks_hash
     ks_hash="$(openssl passwd -6 "$ks_password")"
 
     local ks_tmp="/tmp/RaBbLE-OS.ks"
-    sed "s|__RABBLE_PASSWORD_HASH__|${ks_hash}|g" RaBbLE-OS.ks > "$ks_tmp"
+    sed -e "s|__RABBLE_PASSWORD_HASH__|${ks_hash}|g" \
+        -e "s|__RABBLE_BRANCH__|${RABBLE_BRANCH}|g" \
+        RaBbLE-OS.ks > "$ks_tmp"
     local ks_path="$ks_tmp"
-    trap 'rm -f "$ks_tmp"' EXIT
+    # Use ${ks_tmp:-} so the trap doesn't error if it fires after the local goes out of scope.
+    trap 'rm -f "${ks_tmp:-}"' EXIT
 
     # Prepare disk configuration
     local disk_arg
@@ -823,7 +881,7 @@ cmd_destroy() {
         2>/dev/null || true
 
     if [[ -f "$VM_DISK" ]]; then
-        rm -f "$VM_DISK"
+        sudo rm -f "$VM_DISK"
         success "Disk image removed: ${VM_DISK}"
     fi
 
@@ -974,7 +1032,7 @@ cmd_recast() {
         warn "Destroying existing VM '${VM_NAME}' before recast..."
         vm_running && virsh destroy "$VM_NAME" 2>/dev/null || true
         virsh undefine "$VM_NAME" --snapshots-metadata --nvram 2>/dev/null || true
-        [[ -f "$VM_DISK" ]] && rm -f "$VM_DISK"
+        [[ -f "$VM_DISK" ]] && sudo rm -f "$VM_DISK"
         success "Previous VM cleaned up."
     fi
 

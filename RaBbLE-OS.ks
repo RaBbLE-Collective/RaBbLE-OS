@@ -101,9 +101,16 @@ chmod 440 /etc/sudoers.d/10-rabble-setup
 
 RABBLE_ROOT="/home/rabble/RaBbLE"
 GH_BASE="https://github.com/markm1206"
-COLLECTIVE_BRANCH="dev"
-GRIMOIRE_BRANCH="dev"
-OS_BRANCH="RaBbLE-OS-New-Horizons"
+# Branch placeholders are replaced at cast time by vmctl (--branch, default = OS
+# repo's current checkout). All three members track the same branch in lockstep.
+# Fallback to new-horizons if the KS is used directly without vmctl templating.
+COLLECTIVE_BRANCH="__RABBLE_BRANCH__"
+GRIMOIRE_BRANCH="__RABBLE_BRANCH__"
+OS_BRANCH="__RABBLE_BRANCH__"
+# If run without vmctl (placeholders untouched), fall back to a real branch.
+[[ "$COLLECTIVE_BRANCH" == __RABBLE_BRANCH__ ]] && COLLECTIVE_BRANCH="new-horizons"
+[[ "$GRIMOIRE_BRANCH"   == __RABBLE_BRANCH__ ]] && GRIMOIRE_BRANCH="new-horizons"
+[[ "$OS_BRANCH"         == __RABBLE_BRANCH__ ]] && OS_BRANCH="new-horizons"
 
 clone_as_rabble() {
     local url="$1" dest="$2" branch="${3:-}"
