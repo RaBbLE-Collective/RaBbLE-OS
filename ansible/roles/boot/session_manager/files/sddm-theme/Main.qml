@@ -1,9 +1,9 @@
 // =============================================================================
 // Main.qml — RaBbLE Aether SDDM greeter — Retrowave Edition
 //
-// Synthwave outrun grid. Pure QML — no image assets. Qt6 / SDDM 0.21.
-// Glows via QtQuick.Effects MultiEffect (ships with qt6-qtdeclarative).
+// Synthwave outrun grid. Qt6 / SDDM 0.21. Components: EntityDisplay, LoginForm.
 // Palette: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md only.
+// To reposition elements edit the LAYOUT KNOBS section — not the anchors.
 // =============================================================================
 import QtQuick
 import QtQuick.Effects
@@ -12,6 +12,7 @@ Rectangle {
     id: root
     color: "#0a0010"
 
+    // ── Palette ───────────────────────────────────────────────────────────────
     readonly property color cVoid:    "#0a0010"
     readonly property color cSurface: "#12132a"
     readonly property color cRaised:  "#1a1b2e"
@@ -27,18 +28,30 @@ Rectangle {
     readonly property string displayFamily: orbitronLoader.status === 1
                                             ? orbitronLoader.name : "JetBrains Mono"
 
-    FontLoader { id: exo2Loader;    source: "assets/fonts/Exo2-Variable.ttf"    }
+    // ── Layout knobs ──────────────────────────────────────────────────────────
+    // Edit here to move things. Fractions are relative to live screen height.
+    // Safe content zone for the Liminal BG: 0.42 – 0.65 (void between grids).
+    // See RaBbLE-Grimoire/RaBbLE-OS/desktop/RaBbLE-OS-Desktop-SDDM-Layout.md
+    readonly property real  lClockTop:   0.10    // clock: topMargin from topBar as fraction of screen h
+    readonly property int   lEntitySize: 520     // entity: frame px (glow scales with it)
+    readonly property real  lEntityV:   -0.04    // entity: vertical offset from center (negative = up)
+    readonly property real  lFormTop:    0.57    // login form: top edge as fraction of screen h
+
+    // ── Fonts ─────────────────────────────────────────────────────────────────
+    FontLoader { id: exo2Loader;     source: "assets/fonts/Exo2-Variable.ttf"     }
     FontLoader { id: orbitronLoader; source: "assets/fonts/Orbitron-Variable.ttf" }
-    property bool authBusy: false
-    property string currentUser: userModel.lastUser
-    property int currentSessionIndex: sessionModel.lastIndex
-    property string notifyMsg: ""
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    property bool   authBusy:            false
+    property string currentUser:         userModel.lastUser
+    property int    currentSessionIndex: sessionModel.lastIndex
+    property string notifyMsg:           ""
 
     function doLogin() {
         if (authBusy || currentUser === "")
             return;
         authBusy = true;
-        sddm.login(currentUser, passInput.text, currentSessionIndex);
+        sddm.login(currentUser, loginForm.password, currentSessionIndex);
     }
 
     function cycleUser() {
@@ -69,9 +82,9 @@ Rectangle {
         target: sddm
         function onLoginFailed() {
             root.authBusy = false;
-            passInput.text = "";
-            passInput.forceActiveFocus();
-            errorAnim.restart();
+            loginForm.clearInput();
+            loginForm.focusInput();
+            loginForm.shakeError();
         }
         function onLoginSucceeded() { }
     }
@@ -84,12 +97,9 @@ Rectangle {
         smooth: true
     }
 
-    // ── Top "waybar" strip (Aether-styled status bar) ───────────────────────────
-    // NOTE: the SDDM greeter cannot host the real Waybar or live battery/network
-    // widgets — those need a running user session. This is the Aether-styled strip
-    // from the mockup, showing what the greeter actually knows: a RaBbLE workspace
-    // pill (left) and session + caps-lock state (right). Live battery/wifi widgets
-    // are a follow-up that needs a small backend feeding the greeter.
+    // ── Top "waybar" strip (Aether-styled status bar) ─────────────────────────
+    // NOTE: real Waybar/battery/wifi widgets need a running user session.
+    // This strip shows only what the greeter itself knows.
     Rectangle {
         id: topBar
         anchors.top: parent.top
@@ -126,7 +136,7 @@ Rectangle {
             }
         }
 
-        Row {   // right: caps-lock + session (real greeter state)
+        Row {   // right: caps-lock + session
             anchors.right: parent.right
             anchors.rightMargin: 16
             anchors.verticalCenter: parent.verticalCenter
@@ -163,7 +173,7 @@ Rectangle {
         id: clockText
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: topBar.bottom
-        anchors.topMargin: parent.height * 0.10
+        anchors.topMargin: parent.height * root.lClockTop
 
         function refresh() {
             var d = new Date();
@@ -183,192 +193,38 @@ Rectangle {
         opacity: 0.95
     }
 
-    // ── Entity — independent, centered slightly below mid ─────────────────────
+    // ── Entity ────────────────────────────────────────────────────────────────
     // opacity 0 + 500ms fade-in masks the Plymouth→SDDM DRM handoff gap.
-    Item {
+    EntityDisplay {
         id: entityArea
-        width: 520
-        height: 520
+        size:      root.lEntitySize
+        glowColor: root.cCyan
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: 0
+        anchors.verticalCenterOffset: parent.height * root.lEntityV
         opacity: 0
         Behavior on opacity { NumberAnimation { duration: 500 } }
-
-        Image {
-            id: entityAnim
-            anchors.centerIn: parent
-            width: 520
-            height: 520
-            fillMode: Image.PreserveAspectFit
-            smooth: true
-            source: "assets/entity-idle-%1.png".arg(
-                ("000" + entityAnim.frameIdx).slice(-3))
-
-            property int frameIdx: 0
-            property int frameDir: 1
-
-            Timer {
-                interval: 60
-                running: true
-                repeat: true
-                onTriggered: {
-                    var next = entityAnim.frameIdx + entityAnim.frameDir;
-                    if (next >= 48) {
-                        entityAnim.frameDir = -1;
-                        next = 47;
-                    } else if (next <= 0) {
-                        entityAnim.frameDir = 1;
-                        next = 0;
-                    }
-                    entityAnim.frameIdx = next;
-                }
-            }
-        }
-        MultiEffect {
-            source: entityAnim
-            anchors.fill: entityAnim
-            blurEnabled: true
-            blur: 0.7
-            blurMax: 40
-            colorization: 0.2
-            colorizationColor: "#00f5ff"
-            opacity: 0.65
-        }
     }
 
-    // ── Form column: username + passphrase — sits at the vanishing line ────────
-    Column {
-        id: centerCol
+    // ── Login form ────────────────────────────────────────────────────────────
+    LoginForm {
+        id: loginForm
         width: Math.min(460, root.width - 80)
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        anchors.topMargin: parent.height * 0.57
-        spacing: 10
+        anchors.topMargin: parent.height * root.lFormTop
 
-        // Username — Orbitron, color-cycles through Aether neons
-        // Transforms known lowercase username to canonical RaBbLE case
-        Text {
-            id: usernameText
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: {
-                var u = root.currentUser;
-                if (u === "") return "guest";
-                if (u.toLowerCase() === "rabble") return "RaBbLE";
-                return u.charAt(0).toUpperCase() + u.slice(1).toLowerCase();
-            }
-            font.family: root.displayFamily
-            font.pixelSize: 54
-            font.weight: Font.Black
-            font.letterSpacing: 3
-            color: root.cCyan
-            SequentialAnimation on color {
-                loops: Animation.Infinite
-                ColorAnimation { to: root.cMagenta; duration: 900; easing.type: Easing.InOutSine }
-                ColorAnimation { to: root.cViolet;  duration: 900; easing.type: Easing.InOutSine }
-                ColorAnimation { to: root.cCyan;    duration: 900; easing.type: Easing.InOutSine }
-            }
-        }
+        currentUser:   root.currentUser
+        displayFamily: root.displayFamily
+        monoFamily:    root.monoFamily
+        cText:         root.cText
+        cMuted:        root.cMuted
+        cMagenta:      root.cMagenta
+        cCyan:         root.cCyan
+        cViolet:       root.cViolet
+        cRaised:       root.cRaised
 
-        Item { width: 1; height: 6 }
-
-        // ── Passphrase field ──
-        Rectangle {
-            id: passField
-            width: parent.width
-            height: 48
-            radius: 24
-            color: root.cRaised
-
-            // Aether flowing gradient border — magenta → cyan → violet cycle
-            Rectangle {
-                anchors.centerIn: parent
-                width: parent.width + 3
-                height: parent.height + 3
-                radius: parent.radius + 2
-                z: -1
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop {
-                        position: 0.0
-                        color: "#ff2d78"
-                        SequentialAnimation on color {
-                            loops: Animation.Infinite
-                            ColorAnimation { to: "#00f5ff"; duration: 1800; easing.type: Easing.InOutSine }
-                            ColorAnimation { to: "#bf5fff"; duration: 1800; easing.type: Easing.InOutSine }
-                            ColorAnimation { to: "#ff2d78"; duration: 1800; easing.type: Easing.InOutSine }
-                        }
-                    }
-                    GradientStop {
-                        position: 1.0
-                        color: "#00f5ff"
-                        SequentialAnimation on color {
-                            loops: Animation.Infinite
-                            ColorAnimation { to: "#bf5fff"; duration: 1800; easing.type: Easing.InOutSine }
-                            ColorAnimation { to: "#ff2d78"; duration: 1800; easing.type: Easing.InOutSine }
-                            ColorAnimation { to: "#00f5ff"; duration: 1800; easing.type: Easing.InOutSine }
-                        }
-                    }
-                }
-            }
-
-            MultiEffect {
-                source: passField
-                anchors.fill: passField
-                blurEnabled: true
-                blur: 0.8
-                blurMax: 16
-                colorization: 1.0
-                colorizationColor: "#00f5ff"
-                opacity: passInput.text.length > 0 ? 0.3 : 0
-                z: -1
-                Behavior on opacity { NumberAnimation { duration: 200 } }
-            }
-
-            TextInput {
-                id: passInput
-                anchors.fill: parent
-                anchors.leftMargin: 20
-                anchors.rightMargin: 20
-                verticalAlignment: TextInput.AlignVCenter
-                horizontalAlignment: TextInput.AlignHCenter
-                color: root.cText
-                font.family: root.monoFamily
-                font.pixelSize: 20
-                clip: true
-                echoMode: TextInput.Password
-                passwordCharacter: "•"
-                Keys.onReturnPressed: root.doLogin()
-                Keys.onEnterPressed: root.doLogin()
-            }
-            Text {
-                anchors.centerIn: parent
-                text: "••••"
-                color: root.cMuted
-                font.family: root.monoFamily
-                font.pixelSize: 20
-                visible: passInput.text === "" && !passInput.activeFocus
-            }
-        }
-
-        // ── Reaction line ──
-        Text {
-            id: errorLine
-            anchors.horizontalCenter: parent.horizontalCenter
-            height: 16
-            text: "authentication failed"
-            color: root.cMagenta
-            font.family: root.monoFamily
-            font.pixelSize: 12
-            opacity: 0
-
-            SequentialAnimation {
-                id: errorAnim
-                NumberAnimation { target: errorLine; property: "opacity"; to: 1; duration: 200 }
-                PauseAnimation { duration: 3000 }
-                NumberAnimation { target: errorLine; property: "opacity"; to: 0; duration: 600 }
-            }
-        }
+        onLoginRequested: root.doLogin()
     }
 
     // ── Notify toast (no other user / no other session) ───────────────────────
@@ -392,7 +248,7 @@ Rectangle {
         }
     }
 
-    // ── Session label (above footer) ─────────────────────────────────────────
+    // ── Session label (above footer) ──────────────────────────────────────────
     Text {
         id: sessionLabel
         anchors.horizontalCenter: parent.horizontalCenter
@@ -407,8 +263,7 @@ Rectangle {
     }
 
     // ── Footer ────────────────────────────────────────────────────────────────
-    // Contrast backing pill — the power glyphs were low-contrast against the
-    // magenta floor grid; this translucent surface + Aether border lifts them.
+    // Contrast backing pill — power glyphs need lift against the magenta grid.
     Rectangle {
         anchors.horizontalCenter: footerRow.horizontalCenter
         anchors.verticalCenter: footerRow.verticalCenter
@@ -472,7 +327,6 @@ Rectangle {
             }
         }
 
-        // Change user — cycles userModel, updates username display
         Text {
             text: "⇌"
             font.pixelSize: 26
@@ -487,7 +341,6 @@ Rectangle {
             }
         }
 
-        // Swap DE — cycles sessionModel, updates session label
         Text {
             text: "⊞"
             font.pixelSize: 26
@@ -504,7 +357,7 @@ Rectangle {
     }
 
     Component.onCompleted: {
-        passInput.forceActiveFocus();
+        loginForm.focusInput();
         entityArea.opacity = 1;
     }
 }
