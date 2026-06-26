@@ -70,10 +70,10 @@
   when: ai_harnesses_fcc_enabled
   ignore_errors: true
 
-- name: "builder-skills"
+- name: "playwright"
   ansible.builtin.include_tasks:
-    file: builder-skills.yml
+    file: playwright.yml
     apply: { tags: always }
-  tags: [ai-harnesses, builder-skills]
-  when: ai_harnesses_builder_skills_enabled
+  tags: [ai-harnesses, playwright]
+  when: ai_harnesses_playwright_enabled
   ignore_errors: true

@@ -1,0 +1,53 @@
+---
+# Playwright — headless Chromium for agent visual capture (visual-screenshot.sh --playwright)
+#
+# This is the agent's eyes: visual-screenshot.sh relies on `playwright screenshot`
+# for headless capture. Without a pre-installed binary the script falls back to
+# slow/flaky `npx` resolution or fails entirely.
+#
+# Install sequence:
+#   1. npm install -g playwright   → puts `playwright` CLI in PATH
+#   2. playwright install chromium → downloads the managed Chromium binary
+#      (lands in ~/.cache/ms-playwright — idempotent if already present)
+
+- name: Check if playwright CLI is already installed
+  ansible.builtin.command: playwright --version
+  register: _playwright_precheck
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_env.PATH }}"
+
+- name: Install playwright globally via npm
+  community.general.npm:
+    name: playwright
+    global: true
+    state: present
+  environment:
+    NPM_CONFIG_PREFIX: "{{ ai_harnesses_node_prefix }}"
+  when: _playwright_precheck.rc != 0
+
+- name: Check if playwright Chromium browser is already installed
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/.cache/ms-playwright"
+  register: _playwright_browsers_dir
+
+- name: Install playwright Chromium browser binary
+  ansible.builtin.command: playwright install chromium
+  register: _playwright_install_chromium
+  changed_when: not _playwright_browsers_dir.stat.exists
+  environment:
+    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_env.PATH }}"
+    HOME: "{{ ansible_env.HOME }}"
+
+- name: Verify playwright can find Chromium
+  ansible.builtin.command: playwright --version
+  register: _playwright_version
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_env.PATH }}"
+
+- name: Report playwright version
+  ansible.builtin.debug:
+    msg: "playwright: {{ _playwright_version.stdout | default('not found — check PATH and NPM_CONFIG_PREFIX') }}"

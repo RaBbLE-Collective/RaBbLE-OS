@@ -18,8 +18,9 @@ ai_harnesses_vllm_enabled: false
 # Runs as systemd user service on :8082. Configure via ~/.config/RaBbLE/fcc.env.
 ai_harnesses_fcc_enabled: true
 
-# BuilderIO/skills: slash-command skills for Claude Code (/visual-plan, /visual-recap, etc.)
-ai_harnesses_builder_skills_enabled: true
+# Playwright: headless Chromium for agent visual capture (visual-screenshot.sh --playwright).
+# The agent's eyes — always on.
+ai_harnesses_playwright_enabled: true
 
 # Node-based CLIs install globally via npm. Requires Node.js in PATH.
 ai_harnesses_node_prefix: "{{ ansible_env.HOME }}/.local"

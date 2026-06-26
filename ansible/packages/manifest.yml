@@ -1138,6 +1138,8 @@ packages:
   #   free-claude-code  → git clone + uv sync (requires: uv — curl installer, not DNF)
   #   vllm              → pip venv (disabled by default; heavy GPU install)
   #   builder-skills    → npx @agent-native/skills@latest add
+  #   playwright        → npm install -g playwright + playwright install chromium
+  #                       (agent eyes — headless Chromium for visual-screenshot.sh --playwright)
   #
   # DNF prerequisites managed by the role:
 
