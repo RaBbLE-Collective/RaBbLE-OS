@@ -45,9 +45,16 @@ See Grimoire: `../RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-CommitStyle.md` (Pulse Pro
 
 Active branch: `RaBbLE-OS-New-Horizons`
 
-**End-of-session breadcrumb** — tag this session's token spend by feature (agent-agnostic; feeds `session-tokens.sh --by-feature`):
+**End-of-session breadcrumb** — tag this session's token spend by feature (agent-agnostic; feeds analytics):
 ```bash
-bash ../RaBbLE-Grimoire/spells/end-session.sh <feature-slug> "<note>"
+bash ../RaBbLE-Grimoire/spells/end-session.sh <feature-slug> "<optional-note>"
+
+# Examples:
+bash ../RaBbLE-Grimoire/spells/end-session.sh os-ansible-hardening "S185: selinux rules"
+bash ../RaBbLE-Grimoire/spells/end-session.sh os-vmctl "S42: safety fixes"
+bash ../RaBbLE-Grimoire/spells/end-session.sh rabble-collective-ops "State updates"
+
+# Use kebab-case. Prefix with os-* for OS-specific work, or general slug for cross-system.
 ```
 
 ## Rules
