@@ -26,6 +26,15 @@ import subprocess
 import sys
 import time
 
+# Shared dollar-cost helper (sibling module). Scripts dir on path so the
+# underscore-named module imports cleanly; pricing is optional, so degrade
+# gracefully if it ever goes missing.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+try:
+    import score_pricing
+except Exception:
+    score_pricing = None
+
 CLAUDE_DIR = pathlib.Path.home() / ".claude" / "projects"
 CODEX_DIR = pathlib.Path.home() / ".codex" / "sessions"
 CACHE_DIR = pathlib.Path.home() / ".cache" / "rabble"
@@ -379,7 +388,10 @@ def parse_sessions(since_s: float) -> list[dict]:
             total_in  = 0
             total_out = 0
             has_data  = False
-            models: dict[str, int] = {}  # short_name -> output tokens
+            models: dict[str, int] = {}  # short_name -> output tokens (share display)
+            # short_name -> full token breakdown, for dollar costing:
+            #   in = non-cached input (down), out = output (up), cr/cc = cache
+            model_io: dict[str, dict] = {}
 
             with open(jl) as f:
                 for line in f:
@@ -400,6 +412,8 @@ def parse_sessions(since_s: float) -> list[dict]:
                     usage = msg.get("usage") or entry.get("usage") or {}
                     inp   = usage.get("input_tokens", 0)
                     out   = usage.get("output_tokens", 0)
+                    cr    = usage.get("cache_read_input_tokens", 0)
+                    cc    = usage.get("cache_creation_input_tokens", 0)
 
                     if inp or out:
                         total_in  += inp
@@ -413,6 +427,12 @@ def parse_sessions(since_s: float) -> list[dict]:
                         if model and model != "<synthetic>":
                             ms = _short_model(model)
                             models[ms] = models.get(ms, 0) + out
+                            mio = model_io.setdefault(
+                                ms, {"in": 0, "out": 0, "cr": 0, "cc": 0})
+                            mio["in"]  += inp
+                            mio["out"] += out
+                            mio["cr"]  += cr
+                            mio["cc"]  += cc
 
             if has_data:
                 proj_name = jl.parent.name
@@ -425,6 +445,7 @@ def parse_sessions(since_s: float) -> list[dict]:
                     "output":   total_out,
                     "total":    total_in + total_out,
                     "models":   models,
+                    "model_io": model_io,
                 })
         except Exception:
             continue
@@ -499,12 +520,31 @@ def window_reset(sessions: list[dict], window_s: float, now: float, reset_overri
     return f"{h}h {m:02d}m" if h else f"{m}m"
 
 
+def section_cost(sessions: list[dict]) -> tuple[float, dict]:
+    """Total list-price API dollar cost across sessions, plus per-model cost.
+    Returns (total_usd, {short_model: usd}). Empty if pricing unavailable."""
+    if score_pricing is None:
+        return 0.0, {}
+    pricing = score_pricing.load()
+    per_model: dict[str, float] = {}
+    for s in sessions:
+        for m, t in s.get("model_io", {}).items():
+            per_model[m] = per_model.get(m, 0.0) + score_pricing.cost(
+                m, inp=t["in"], out=t["out"],
+                cache_read=t["cr"], cache_write=t["cc"], pricing=pricing,
+            )
+    return sum(per_model.values()), per_model
+
+
 def print_section(title: str, sessions: list[dict], window_s: float, now: float, reset_override: float | None = None):
     total = sum(s["total"] for s in sessions)
     reset = window_reset(sessions, window_s, now, reset_override)
+    total_usd, cost_by_model = section_cost(sessions)
 
     print(f"\n{VIOLET}{'─'*60}{RESET}")
     print(f"{VIOLET}{title}{RESET}  {TEXT}{fmt_tokens(total)} tokens{RESET}", end="")
+    if total_usd > 0:
+        print(f"  {GREEN}≈{score_pricing.fmt_usd(total_usd)} API{RESET}", end="")
     if sessions and window_s < 86400 * 2:
         print(f"  {MUTED}(window resets in {reset}){RESET}", end="")
     print()
@@ -535,10 +575,12 @@ def print_section(title: str, sessions: list[dict], window_s: float, now: float,
             for m, toks in sorted(model_totals.items(), key=lambda x: -x[1]):
                 pct = 100 * toks / total_mtok
                 if pct >= 1:
-                    parts.append(f"{YELLOW}{m}{RESET} {fmt_tokens(toks)} ({pct:.0f}%)")
+                    usd = cost_by_model.get(m, 0.0)
+                    cost_tag = f" {GREEN}≈{score_pricing.fmt_usd(usd)}{RESET}" if usd > 0 else ""
+                    parts.append(f"{YELLOW}{m}{RESET} {fmt_tokens(toks)} ({pct:.0f}%){cost_tag}")
             if parts:
                 print(f"  {MUTED}{'─'*58}{RESET}")
-                print(f"  {MUTED}By model (output share): {RESET}{'  '.join(parts)}")
+                print(f"  {MUTED}By model (output share · API cost): {RESET}{'  '.join(parts)}")
 
 
 def print_separator(title: str):

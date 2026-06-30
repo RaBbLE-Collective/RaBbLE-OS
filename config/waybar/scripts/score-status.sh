@@ -696,8 +696,11 @@ print(json.dumps({
                 census="${census% }"
             fi
             [[ -n "$census" ]] && claude_text+=" ${census}"
-            claude_text+=" ${five_h_disp}"
-            (( weekly_tok > 0 )) && claude_text+=" / ${weekly_disp}wk"
+            # Bar shows ONLY the live web-observed percentage — never the local
+            # token estimate (which drifts as the model/in-out mix changes). The
+            # estimate stays in the tooltip/popup for calibration.
+            [[ -n "${observed_5h_pct:-}" ]]   && claude_text+=" ${observed_5h_pct}%"
+            [[ -n "${observed_week_pct:-}" ]] && claude_text+=" / ${observed_week_pct}%wk"
         fi
 
         local tt1=$'════════════════════ Claude ═════════════════════'
@@ -997,8 +1000,11 @@ PYEOF
     five_h_in_disp=$(fmt_tokens "$five_h_in")
     five_h_out_disp=$(fmt_tokens "$five_h_out")
 
-    local text="Claude ${state_mark} ${five_h_disp}"
-    (( weekly_tok > 0 )) && text+=" / ${weekly_disp}wk"
+    # Bar shows ONLY the live web-observed percentage — never the local token
+    # estimate (which drifts). The estimate stays in the tooltip for calibration.
+    local text="Claude ${state_mark}"
+    [[ -n "${observed_5h_pct:-}" ]]   && text+=" ${observed_5h_pct}%"
+    [[ -n "${observed_week_pct:-}" ]] && text+=" / ${observed_week_pct}%wk"
     if [[ -n "${codex_pct:-}" ]]; then
         text+=" | Codex ${codex_pct}%"
     fi

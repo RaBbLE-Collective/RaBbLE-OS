@@ -20,6 +20,7 @@ Usage:
     score-usage-fit.py            # fit + report using all logged samples
 """
 
+import datetime
 import json
 import pathlib
 import sys
@@ -27,11 +28,42 @@ from collections import defaultdict
 
 import numpy as np
 
-LOG_FILE = pathlib.Path.home() / ".cache" / "rabble" / "llm-usage-log.jsonl"
+try:
+    from scipy.optimize import nnls as _nnls
+except Exception:
+    _nnls = None
+
+CACHE_DIR = pathlib.Path.home() / ".cache" / "rabble"
+LOG_FILE = CACHE_DIR / "llm-usage-log.jsonl"
+# Fitted coefficients are exported here for other tools (the popup's est %,
+# any future bar tooltip) to consume empirical weights instead of the crude
+# hardcoded FIVE_H_LIMIT / WEEKLY_LIMIT division in score-status.sh.
+COEFFS_FILE = CACHE_DIR / "llm-usage-coeffs.json"
 
 TOKEN_TYPES = ("input", "cache_creation", "cache_read", "output")
 BASELINE_MODEL = "claude-sonnet-4-6"
 BASELINE_TYPE  = "input"
+
+
+def _is_quota_model(model: str) -> bool:
+    """Only Anthropic models draw on the Claude quota the % meter tracks.
+    sCoRE's OpenRouter providers (deepseek/llama/nvidia/mistral/...) spend no
+    Anthropic quota, so their token deltas are noise regressors — including
+    them wrecks the fit (e.g. an 'nvidia output = 54.8 %/token' coefficient).
+    Filter them out so the regression only explains real Anthropic spend."""
+    return model.startswith("claude-")
+
+
+def _solve(X, y):
+    """Non-negative least squares when scipy is present (token costs can't be
+    negative — a negative coefficient is non-physical and a sign of noise),
+    else fall back to plain lstsq. Returns (coeffs, rank)."""
+    if _nnls is not None:
+        coeffs, _ = _nnls(X, y)
+        rank = int(np.linalg.matrix_rank(X))
+        return coeffs, rank
+    coeffs, _res, rank, _ = np.linalg.lstsq(X, y, rcond=None)
+    return coeffs, int(rank)
 
 
 def load_rows():
@@ -78,7 +110,7 @@ def fit_window_deltas(rows, window_label):
         print(f"  not enough api-poll samples for '{window_label}' yet "
               f"(have {len(samples)}, need ≥3 to form ≥2 deltas) — "
               f"the poller logs one every ~5 minutes, just let it run")
-        return
+        return None
 
     by_epoch = defaultdict(list)
     for s in samples:
@@ -89,12 +121,12 @@ def fit_window_deltas(rows, window_label):
         for s in samples
         for model, counts in s["models"].items()
         for ttype in TOKEN_TYPES
-        if counts.get(ttype, 0) > 0
+        if counts.get(ttype, 0) > 0 and _is_quota_model(model)
     }
     features = sorted(features_set)
     if not features:
         print(f"  no non-zero token features for '{window_label}'")
-        return
+        return None
 
     def vec(models):
         return np.array([models.get(m, {}).get(t, 0) for (m, t) in features], dtype=float)
@@ -117,19 +149,20 @@ def fit_window_deltas(rows, window_label):
     if len(X_rows) < 2:
         print(f"  not enough usable deltas for '{window_label}' yet "
               f"(have {len(X_rows)}, need ≥2) — keep the poller running")
-        return
+        return None
 
     X = np.array(X_rows)
     y = np.array(y_rows)
 
-    coeffs, residuals, rank, _ = np.linalg.lstsq(X, y, rcond=None)
+    coeffs, rank = _solve(X, y)
     pred = X @ coeffs
     errs = pred - y
     rmse = float(np.sqrt(np.mean(errs ** 2)))
 
+    method = "nnls" if _nnls is not None else "lstsq"
     print(f"  {len(samples)} sample(s) across {len(by_epoch)} window-instance(s) "
           f"→ {len(X_rows)} usable delta(s), rank {rank}/{len(features)} features, "
-          f"RMSE {rmse:.3f} pct-points/interval")
+          f"RMSE {rmse:.3f} pct-points/interval  [{method}, Anthropic-only]")
     print(f"  fitted formula  Δpct ≈ Σ c[model,type] · Δtokens   (paste these as the tuned weights):")
     for (model, ttype), c in zip(features, coeffs):
         print(f"    c[{model:<22} {ttype:<14}] = {c:.6e}")
@@ -164,6 +197,19 @@ def fit_window_deltas(rows, window_label):
         for (date, d_pct), err in biggest:
             print(f"      {date:<22} Δ%={d_pct:+.2f}pp  unexplained ≈ {err:+.2f}pp")
 
+    # Coefficient table for export: {model: {token_type: %-per-token}}
+    coeff_table = defaultdict(dict)
+    for (model, ttype), c in zip(features, coeffs):
+        coeff_table[model][ttype] = float(c)
+    return {
+        "method": "nnls-delta" if _nnls is not None else "lstsq-delta",
+        "n_samples": len(samples),
+        "n_deltas": len(X_rows),
+        "rank": int(rank),
+        "rmse_pp": round(rmse, 4),
+        "coeffs": dict(coeff_table),
+    }
+
 
 def fit_window(rows, window_label):
     all_samples = [r for r in rows if r.get("window") == window_label and r.get("models")]
@@ -186,7 +232,7 @@ def fit_window(rows, window_label):
         for s in samples
         for model, counts in s["models"].items()
         for ttype in TOKEN_TYPES
-        if counts.get(ttype, 0) > 0
+        if counts.get(ttype, 0) > 0 and _is_quota_model(model)
     })
 
     if not features:
@@ -265,12 +311,30 @@ def main():
     print(f"Loaded {len(rows)} observation(s) from {LOG_FILE} "
           f"({len(api_poll_rows)} automatic api-poll, {len(manual_rows)} manual)\n")
 
+    exported = {}
     if api_poll_rows:
         print(f"═══ Delta fit — automatic api-poll samples (preferred) ═══════")
         for window_label in ("5h", "week"):
             print(f"── {window_label} window ──────────────────────────────────────")
-            fit_window_deltas(rows, window_label)
+            result = fit_window_deltas(rows, window_label)
+            if result:
+                exported[window_label] = result
             print()
+
+    if exported:
+        payload = {
+            "generated": datetime.datetime.now().isoformat(timespec="seconds"),
+            "source": str(LOG_FILE),
+            "note": ("%-per-token coefficients per Anthropic model/token-type. "
+                     "predicted_pct = Σ coeff[model][type] · tokens. Non-Anthropic "
+                     "(OpenRouter) models are excluded — they spend no Claude quota."),
+            "windows": exported,
+        }
+        try:
+            COEFFS_FILE.write_text(json.dumps(payload, indent=2))
+            print(f"→ exported fitted coefficients to {COEFFS_FILE}\n")
+        except OSError as e:
+            print(f"  (could not write {COEFFS_FILE}: {e})\n")
 
     if manual_rows:
         print(f"═══ Absolute fit — manually logged samples (legacy) ═══════════")
