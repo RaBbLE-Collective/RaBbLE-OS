@@ -285,6 +285,14 @@ packages:
     layer: boot
     ks: false
 
+  - name: terminus-fonts-console
+    category: boot.console
+    reason: Console PSF fonts (ter-v32b) for systemd-vconsole-setup — without it setfont fails at boot and flashes a TTY error between GRUB, Plymouth and SDDM (verified S197 VM boot)
+    source: fedora
+    platform: all
+    layer: boot
+    ks: false
+
   # ═══════════════════════════════════════════════════════════════════════════
   # AUDIO — PipeWire stack
   # Full replacement for PulseAudio and JACK.
