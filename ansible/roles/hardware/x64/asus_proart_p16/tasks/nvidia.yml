@@ -36,15 +36,17 @@
       This playbook will rebuild initramfs — then REBOOT before next run.
   when: "'nouveau' in lsmod_check.stdout"
 
-# ─── Step 1b: nvidia-drm fbdev (Wayland KMS, required >= driver 545) ──────────
-- name: Set nvidia-drm fbdev=1 for Wayland framebuffer support
+# ─── Step 1b: nvidia-drm fbdev + modeset (Wayland KMS, required >= driver 545) ──
+- name: Set nvidia-drm fbdev=1 and modeset=1 for Wayland framebuffer support
   copy:
     dest: /etc/modprobe.d/rabble-nvidia-wayland.conf
     content: |
       # RaBbLE-OS: NVIDIA Wayland / KMS options
       # fbdev=1 required for proper framebuffer on newer NVIDIA drivers (>= 545)
-      # modeset=1 is set separately by supergfxd.conf
+      # modeset=1 set explicitly here (previously left to supergfxd.conf) — it is a
+      # real prerequisite for RTD3/D3cold power management on Wayland, not just KMS.
       options nvidia-drm fbdev=1
+      options nvidia-drm modeset=1
   notify: regenerate initramfs
 
 # ─── Step 1c: SDDM greeter GPU pin ───────────────────────────────
@@ -65,10 +67,11 @@
     group: root
     mode: "0644"
     content: |
-      # RaBbLE-OS: Pin SDDM greeter compositor to AMD card (card1 / PCI 0000:65:00.0)
+      # RaBbLE-OS: Pin SDDM greeter compositor to AMD card (PCI 0000:65:00.0 via by-path)
+      # By-path symlink ensures stability across card renumbering (Phase-2 simpledrm suppression).
       # NVIDIA (card0) has no CRTCs in Optimus hybrid mode — sway compositor crashes without this.
       [Wayland]
-      CompositorCommand=env WLR_DRM_DEVICES=/dev/dri/card1 /usr/libexec/sddm-compositor-sway
+      CompositorCommand=env WLR_DRM_DEVICES=/dev/dri/by-path/pci-0000:65:00.0-card /usr/libexec/sddm-compositor-sway
 
 # ─── Step 2: NVIDIA Driver Installation ──────────────────────────
 - name: Install akmod-nvidia (auto-rebuilds on kernel updates)
@@ -78,9 +81,34 @@
       - xorg-x11-drv-nvidia       # Xorg driver (still needed even on Wayland)
       - xorg-x11-drv-nvidia-cuda  # CUDA support
       - xorg-x11-drv-nvidia-cuda-libs
+      - xorg-x11-drv-nvidia-power # Ships nvidia-suspend/-hibernate/-resume/-powerd.service
+                                   # + /usr/lib/systemd/system-sleep hooks (D3cold/RTD3 stack)
       - libva-nvidia-driver  # The current Fedora 43 naming convention for Vid Accel
       - libva-utils
     state: present
+
+# ─── Step 2b: NVIDIA runtime power management (D3cold / RTD3) ───────────────
+# Requires xorg-x11-drv-nvidia-power (Step 2) for the sleep hooks to have effect.
+- name: Set NVIDIA dynamic power management + video memory preservation options
+  copy:
+    dest: /etc/modprobe.d/rabble-nvidia-powermgmt.conf
+    content: |
+      # RaBbLE-OS: NVIDIA runtime power management (D3cold / RTD3)
+      # NVreg_DynamicPowerManagement=0x02 enables fine-grained RTD3 (D3cold when idle)
+      # NVreg_PreserveVideoMemoryAllocations=1 required for suspend/resume to work
+      # correctly with dynamic power management enabled.
+      options nvidia NVreg_DynamicPowerManagement=0x02
+      options nvidia NVreg_PreserveVideoMemoryAllocations=1
+  notify: regenerate initramfs
+
+- name: Warn that NVIDIA power management options require a reboot
+  debug:
+    msg: |
+      ⚠️  NVreg_DynamicPowerManagement / NVreg_PreserveVideoMemoryAllocations were
+      just written to /etc/modprobe.d/rabble-nvidia-powermgmt.conf.
+      Like the nouveau blacklist above, these are modprobe options — they only take
+      effect after the initramfs rebuild AND a reboot. Do not assume D3cold/RTD3 is
+      live until after that reboot.
 
 # ─── Step 3: Deferred NVIDIA load (boot-chain partner to rd.driver.blacklist=nvidia) ──
 # The GRUB cmdline carries `rd.driver.blacklist=nvidia` (group_vars) so the dGPU is
@@ -125,3 +153,46 @@
     daemon_reload: true
     scope: system
   become: true
+
+# ─── Step 4: NVIDIA power-management services (from xorg-x11-drv-nvidia-power) ──
+# These units + the /usr/lib/systemd/system-sleep hooks only exist once
+# xorg-x11-drv-nvidia-power is installed (Step 2). They save/restore GPU state
+# across suspend/hibernate so RTD3/D3cold (Step 2b) survives sleep cycles cleanly.
+- name: Enable nvidia-suspend.service
+  ansible.builtin.systemd:
+    name: nvidia-suspend.service
+    enabled: true
+    daemon_reload: true
+    scope: system
+  become: true
+
+- name: Enable nvidia-hibernate.service
+  ansible.builtin.systemd:
+    name: nvidia-hibernate.service
+    enabled: true
+    daemon_reload: true
+    scope: system
+  become: true
+
+- name: Enable nvidia-resume.service
+  ansible.builtin.systemd:
+    name: nvidia-resume.service
+    enabled: true
+    daemon_reload: true
+    scope: system
+  become: true
+
+# nvidia-powerd.service is Dynamic Boost 2.0 — CPU/GPU power-budget arbitration for
+# performance/clock boosting under load. It is NOT an idle-power reducer; it does not
+# contribute to D3cold idle draw. Enabled here because it's part of the documented
+# xorg-x11-drv-nvidia-power stack, not as a claimed fix for idle power.
+- name: Enable nvidia-powerd.service (Dynamic Boost 2.0 — perf arbitration, not idle-power)
+  ansible.builtin.systemd:
+    name: nvidia-powerd.service
+    enabled: true
+    daemon_reload: true
+    scope: system
+  become: true
+
+# Deliberately NOT enabling nvidia-persistenced: it holds the GPU in D0 permanently,
+# which defeats RTD3/D3cold idle suspend entirely. Anti-pattern for a laptop dGPU.

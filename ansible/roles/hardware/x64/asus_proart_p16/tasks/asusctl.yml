@@ -1,6 +1,28 @@
 ---
-# hardware/x64/asus_proart_p16/tasks/asusctl.yml — STUB
-- name: "asus_proart_p16/asusctl — stub"
-  ansible.builtin.debug:
-    msg: "spark ~ hardware/asus_proart_p16/asusctl >> stub, no-op // %DORMANT%"
-  tags: [hardware]
+# ansible/roles/hardware/x64/asus_proart_p16/tasks/asusctl.yml
+# asusctl — the CLI client for asusd: fan profiles, keyboard backlight,
+# charge limit, AuraSync. Source is copr:lukenukem/asus-linux, already
+# declared in ansible/packages/manifest.yml — this task installs the client
+# and sets the default platform-profile. The daemon service (asusd.service)
+# is installed/enabled by asusd.yml; per-profile fan curves live in
+# arbitration.yml (Balanced there gets the quiet curve override, not stock).
+
+- name: asusctl | install asusctl client
+  ansible.builtin.dnf:
+    name: asusctl
+    state: present
+  become: true
+  tags: [hardware, asus, power]
+
+# CONFIRM SYNTAX against installed asusctl version at apply time — the
+# platform-profile flag has drifted across asusctl releases (-P/--profile-set
+# on some, -p/--profile on others). failed_when: false keeps a flag-name drift
+# from failing the whole hardware role; check `asusctl profile -l` by hand
+# after the first real apply if this silently no-ops.
+- name: "asusctl | set default platform-profile ({{ asus_power_profile | default('Balanced') }})"
+  ansible.builtin.command: "asusctl profile -P {{ asus_power_profile | default('Balanced') }}"
+  register: rabble_asusctl_profile_set
+  changed_when: rabble_asusctl_profile_set.rc == 0
+  failed_when: false
+  become: true
+  tags: [hardware, asus, power]

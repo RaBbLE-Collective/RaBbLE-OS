@@ -1,6 +1,153 @@
 ---
-# hardware/x64/asus_proart_p16/tasks/power/arbitration.yml — STUB
-- name: "asus_proart_p16/power/arbitration — stub"
+# ansible/roles/hardware/x64/asus_proart_p16/tasks/arbitration.yml
+#
+# CORRECTED FAN-CURVE MODEL (Opus review, 2026-07-04 — see
+# RaBbLE-Grimoire/log/plans/OS-ProArt-Power-Stack-Plan.md Phase 4):
+# asusctl fan curves are defined PER platform-profile — Quiet, Balanced, and
+# Performance each own their own curve inside asusd's config, coupled to
+# tuned-ppd only via the kernel `platform_profile` sysfs interface. There is
+# no generic "asusd auto-follow toggle" to disable, and no way to decouple
+# "CPU headroom" from "fan curve" as two independent knobs — they are the same
+# knob (which platform-profile is active) wearing two hats.
+#
+# To get "Balanced's CPU headroom, but fans held quiet" the actual mechanism
+# is: edit the BALANCED profile's own fan curve to be the quiet curve, rather
+# than trying to toggle a decoupling that doesn't exist. That's what the fan
+# curve assignment below does — Balanced gets rabble_fan_curve_quiet, not a
+# "standard"/stock curve.
+#
+# This file's job (per the Phase 4 plan):
+#   1. Guard: power-profiles-daemon must never be installed (mask if pulled in).
+#   2. Author + assign the three fan-curve definitions.
+#   3. Deploy the AC-plug gate as a udev rule + its fallback script.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Guard — power-profiles-daemon must never coexist with tuned-ppd.
+# See tuned.yml's header and RaBbLE-Grimoire/RaBbLE-OS/RaBbLE-OS-AgentGuide.md:64-66.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: arbitration | check installed packages (for the power-profiles-daemon guard)
+  ansible.builtin.package_facts:
+    manager: rpm
+  tags: [hardware, power, arbitration]
+
+- name: "arbitration | GUARD — power-profiles-daemon must never be installed (found present, removing)"
+  ansible.builtin.dnf:
+    name: power-profiles-daemon
+    state: absent
+  become: true
+  when: "'power-profiles-daemon' in ansible_facts.packages"
+  tags: [hardware, power, arbitration]
+
+- name: "arbitration | GUARD — mask power-profiles-daemon.service in case a dependency re-pulls it"
+  ansible.builtin.systemd:
+    name: power-profiles-daemon.service
+    masked: true
+    enabled: false
+    state: stopped
+  become: true
+  when: "'power-profiles-daemon' in ansible_facts.packages"
+  tags: [hardware, power, arbitration]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Fan-curve definitions and per-profile assignment.
+#
+# Format is asusctl's 8-point temp:pwm curve string (degrees C : percent duty).
+# CONFIRM SYNTAX against installed asusctl version at apply time — this task
+# uses `asusctl fan-curve` because the CLI validates against the running
+# daemon's actual schema (it errors instead of corrupting a hand-edited
+# /etc/asusd/*.ron on a schema mismatch), which is safer to author blind than
+# overwriting asusd's config file wholesale. `-m/-f/-d` flag names and the
+# exact data-string syntax ("Tc:P%,...") are asusctl's community-documented
+# convention as of the asus-linux project circa Fedora 43 packaging — verify
+# with `asusctl fan-curve --help` on the actual installed version before
+# trusting this to have applied; failed_when: false keeps a flag-name/schema
+# drift from failing the whole hardware role.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: arbitration | define fan curves
+  ansible.builtin.set_fact:
+    rabble_fan_curve_quiet: "30c:0%,49c:0%,59c:10%,69c:20%,79c:30%,89c:45%,99c:60%,109c:70%"
+    # Authored for completeness/documentation of what asusd ships Balanced with
+    # stock — deliberately NOT assigned to any profile below. Per the corrected
+    # fan-curve model above, Balanced is overridden to rabble_fan_curve_quiet
+    # instead of this one, so Mark gets Balanced's CPU headroom without the
+    # stock curve's fan noise. Kept here as the documented "what we overrode".
+    rabble_fan_curve_standard: "30c:0%,49c:20%,59c:35%,69c:48%,79c:62%,89c:78%,99c:90%,109c:100%"
+    rabble_fan_curve_unrestricted: "30c:20%,49c:40%,59c:55%,69c:68%,79c:80%,89c:90%,99c:100%,109c:100%"
+  tags: [hardware, power, arbitration]
+
+- name: arbitration | assign fan curves to platform-profiles (Balanced overridden to quiet)
+  ansible.builtin.command: "asusctl fan-curve -m {{ item.profile }} -f {{ item.fan }} -d \"{{ item.curve }}\""
+  register: rabble_fan_curve_apply
+  changed_when: rabble_fan_curve_apply.rc == 0
+  failed_when: false
+  become: true
+  loop:
+    - { profile: "Quiet",       fan: "cpu", curve: "{{ rabble_fan_curve_quiet }}" }
+    - { profile: "Quiet",       fan: "gpu", curve: "{{ rabble_fan_curve_quiet }}" }
+    - { profile: "Balanced",    fan: "cpu", curve: "{{ rabble_fan_curve_quiet }}" }        # override: quiet, not standard
+    - { profile: "Balanced",    fan: "gpu", curve: "{{ rabble_fan_curve_quiet }}" }        # override: quiet, not standard
+    - { profile: "Performance", fan: "cpu", curve: "{{ rabble_fan_curve_unrestricted }}" }
+    - { profile: "Performance", fan: "gpu", curve: "{{ rabble_fan_curve_unrestricted }}" }
+  loop_control:
+    label: "{{ item.profile }}/{{ item.fan }}"
+  tags: [hardware, power, arbitration]
+
+- name: arbitration | warn if fan-curve CLI calls failed (syntax likely drifted from this version)
   ansible.builtin.debug:
-    msg: "spark ~ hardware/asus_proart_p16/power/arbitration >> stub, no-op // %DORMANT%"
-  tags: [hardware, power]
+    msg: >-
+      One or more `asusctl fan-curve` calls returned non-zero. This is expected
+      to be silently tolerated (failed_when: false) since exact flag syntax
+      could not be confirmed without a live system — check
+      `asusctl fan-curve --help` and re-run this task's command manually.
+  when: rabble_fan_curve_apply.results | selectattr('rc', 'ne', 0) | list | length > 0
+  tags: [hardware, power, arbitration]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. AC-plug gate — udev rule + fallback script.
+#
+# A udev rule, not a systemd path-unit: path units watch inotify events on a
+# path, which can't reliably observe a SYSFS ATTRIBUTE VALUE change (online
+# 1->0) the way udev's own ATTR{} match against the power_supply subsystem can.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: arbitration | deploy AC-unplug fallback script
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/waybar/scripts/power-ac-fallback.sh"
+    dest: /usr/local/bin/rabble-power-ac-fallback.sh
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [hardware, power, arbitration]
+
+- name: arbitration | deploy AC-unplug udev rule
+  ansible.builtin.copy:
+    dest: /etc/udev/rules.d/90-rabble-power-ac.rules
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # RaBbLE-OS: AC-unplug gate for the "Unbounded" power mode.
+      # Deployed by ansible/roles/hardware/x64/asus_proart_p16/tasks/arbitration.yml
+      # (source of truth is this ansible task, not this file directly).
+      #
+      # When mains power is removed (power_supply online -> 0), run the
+      # fallback script; it checks whether Unbounded was active and, if so,
+      # drops back to the AC-independent safe mode (Quiet · Balanced).
+      #
+      # ACTION=="change" is added beyond the bare SUBSYSTEM/ATTR match so this
+      # only fires on the actual online->0 transition, not on udev coldplug/
+      # "add" events already-plugged hardware generates at boot.
+      #
+      # systemd-run --no-block detaches the script from udev's own process
+      # lifecycle/timeout — udev RUN+= entries are expected to return quickly,
+      # and this script talks to two D-Bus services plus (best-effort) a user
+      # session bus, which can be slower than udev's default patience.
+      SUBSYSTEM=="power_supply", ACTION=="change", ATTR{online}=="0", RUN+="/usr/bin/systemd-run --no-block --quiet /usr/local/bin/rabble-power-ac-fallback.sh"
+  become: true
+  notify:
+    - reload udev
+    - trigger udev
+  tags: [hardware, power, arbitration]

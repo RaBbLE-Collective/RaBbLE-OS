@@ -26,6 +26,7 @@
         "cpu",
         "memory",
         "temperature",
+        "custom/power-profile",
         "battery",
         "clock",
         "tray"
@@ -161,17 +162,6 @@
     "battery#bat2": {
         "bat": "BAT2"
     },
-    "power-profiles-daemon": {
-      "format": "{icon}",
-      "tooltip-format": "Power profile: {profile}\nDriver: {driver}",
-      "tooltip": true,
-      "format-icons": {
-        "default": "",
-        "performance": "",
-        "balanced": "",
-        "power-saver": ""
-      }
-    },
     "network": {
         "format-wifi": " {essid}",
         "format-ethernet": "{ifname}",
@@ -227,6 +217,19 @@
 			"suspend": "systemctl suspend",
 			"hibernate": "systemctl hibernate"
 		}
+    },
+
+    // ── Power Profile (tuned-ppd + asusd composite modes) ───────────────────
+    // Three composite modes, not the old 3 stock power-profiles-daemon
+    // profiles — see config/waybar/scripts/power-profile.sh header. Left-click
+    // cycles; "signal": 8 matches the script's `pkill -SIGRTMIN+8 waybar`
+    // refresh-on-change (same pattern the script itself already relies on).
+    "custom/power-profile": {
+        "exec": "$HOME/.config/waybar/scripts/power-profile.sh get",
+        "return-type": "json",
+        "tooltip": true,
+        "on-click": "$HOME/.config/waybar/scripts/power-profile.sh cycle",
+        "signal": 8
     },
 
     // ── sCoRE Usage Tracker (Claude Code + Codex) ────────────────────────────

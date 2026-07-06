@@ -1,6 +1,23 @@
 ---
-# hardware/x64/asus_proart_p16/tasks/power/asusd.yml — STUB
-- name: "asus_proart_p16/power/asusd — stub"
-  ansible.builtin.debug:
-    msg: "spark ~ hardware/asus_proart_p16/power/asusd >> stub, no-op // %DORMANT%"
-  tags: [hardware, power]
+# ansible/roles/hardware/x64/asus_proart_p16/tasks/asusd.yml
+# asusd — the background daemon for asusctl: fan-profile arbitration, keyboard
+# backlight, charge limit, ASUS-specific hardware events. Source is
+# copr:lukenukem/asus-linux, already declared in ansible/packages/manifest.yml
+# — this task installs + enables the daemon service. The client CLI package
+# and the default platform-profile selection live in asusctl.yml; per-profile
+# fan curves live in arbitration.yml.
+
+- name: asusd | install asusd daemon
+  ansible.builtin.dnf:
+    name: asusd
+    state: present
+  become: true
+  tags: [hardware, power, asusd]
+
+- name: asusd | enable and start asusd.service
+  ansible.builtin.systemd:
+    name: asusd.service
+    enabled: true
+    state: started
+  become: true
+  tags: [hardware, power, asusd]

@@ -882,6 +882,14 @@ packages:
     layer: hardware
     ks: false
 
+  - name: xorg-x11-drv-nvidia-power
+    category: hardware.nvidia
+    reason: Ships nvidia-suspend/-hibernate/-resume/-powerd.service + system-sleep hooks — required for RTD3/D3cold idle power and clean suspend/resume
+    source: rpmfusion-nonfree
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
   - name: xorg-x11-drv-nvidia-cuda
     category: hardware.nvidia
     reason: CUDA support — LLM inference and GPU compute workloads on RTX 4060
@@ -949,6 +957,14 @@ packages:
   - name: tuned
     category: hardware.power
     reason: Power profile manager — active stack is tuned_only per group_vars; balanced profile default
+    source: fedora
+    platform: asus_proart_p16
+    layer: hardware
+    ks: false
+
+  - name: tuned-ppd
+    category: hardware.power
+    reason: power-profiles-daemon-compatible D-Bus shim over tuned — exposes the PPD API asusctl/waybar consume WITHOUT installing power-profiles-daemon (which conflicts with tuned). Canonical power stack per AgentGuide.
     source: fedora
     platform: asus_proart_p16
     layer: hardware

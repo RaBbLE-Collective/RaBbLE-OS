@@ -1,6 +1,51 @@
 ---
-# hardware/x64/asus_proart_p16/tasks/power/tuned.yml — STUB
-- name: "asus_proart_p16/power/tuned — stub"
-  ansible.builtin.debug:
-    msg: "spark ~ hardware/asus_proart_p16/power/tuned >> stub, no-op // %DORMANT%"
-  tags: [hardware, power]
+# ansible/roles/hardware/x64/asus_proart_p16/tasks/tuned.yml
+# tuned + tuned-ppd — the canonical power stack for the ProArt P16.
+#
+# CANONICAL DECISION (RaBbLE-Grimoire/RaBbLE-OS/RaBbLE-OS-AgentGuide.md:64-66):
+# tuned + tuned-ppd IS the power stack. power-profiles-daemon must NEVER be
+# installed alongside it — it conflicts, claiming the same D-Bus name
+# (org.freedesktop.UPower.PowerProfiles) that tuned-ppd owns. tuned-ppd is a
+# compatibility shim: `powerprofilesctl` works unmodified against it, so
+# asusctl and this role's waybar script (config/waybar/scripts/power-profile.sh)
+# consume the standard PPD interface without power-profiles-daemon ever
+# existing on disk. The explicit guard-and-mask task for this lives in
+# arbitration.yml (tag: power/arbitration, runs after this file) — this file
+# only installs and enables the real stack.
+#
+# Both packages are already declared in ansible/packages/manifest.yml
+# (category hardware.power, platform asus_proart_p16) — this task is what
+# actually installs them; the manifest is the inventory, not the installer.
+
+- name: tuned | install tuned + tuned-ppd
+  ansible.builtin.dnf:
+    name:
+      - tuned
+      - tuned-ppd
+    state: present
+  become: true
+  tags: [hardware, power, tuned]
+
+- name: tuned | enable and start tuned.service
+  ansible.builtin.systemd:
+    name: tuned.service
+    enabled: true
+    state: started
+  become: true
+  tags: [hardware, power, tuned]
+
+# Idempotent profile switch: read what's active first so a re-run of this
+# playbook against an already-converged host doesn't report "changed" every
+# time (tuned-adm itself doesn't give a clean idempotent CLI signal).
+- name: tuned | read currently active tuned profile
+  ansible.builtin.command: tuned-adm active
+  register: rabble_tuned_active
+  changed_when: false
+  become: true
+  tags: [hardware, power, tuned]
+
+- name: "tuned | set default active profile ({{ tuned_active_profile | default('balanced') }})"
+  ansible.builtin.command: "tuned-adm profile {{ tuned_active_profile | default('balanced') }}"
+  become: true
+  when: (tuned_active_profile | default('balanced')) not in rabble_tuned_active.stdout
+  tags: [hardware, power, tuned]
