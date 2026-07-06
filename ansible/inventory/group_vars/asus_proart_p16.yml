@@ -102,7 +102,10 @@ rabble_grub_gfxpayload: "3840x2400x32"
 #   dummy switch. The GOP framebuffer holds from GRUB hand-off until amdgpu+Plymouth start.
 #   REVERTED (S173): suppressing simpledrm caused SDDM to fail to load and introduced
 #   additional boot hiccups. The Plymouth handoff black frames are accepted for EP1.
-#   CURRENT STATE: amdgpu.seamless=1 (see above). Black frames during handoff remain.
+#   CURRENT STATE (S197): amdgpu.seamless=1 REMOVED (proven no-op, see above). The
+#   Plymouth->SDDM handoff black is now addressed via `plymouth quit --retain-splash`
+#   (Phase 1A). The mid-Plymouth simpledrm->amdgpu handoff black remains, deferred to
+#   Phase 2 (initcall_blacklist on real HW). See log/plans/OS-Boot-Chain-Seamless-Plan.md.
 #   Deferred: GRUB black box (pre-kernel) is a separate unresolved issue for post-EP1.
 #
 # ⚠ plymouth.use-simpledrm=1 — also REMOVED (S165). The OPPOSITE pin (lock Plymouth TO
@@ -113,8 +116,9 @@ rabble_grub_extra_cmdline: >-
   vt.global_cursor_default=0
   rd.driver.blacklist=nvidia
   rd.udev.log_level=3
-  amdgpu.seamless=1
 # NOTE: initcall_blacklist=simpledrm_platform_driver_init was tried (S172) and REVERTED (S173).
 #   Suppressing simpledrm caused SDDM to fail to load and introduced more boot hiccups than
-#   the original Plymouth handoff black. amdgpu.seamless=1 + accepted black frames is the
-#   stable choice for EP1. GRUB black box (pre-kernel) is a separate deferred issue.
+#   the original Plymouth handoff black. amdgpu.seamless=1 REMOVED here (proven no-op, ledger
+#   §4.3). The simpledrm→amdgpu handoff black is addressed separately by suppressing simpledrm
+#   — a real-HW Phase-2 step done deliberately with recovery media, NOT yet added to this
+#   cmdline. GRUB black box (pre-kernel) is a separate deferred issue.

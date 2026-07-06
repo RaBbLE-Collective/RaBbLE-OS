@@ -58,9 +58,10 @@
   become: true
   tags: [boot, sddm, config]
 
-# ── Plymouth→SDDM gap fix — 300ms pre-sleep ────────────────────────────────
-# Gives SDDM time to paint its first frame before Plymouth releases DRM.
-# Without this, there's a 200–400ms black flash at the handoff.
+# ── Plymouth→SDDM gap fix — retain-splash handoff ───────────────────────────
+# Overrides plymouth-quit.service to exit with --retain-splash, leaving the
+# frozen splash frame on the framebuffer instead of releasing DRM to black.
+# The greeter then paints over a still splash, not black, at the handoff.
 
 - name: Create plymouth-quit drop-in directory
   ansible.builtin.file:
@@ -72,7 +73,7 @@
   become: true
   tags: [boot, plymouth, config]
 
-- name: Deploy plymouth-quit SDDM first-frame drop-in
+- name: Deploy plymouth-quit retain-splash drop-in
   ansible.builtin.copy:
     src: plymouth-quit-sddm.conf
     dest: /etc/systemd/system/plymouth-quit.service.d/sddm-first-frame.conf
