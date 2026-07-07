@@ -53,16 +53,15 @@
 # 2. Fan-curve definitions and per-profile assignment.
 #
 # Format is asusctl's 8-point temp:pwm curve string (degrees C : percent duty).
-# CONFIRM SYNTAX against installed asusctl version at apply time — this task
-# uses `asusctl fan-curve` because the CLI validates against the running
-# daemon's actual schema (it errors instead of corrupting a hand-edited
-# /etc/asusd/*.ron on a schema mismatch), which is safer to author blind than
-# overwriting asusd's config file wholesale. `-m/-f/-d` flag names and the
-# exact data-string syntax ("Tc:P%,...") are asusctl's community-documented
-# convention as of the asus-linux project circa Fedora 43 packaging — verify
-# with `asusctl fan-curve --help` on the actual installed version before
-# trusting this to have applied; failed_when: false keeps a flag-name/schema
-# drift from failing the whole hardware role.
+# Syntax CONFIRMED against asusctl 6.3.8-2.fc43 (2026-07-06, live `fan-curve
+# --help`): flags are `--mod-profile <Profile> --fan <cpu/gpu/mid> --data
+# <30c:0%,...>`. The data-string form ("Tc:P%,...") this file already used is
+# exactly what the help documents. We use `asusctl fan-curve` rather than
+# hand-editing /etc/asusd/*.ron because the CLI validates against the running
+# daemon's schema (it errors instead of corrupting the config). Setting --data
+# writes a curve but does not enable it, so a second pass flips
+# --enable-fan-curves true per profile. failed_when: false keeps a transient
+# daemon-unavailable error from failing the whole hardware role.
 # ─────────────────────────────────────────────────────────────────────────────
 
 - name: arbitration | define fan curves
@@ -78,7 +77,7 @@
   tags: [hardware, power, arbitration]
 
 - name: arbitration | assign fan curves to platform-profiles (Balanced overridden to quiet)
-  ansible.builtin.command: "asusctl fan-curve -m {{ item.profile }} -f {{ item.fan }} -d \"{{ item.curve }}\""
+  ansible.builtin.command: "asusctl fan-curve --mod-profile {{ item.profile }} --fan {{ item.fan }} --data \"{{ item.curve }}\""
   register: rabble_fan_curve_apply
   changed_when: rabble_fan_curve_apply.rc == 0
   failed_when: false
@@ -94,14 +93,33 @@
     label: "{{ item.profile }}/{{ item.fan }}"
   tags: [hardware, power, arbitration]
 
-- name: arbitration | warn if fan-curve CLI calls failed (syntax likely drifted from this version)
+# Writing --data does not enable the curve; the daemon only follows a profile's
+# custom curve once fan-curves are enabled for that profile. --enable-fan-curves
+# takes a true/false value and requires --mod-profile (per live `fan-curve
+# --help`, 6.3.8). Enable all three so the curves set above actually take.
+- name: arbitration | enable fan curves per platform-profile
+  ansible.builtin.command: "asusctl fan-curve --mod-profile {{ item }} --enable-fan-curves true"
+  register: rabble_fan_curve_enable
+  changed_when: rabble_fan_curve_enable.rc == 0
+  failed_when: false
+  become: true
+  loop:
+    - "Quiet"
+    - "Balanced"
+    - "Performance"
+  loop_control:
+    label: "{{ item }}"
+  tags: [hardware, power, arbitration]
+
+- name: arbitration | warn if any fan-curve CLI call failed
   ansible.builtin.debug:
     msg: >-
-      One or more `asusctl fan-curve` calls returned non-zero. This is expected
-      to be silently tolerated (failed_when: false) since exact flag syntax
-      could not be confirmed without a live system — check
-      `asusctl fan-curve --help` and re-run this task's command manually.
-  when: rabble_fan_curve_apply.results | selectattr('rc', 'ne', 0) | list | length > 0
+      One or more `asusctl fan-curve` calls returned non-zero (tolerated via
+      failed_when: false). Re-run this task's commands by hand and check
+      `asusctl fan-curve --mod-profile Balanced` to inspect the stored curve.
+  when: >-
+    (rabble_fan_curve_apply.results | selectattr('rc', 'ne', 0) | list | length > 0)
+    or (rabble_fan_curve_enable.results | selectattr('rc', 'ne', 0) | list | length > 0)
   tags: [hardware, power, arbitration]
 
 # ─────────────────────────────────────────────────────────────────────────────

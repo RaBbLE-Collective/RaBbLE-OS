@@ -1,18 +1,15 @@
 ---
 # ansible/roles/hardware/x64/asus_proart_p16/tasks/asusd.yml
 # asusd — the background daemon for asusctl: fan-profile arbitration, keyboard
-# backlight, charge limit, ASUS-specific hardware events. Source is
-# copr:lukenukem/asus-linux, already declared in ansible/packages/manifest.yml
-# — this task installs + enables the daemon service. The client CLI package
-# and the default platform-profile selection live in asusctl.yml; per-profile
-# fan curves live in arbitration.yml.
-
-- name: asusd | install asusd daemon
-  ansible.builtin.dnf:
-    name: asusd
-    state: present
-  become: true
-  tags: [hardware, power, asusd]
+# backlight, charge limit, ASUS-specific hardware events.
+#
+# There is NO separate `asusd` package. The asusd daemon binary and its
+# systemd unit ship inside the `asusctl` package, which asusctl.yml installs
+# (confirmed on 6.3.8-2.fc43: `rpm -ql asusctl` lists /usr/bin/asusd and
+# /usr/lib/systemd/system/asusd.service). So this file's only job is to enable
+# and start the service the asusctl package already put on disk. The client CLI
+# and default platform-profile live in asusctl.yml; per-profile fan curves
+# live in arbitration.yml.
 
 - name: asusd | enable and start asusd.service
   ansible.builtin.systemd:

@@ -954,13 +954,10 @@ packages:
     layer: hardware
     ks: false
 
-  - name: asusd
-    category: hardware.asus
-    reason: ASUS daemon — background service for asusctl, handles ASUS-specific hardware events
-    source: "copr:lukenukem/asus-linux"
-    platform: asus_proart_p16
-    layer: hardware
-    ks: false
+  # NOTE: there is no standalone `asusd` package. The asusd daemon binary
+  # (/usr/bin/asusd) and asusd.service are shipped BY the asusctl package above
+  # (confirmed: `rpm -ql asusctl` on 6.3.8-2.fc43). asusd.yml only enables the
+  # service; it does not install a package. Do not re-add an `asusd` entry here.
 
   - name: tuned
     category: hardware.power

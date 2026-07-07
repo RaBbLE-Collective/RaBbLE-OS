@@ -14,13 +14,14 @@
   become: true
   tags: [hardware, asus, power]
 
-# CONFIRM SYNTAX against installed asusctl version at apply time — the
-# platform-profile flag has drifted across asusctl releases (-P/--profile-set
-# on some, -p/--profile on others). failed_when: false keeps a flag-name drift
-# from failing the whole hardware role; check `asusctl profile -l` by hand
-# after the first real apply if this silently no-ops.
+# Syntax CONFIRMED against asusctl 6.3.8-2.fc43 (2026-07-06, live machine):
+# subcommand is `profile set <Profile>` (valid profiles: Quiet, Balanced,
+# Performance from `asusctl profile list`). The old `-P` flag does not exist on
+# this version. `set` also takes -a/--ac and -b/--battery to pin a profile to a
+# power source; we set the active default only. failed_when: false is kept as a
+# guard in case the daemon is briefly unavailable on first boot.
 - name: "asusctl | set default platform-profile ({{ asus_power_profile | default('Balanced') }})"
-  ansible.builtin.command: "asusctl profile -P {{ asus_power_profile | default('Balanced') }}"
+  ansible.builtin.command: "asusctl profile set {{ asus_power_profile | default('Balanced') }}"
   register: rabble_asusctl_profile_set
   changed_when: rabble_asusctl_profile_set.rc == 0
   failed_when: false
