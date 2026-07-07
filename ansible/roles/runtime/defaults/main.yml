@@ -35,7 +35,7 @@ lemonade:
 # ── llama.cpp install ─────────────────────────────────────────────────────────
 # install_method: "source" (default) or "prebuilt"
 #   source   — clone + cmake + ninja. ~5-15 min. Full backend control.
-#   prebuilt — download GitHub release zip. Fast. No build deps needed.
+#   prebuilt — download GitHub release archive. Fast. No build deps needed.
 #
 # version: "latest" (default), "HEAD" (source only — tracks main tip), or
 #          a specific release tag e.g. "b4600"
@@ -50,7 +50,7 @@ llama_cpp:
   enabled: true
   install_method: "prebuilt"
   backend: "vulkan"
-  repo: "https://github.com/ggerganov/llama.cpp"
+  repo: "https://github.com/ggml-org/llama.cpp"
   version: "latest"
   src_dir: "/opt/llama.cpp"
   build_dir: "/opt/llama.cpp/build"

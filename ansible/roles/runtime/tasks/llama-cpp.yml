@@ -3,7 +3,7 @@
 # llama.cpp — source build or pre-built binary install
 # =============================================================================
 # install_method: prebuilt (default) or source
-#   prebuilt — download GitHub release zip. Seconds. No build deps needed.
+#   prebuilt — download GitHub release archive. Seconds. No build deps needed.
 #              Ships Vulkan only; CUDA prebuilts exist but require extra config
 #              (set llama_cpp.prebuilt_artifact to the exact release filename).
 #   source   — clone + cmake + ninja. ~5-15 min. Full Vulkan/CUDA control.
@@ -42,7 +42,7 @@
 
 - name: Fetch latest llama.cpp release info from GitHub
   ansible.builtin.uri:
-    url: https://api.github.com/repos/ggerganov/llama.cpp/releases/latest
+    url: https://api.github.com/repos/ggml-org/llama.cpp/releases/latest
     return_content: true
     headers:
       Accept: "application/vnd.github+json"
@@ -265,18 +265,18 @@
 # =============================================================================
 # PRE-BUILT BINARY PATH
 # =============================================================================
-# Downloads the Ubuntu-built Vulkan release zip from GitHub.
-# Artifact naming: llama-{tag}-bin-ubuntu-vulkan-x64.zip
-# CUDA prebuilt: set llama_cpp.prebuilt_artifact to the exact filename
-#   (e.g. llama-b5000-bin-ubuntu-cuda-cu12.4-x86_64.zip) — CUDA variants
-#   differ by CUDA version so cannot be auto-constructed reliably.
+# Downloads the Ubuntu-built Vulkan release archive from GitHub.
+# Artifact naming: llama-{tag}-bin-ubuntu-vulkan-x64.tar.gz
+#   (Linux artifacts ship as .tar.gz; only Windows artifacts are .zip.)
+# CUDA prebuilt: set llama_cpp.prebuilt_artifact to the exact filename —
+#   CUDA variants differ by CUDA version so cannot be auto-constructed reliably.
 
 - name: Set prebuilt artifact filename
   ansible.builtin.set_fact:
     _llama_artifact: >-
       {{ llama_cpp.prebuilt_artifact
          if llama_cpp.prebuilt_artifact is defined
-         else 'llama-' + _llama_resolved_version + '-bin-ubuntu-vulkan-x64.zip' }}
+         else 'llama-' + _llama_resolved_version + '-bin-ubuntu-vulkan-x64.tar.gz' }}
   when:
     - llama_cpp.install_method | default('source') == "prebuilt"
     - _llama_rebuild_needed
@@ -294,7 +294,7 @@
 
 - name: Download llama.cpp pre-built release
   ansible.builtin.get_url:
-    url: "https://github.com/ggerganov/llama.cpp/releases/download/{{ _llama_resolved_version }}/{{ _llama_artifact }}"
+    url: "https://github.com/ggml-org/llama.cpp/releases/download/{{ _llama_resolved_version }}/{{ _llama_artifact }}"
     dest: "/tmp/llama-prebuilt/{{ _llama_artifact }}"
     mode: '0644'
   when:
