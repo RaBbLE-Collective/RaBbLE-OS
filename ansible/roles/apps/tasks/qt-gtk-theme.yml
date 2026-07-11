@@ -12,7 +12,7 @@
 #   - GTK3 user stylesheet  → ~/.config/gtk-3.0/gtk.css              (RaBbLE-OS layer)
 #   - GTK3/4 settings.ini                                             (RaBbLE-OS config)
 #   - GTK4 partial override → ~/.config/gtk-4.0/gtk.css              (from Aether)
-#   - Kvantum SVG theme     → ~/.config/Kvantum/RaBbLE-Aether/       (from Aether)
+#   - Kvantum SVG theme     → ~/.config/Kvantum/RaBbLE-Aether/       (RaBbLE-OS config — dotctl SoT)
 #   - qt5ct/qt6ct configs   → ~/.config/qt5ct/ qt6ct/                (RaBbLE-OS config)
 #
 # env.conf sets GTK_THEME=RaBbLE-Aether + QT_QPA_PLATFORMTHEME=qt6ct + QT_STYLE_OVERRIDE=kvantum
@@ -113,7 +113,10 @@
   tags: [apps, theming, gtk]
 
 # ── Kvantum — Qt5/Qt6 SVG theme engine ────────────────────────────────────────
-# Source: Aether. SVG + kvconfig define the Qt widget visual vocabulary.
+# Source: RaBbLE-OS config/kvantum (dotctl single source of truth).
+# S201: was {{ aether_repo_root }}/themes/kvantum/ — a STALE second source that
+# silently clobbered every dotctl kvantum deploy on each Ansible theming run
+# (S116→S199 regressions). Aether's themes/kvantum/ is now a pointer only.
 
 - name: qt-gtk-theme | create Kvantum theme directory
   ansible.builtin.file:
@@ -124,9 +127,9 @@
     mode: '0755'
   tags: [apps, theming, kvantum]
 
-- name: qt-gtk-theme | deploy Kvantum theme files from Aether
+- name: qt-gtk-theme | deploy Kvantum theme files from RaBbLE-OS config (dotctl SoT)
   ansible.builtin.copy:
-    src: "{{ aether_repo_root }}/themes/kvantum/"
+    src: "{{ dotfiles_repo_root }}/config/kvantum/RaBbLE-Aether/"
     dest: "{{ rabble_home }}/.config/Kvantum/RaBbLE-Aether/"
     owner: "{{ rabble_user }}"
     group: "{{ rabble_user }}"

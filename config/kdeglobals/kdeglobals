@@ -9,10 +9,23 @@ widgetStyle=kvantum
 
 # Catppuccin Mocha Mauve color scheme — clean dark baseline (MIT).
 # Base: #1e1e2e · Text: #cdd6f4 · Accent: #cba6f7 (mauve)
-# KDE apps (Dolphin, Kate) read view/window text color from HERE.
-# Kvantum only styles widget frames; it does NOT control palette text.
+#
+# ── HOW KDE APP PALETTES ACTUALLY RESOLVE (S201 root cause, 7 sessions) ───────
+# KF6 apps (Dolphin, Kate, …) run KColorSchemeManager, which OWNS the app
+# QPalette and overrides Kvantum [GeneralColors], qt6ct, and the [Colors:*]
+# sections below. It selects a scheme by the [UiSettings] ColorScheme key
+# (KConfig cascade: <app>rc → this file). Value = .colors file BASENAME (no
+# spaces), resolved from ~/.local/share/color-schemes/ (color-schemes bundle).
+# Without that key it falls back to default Breeze — LIGHT on this session,
+# because qt6ct does not relay the portal dark preference — which was the
+# grey/unreadable Dolphin text bug. The [Colors:*] sections below still matter
+# for KColorScheme consumers that read kdeglobals directly (e.g. KWin/WM keys,
+# apps without the manager), so keep them in sync with the .colors file.
 # To overlay Aether colors: update config/color-schemes/CatppuccinMochaMauve.colors
 # and re-run: ./RaBbLE-OS-dotctl.sh apply color-schemes kdeglobals
+
+[UiSettings]
+ColorScheme=CatppuccinMochaMauve
 
 [ColorEffects:Disabled]
 Color=49,52,68
