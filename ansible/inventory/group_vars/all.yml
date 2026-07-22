@@ -41,6 +41,13 @@ rabble_fedora_version: "43"
 # ── Desktop ───────────────────────────────────────────────────────────────────
 rabble_default_shell: zsh    # zsh | bash
 
+# ── Optional layers (opt-in, off by default) ──────────────────────────────────
+# Each var's real default lives in its own role's defaults/main.yml; listed
+# here only so they're discoverable without hunting the role tree.
+# rabble_enable_wine_bottles   → layer/bottles (default false; layerctl flips
+#                                 it for `apply bottles` — see LAYER_EXTRA_VARS
+#                                 in RaBbLE-OS-layerctl.sh)
+
 # ── GRUB boot display ─────────────────────────────────────────────────────────
 # Font size used for GRUB's own console/gfxterm UI. Theme font sizes derive from
 # this to keep text proportional across resolutions. Override in group_vars per host.

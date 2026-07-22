@@ -20,6 +20,8 @@
 #   --tags fastfetch             → Layer 3: Fastfetch config + logo only
 #   --tags hyprland              → Layer 3: Hyprland only
 #   --tags apps                  → Layer 4: applications
+#   --tags layer                 → Optional feature groups (opt-in, see rabble_enable_* vars)
+#   --tags bottles               → Bottles (Wine app compat) only, opt-in
 #   --tags collective            → RaBbLE Collective dev tooling (Node.js, wrangler, age, gh)
 #   --tags ai-harnesses          → sCoRE local AI layer (claude-code, codex, opencode, aider, gemini-cli, ollama, vllm, free-claude-code, builder-skills)
 #   --tags free-claude-code      → free-claude-code proxy only
@@ -299,6 +301,25 @@
   tags: [apps]
   roles:
     - role: apps
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Layer — Optional Feature Groups
+# Opt-in only — never installed by `apply all` / `upgrade` unless explicitly
+# enabled. Each is gated by its own rabble_enable_* var (role defaults/main.yml,
+# default false); layerctl flips the var automatically for its named `apply`
+# subcommand (see LAYER_EXTRA_VARS in RaBbLE-OS-layerctl.sh). This is the
+# reference implementation for the `layer/*` package groups documented in
+# ansible/packages/manifest.yml (layer/bluetooth, layer/nightmode, etc. are
+# declared there but not yet wired up — follow this play's shape when they are).
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Layer — Bottles (Wine-based Windows app compatibility)"
+  hosts: all
+  become: true
+  tags: [layer, bottles]
+  roles:
+    - role: layer/bottles
+      when: rabble_enable_wine_bottles | default(false) | bool
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Collective — RaBbLE development tooling

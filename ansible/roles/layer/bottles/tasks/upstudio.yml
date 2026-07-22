@@ -1,0 +1,216 @@
+---
+# ansible/roles/layer/bottles/tasks/upstudio.yml
+# spark ~ layer/bottles >> UP Studio bottle automated // %UPSTUDIO_BOTTLE%
+#
+# Creates a dedicated bottle for TierTime UP Studio (Cetus3D MK2 slicer/host),
+# downloads + extracts the installer from TierTime's own CDN, and installs it.
+# Runs as the user (become: false) — Bottles' data lives under the user's
+# home, not root's.
+#
+# bottles-cli initializes its own data directory on first invocation — no
+# GUI first-run wizard needed (verified against a live run 2026-07-22: `new`
+# succeeded and created ~/.var/app/com.usebottles.bottles/data/bottles/
+# without ever launching the Bottles GUI). Earlier docs suggested a manual
+# first-run step; that doesn't hold up in practice, so it's not here.
+#
+# What this still can't do responsibly, and why:
+#   - Guarantee a silent install. TierTime documents an MSI package for
+#     scripted installs (Tiertime Help Center: "1.2 MSI installation Package
+#     for silent installation"), but that page blocks automated fetches, so
+#     the exact msiexec flags are unconfirmed here. rabble_upstudio_installer_args
+#     defaults to empty, which means the installer wizard will pop up and
+#     this task blocks until you click through it — same as running it by
+#     hand, just remembered/skipped on repeat applies. Set the var once you've
+#     confirmed the real silent switches.
+#   - Auto-discover newer releases. rabble_upstudio_installer_url is pinned to
+#     a specific TierTime CDN build (see defaults/main.yml) — TierTime's
+#     marketing site gates current releases behind a WooCommerce checkout
+#     with no stable link, so there's no "latest" URL to derive this from.
+#
+# All `stat` checks below run unconditionally (cheap, no side effects) so the
+# registered vars are always defined — only the mutating tasks are gated.
+
+- name: upstudio | create /Tiertime host directories (drive-relative path bug workaround)
+  # UP Studio builds some data paths as bare "/Tiertime/..." (no drive
+  # letter). Wine resolves that as drive-relative-to-current-drive; if the
+  # process isn't running with its working directory on C:, the current
+  # drive is Z: (Wine's mapping of the real host /), so this ends up as a
+  # literal host path under /. Confirmed 2026-07-22 against the real app.
+  ansible.builtin.file:
+    path: "/Tiertime/{{ item }}"
+    state: directory
+    owner: "{{ rabble_user }}"
+    group: "{{ rabble_user }}"
+    mode: '0755'
+  loop: "{{ rabble_upstudio_tiertime_dirs }}"
+  become: true
+
+- name: upstudio | grant Bottles' Flatpak sandbox access to /Tiertime
+  # Bottles has zero filesystem access beyond its own app data dir by default
+  # (confirmed via `flatpak info --show-permissions com.usebottles.bottles` —
+  # no [filesystem] entry at all) — the host directories above are invisible
+  # to the sandboxed wine process without this override.
+  ansible.builtin.command:
+    argv:
+      - flatpak
+      - override
+      - --user
+      - com.usebottles.bottles
+      - --filesystem=/Tiertime
+  become: false
+
+- name: upstudio | check if the bottle already exists
+  ansible.builtin.stat:
+    path: "{{ rabble_home }}/.var/app/com.usebottles.bottles/data/bottles/bottles/{{ rabble_upstudio_bottle_name }}"
+  register: rabble_upstudio_bottle_dir
+  become: false
+
+- name: upstudio | create dedicated bottle
+  ansible.builtin.command:
+    argv:
+      - flatpak
+      - run
+      - --command=bottles-cli
+      - com.usebottles.bottles
+      - new
+      - --bottle-name
+      - "{{ rabble_upstudio_bottle_name }}"
+      - --environment
+      - application
+      - --arch
+      - win64
+  become: false
+  when: not rabble_upstudio_bottle_dir.stat.exists
+
+- name: upstudio | check if already installed (skip download/extract/install)
+  ansible.builtin.stat:
+    path: "{{ rabble_home }}/.var/app/com.usebottles.bottles/data/bottles/bottles/{{ rabble_upstudio_bottle_name }}/.rabble_upstudio_installed"
+  register: rabble_upstudio_marker
+  become: false
+
+- name: upstudio | ensure installer cache directory exists
+  ansible.builtin.file:
+    path: "{{ rabble_upstudio_installer_cache_dir }}"
+    state: directory
+    mode: '0755'
+  become: false
+  when:
+    - not rabble_upstudio_marker.stat.exists
+    - rabble_upstudio_installer_url | length > 0
+
+- name: upstudio | download UP Studio installer archive (TierTime CDN, ~150MB)
+  ansible.builtin.get_url:
+    url: "{{ rabble_upstudio_installer_url }}"
+    dest: "{{ rabble_upstudio_installer_zip_path }}"
+    mode: '0644'
+  become: false
+  when:
+    - not rabble_upstudio_marker.stat.exists
+    - rabble_upstudio_installer_url | length > 0
+  # get_url only re-downloads if dest is missing (force defaults to no) —
+  # fetched once, then reused across re-applies until install succeeds.
+
+- name: upstudio | extract installer from archive
+  ansible.builtin.unarchive:
+    src: "{{ rabble_upstudio_installer_zip_path }}"
+    dest: "{{ rabble_upstudio_installer_cache_dir }}"
+    remote_src: true
+  become: false
+  when:
+    - not rabble_upstudio_marker.stat.exists
+    - rabble_upstudio_installer_url | length > 0
+
+- name: upstudio | check installer is present
+  ansible.builtin.stat:
+    path: "{{ rabble_upstudio_installer_path }}"
+  register: rabble_upstudio_installer
+  become: false
+
+- name: upstudio | note that no installer is available
+  ansible.builtin.debug:
+    msg: >-
+      No installer found at {{ rabble_upstudio_installer_path }} and
+      rabble_upstudio_installer_url is empty. Either set
+      rabble_upstudio_installer_url to a download link, or place the
+      installer at rabble_upstudio_installer_path yourself, then re-run
+      `layerctl apply bottles`.
+  when:
+    - not rabble_upstudio_marker.stat.exists
+    - not rabble_upstudio_installer.stat.exists
+
+- name: upstudio | run installer inside the bottle
+  # bottles-cli run takes trailing positional args for the executable, not a
+  # flag (confirmed against the installed CLI's --help, 2026-07-22 — there is
+  # no -a option). rabble_upstudio_installer_args is left unquoted so a
+  # multi-flag string (e.g. "/quiet /norestart") splits into separate argv
+  # entries; empty by default and shlex-splits to nothing.
+  ansible.builtin.command:
+    cmd: >-
+      flatpak run --command=bottles-cli com.usebottles.bottles run
+      -b {{ rabble_upstudio_bottle_name | quote }}
+      -e {{ rabble_upstudio_installer_path | quote }}
+      {{ rabble_upstudio_installer_args }}
+    creates: "{{ rabble_home }}/.var/app/com.usebottles.bottles/data/bottles/bottles/{{ rabble_upstudio_bottle_name }}/.rabble_upstudio_installed"
+  become: false
+  when:
+    - not rabble_upstudio_marker.stat.exists
+    - rabble_upstudio_installer.stat.exists
+  register: rabble_upstudio_install_run
+  # BLOCKS here until the installer wizard is closed unless
+  # rabble_upstudio_installer_args carries a confirmed silent-install switch.
+
+- name: upstudio | mark installer as run (skip on future applies)
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.var/app/com.usebottles.bottles/data/bottles/bottles/{{ rabble_upstudio_bottle_name }}/.rabble_upstudio_installed"
+    state: touch
+    mode: '0644'
+  become: false
+  when: rabble_upstudio_install_run is not skipped
+
+- name: upstudio | clean up cached installer archive + exe once installed
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ rabble_upstudio_installer_zip_path }}"
+    - "{{ rabble_upstudio_installer_path }}"
+  become: false
+  when: rabble_upstudio_install_run is not skipped
+
+- name: upstudio | check installed UPStudio.exe is present
+  # Fresh check against the real install path (not the marker) so this stays
+  # correct regardless of whether install just happened this run or earlier.
+  ansible.builtin.stat:
+    path: "{{ rabble_upstudio_exe_path }}"
+  register: rabble_upstudio_exe
+  become: false
+
+- name: upstudio | create desktop launcher entry
+  ansible.builtin.copy:
+    dest: "{{ rabble_home }}/.local/share/applications/rabble-upstudio.desktop"
+    mode: '0644'
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Name=UP Studio (Cetus3D MK2)
+      Comment=TierTime UP Studio slicer/host for the Cetus3D MK2, via Bottles (Wine)
+      Exec=flatpak run --command=bottles-cli com.usebottles.bottles run -b {{ rabble_upstudio_bottle_name }} -p {{ rabble_upstudio_program_name }}
+      Icon=printer
+      Categories=Graphics;3DGraphics;Engineering;
+      Terminal=false
+      StartupNotify=true
+  become: false
+  when: rabble_upstudio_exe.stat.exists
+  # `-p` (registered program name), not `-e` (raw path) — `-p` sets the
+  # process's working directory to the program's own folder (on C:), which
+  # `-e` does not. That's not cosmetic: it's what makes UP Studio's
+  # drive-relative "/Tiertime/..." paths resolve inside the bottle instead of
+  # the real host filesystem (see the /Tiertime tasks above). Confirmed
+  # 2026-07-22 — the registered name "UPStudio" is auto-detected by Bottles
+  # from Program Files; if a fresh bottle doesn't have it registered yet,
+  # opening Bottles' GUI once (or any bottles-cli `programs` call) triggers
+  # the scan.
+  #
+  # Icon is a generic freedesktop name (present in Papirus), not extracted
+  # from the exe — a real icon extraction (icoutils: wrestool + icotool)
+  # wasn't done, kept out of scope as a cosmetic nicety, not the ask.

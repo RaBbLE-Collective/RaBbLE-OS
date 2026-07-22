@@ -77,7 +77,15 @@ declare -A LAYER_NAMES=(
   [ollama]="Ollama local inference server"
   [vllm]="vLLM inference server (heavy — GPU required)"
   [builder-skills]="BuilderIO slash-command skills for Claude Code"
+  [bottles]="Bottles — Wine app compat (opt-in: creates+installs UP Studio/Cetus3D bottle, planned Affinity)"
   [all]="Full system — all layers in order"
+)
+
+# Optional/opt-in layers: extra --extra-vars flipped automatically when
+# applying by name, so `apply all` / `upgrade` never picks them up silently.
+# Each var's off-by-default lives in the layer role's defaults/main.yml.
+declare -A LAYER_EXTRA_VARS=(
+  [bottles]="rabble_enable_wine_bottles=true"
 )
 
 declare -A LAYER_VERIFY=(
@@ -101,12 +109,13 @@ declare -A LAYER_VERIFY=(
   [ollama]="systemctl is-active ollama"
   [vllm]="command -v vllm"
   [builder-skills]="test -d ${HOME}/.claude/skills"
+  [bottles]="flatpak info com.usebottles.bottles"
   [all]=""
 )
 
 # Ordered list for status display and sequential all-deploy
 # Mirrors site.yml play order: base → hardware → runtime → monitoring → virtualization → boot → ...
-LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles)
+LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles)
 
 # ── State tracking ────────────────────────────────────────────────────────────
 
@@ -173,7 +182,8 @@ run_playbook() {
 
 run_playbook_check() {
   local tags="$1"
-  run_playbook "$tags" --check --diff
+  shift
+  run_playbook "$tags" --check --diff "$@"
 }
 
 # ── Commands ──────────────────────────────────────────────────────────────────
@@ -208,13 +218,18 @@ cmd_apply() {
     pulse "Applying layer: ${LAYER_NAMES[$layer]}"
   fi
 
+  local extra_vars=()
+  if [[ -n "${LAYER_EXTRA_VARS[$layer]:-}" ]]; then
+    extra_vars+=(--extra-vars "${LAYER_EXTRA_VARS[$layer]}")
+  fi
+
   if $dry_run; then
     warn "Dry-run mode — no changes will be made."
-    run_playbook_check "$tag"
+    run_playbook_check "$tag" "${extra_vars[@]}"
     return
   fi
 
-  run_playbook "$tag"
+  run_playbook "$tag" "${extra_vars[@]}"
   set_state "$layer" "applied"
   ok "Layer '${layer}' applied. // %LAYER_STABLE%"
 }
@@ -347,7 +362,11 @@ cmd_diff() {
   local layer="${1:-}"
   [[ -z "$layer" ]] && fail "Usage: layer-ctl diff LAYER"
   pulse "Diff (dry-run): ${LAYER_NAMES[$layer]:-$layer}"
-  run_playbook_check "$layer"
+  local extra_vars=()
+  if [[ -n "${LAYER_EXTRA_VARS[$layer]:-}" ]]; then
+    extra_vars+=(--extra-vars "${LAYER_EXTRA_VARS[$layer]}")
+  fi
+  run_playbook_check "$layer" "${extra_vars[@]}"
 }
 
 cmd_menu() {

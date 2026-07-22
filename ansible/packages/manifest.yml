@@ -1084,6 +1084,31 @@ packages:
     layer: layer/dev
     ks: false
 
+  # ── layer/bottles ──────────────────────────────────────────────────────────
+  # Wine app compatibility. Reference implementation of the layer/* pattern —
+  # role: ansible/roles/layer/bottles/, play: site.yml, control: layerctl.sh
+  # `apply bottles`. Opt-in (rabble_enable_wine_bottles, default false) — never
+  # installed by `apply all` / `upgrade`. First tenant: TierTime UP Studio, the
+  # Cetus3D MK2 slicer/host client (no native Linux build). Also the intended
+  # home for Affinity Suite once that's prioritized.
+  # See: RaBbLE-Grimoire/RaBbLE-OS/hardware/RaBbLE-OS-Hardware-Cetus3D-MK2.md
+
+  - name: flatpak
+    category: layer.bottles
+    reason: Flatpak runtime — required to install Bottles; ensured here even if layer/flatpak was never separately applied
+    source: fedora
+    platform: all
+    layer: layer/bottles
+    ks: false
+
+  - name: com.usebottles.bottles
+    category: layer.bottles
+    reason: Isolated per-app Wine prefix manager with sandboxed Flatpak portal integration — hosts Windows-only apps (TierTime UP Studio, planned Affinity Suite) without a system-wide Wine install
+    source: flatpak
+    platform: all
+    layer: layer/bottles
+    ks: false
+
   # ── apps.collective — RaBbLE Collective development tooling ───────────────
   # Run via: ansible-playbook site.yml --tags collective -K
   # Role: ansible/roles/apps/rabble-collective/
