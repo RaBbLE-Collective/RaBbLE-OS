@@ -78,6 +78,7 @@ declare -A LAYER_NAMES=(
   [vllm]="vLLM inference server (heavy — GPU required)"
   [builder-skills]="BuilderIO slash-command skills for Claude Code"
   [bottles]="Bottles — Wine app compat (opt-in: creates+installs UP Studio/Cetus3D bottle, planned Affinity)"
+  [containers]="Docker CE + Podman container runtimes (opt-in)"
   [all]="Full system — all layers in order"
 )
 
@@ -86,6 +87,7 @@ declare -A LAYER_NAMES=(
 # Each var's off-by-default lives in the layer role's defaults/main.yml.
 declare -A LAYER_EXTRA_VARS=(
   [bottles]="rabble_enable_wine_bottles=true"
+  [containers]="rabble_enable_containers=true"
 )
 
 declare -A LAYER_VERIFY=(
@@ -110,12 +112,13 @@ declare -A LAYER_VERIFY=(
   [vllm]="command -v vllm"
   [builder-skills]="test -d ${HOME}/.claude/skills"
   [bottles]="flatpak info com.usebottles.bottles"
+  [containers]="docker --version && podman --version"
   [all]=""
 )
 
 # Ordered list for status display and sequential all-deploy
 # Mirrors site.yml play order: base → hardware → runtime → monitoring → virtualization → boot → ...
-LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles)
+LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers)
 
 # ── State tracking ────────────────────────────────────────────────────────────
 

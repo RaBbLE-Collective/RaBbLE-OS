@@ -321,6 +321,14 @@
     - role: layer/bottles
       when: rabble_enable_wine_bottles | default(false) | bool
 
+- name: "Layer — Containers (Docker + Podman)"
+  hosts: all
+  become: true
+  tags: [layer, containers]
+  roles:
+    - role: layer/containers
+      when: rabble_enable_containers | default(false) | bool
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Collective — RaBbLE development tooling
 # wrangler (Cloudflare Workers CLI), age (secrets), gh (GitHub CLI).

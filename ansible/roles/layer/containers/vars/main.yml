@@ -1,0 +1,13 @@
+---
+# ansible/roles/layer/containers/vars/main.yml
+
+containers_docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+containers_podman_packages:
+  - podman
+  - podman-compose

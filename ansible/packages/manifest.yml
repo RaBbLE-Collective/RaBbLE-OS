@@ -1076,20 +1076,65 @@ packages:
     layer: layer/dev
     ks: false
 
+  # ── layer/containers ─────────────────────────────────────────────────────
+  # Docker CE + Podman container runtimes. Opt-in (rabble_enable_containers,
+  # default false) — never installed by `apply all` / `upgrade`. layerctl
+  # `apply containers`. role: ansible/roles/layer/containers/, play: site.yml.
+
+  - name: docker-ce
+    category: layer.containers
+    reason: Container runtime daemon — rootful Docker, for tooling/compose files that assume real Docker
+    source: "repo:docker-ce"
+    platform: all
+    layer: layer/containers
+    ks: false
+
+  - name: docker-ce-cli
+    category: layer.containers
+    reason: Docker CLI — talks to the docker-ce daemon over its socket
+    source: "repo:docker-ce"
+    platform: all
+    layer: layer/containers
+    ks: false
+
+  - name: containerd.io
+    category: layer.containers
+    reason: Container runtime shim required by docker-ce
+    source: "repo:docker-ce"
+    platform: all
+    layer: layer/containers
+    ks: false
+
+  - name: docker-buildx-plugin
+    category: layer.containers
+    reason: Docker Buildx — multi-platform image builds via `docker buildx`
+    source: "repo:docker-ce"
+    platform: all
+    layer: layer/containers
+    ks: false
+
+  - name: docker-compose-plugin
+    category: layer.containers
+    reason: Docker Compose v2 — `docker compose` subcommand
+    source: "repo:docker-ce"
+    platform: all
+    layer: layer/containers
+    ks: false
+
   - name: podman
-    category: layer.dev
-    reason: Container runtime — rootless containers, Docker-compatible CLI
+    category: layer.containers
+    reason: Container runtime — rootless, daemonless, Docker-compatible CLI
     source: fedora
     platform: all
-    layer: layer/dev
+    layer: layer/containers
     ks: false
 
   - name: podman-compose
-    category: layer.dev
+    category: layer.containers
     reason: Docker Compose compatibility for Podman — multi-container dev workflows
     source: fedora
     platform: all
-    layer: layer/dev
+    layer: layer/containers
     ks: false
 
   # ── layer/bottles ──────────────────────────────────────────────────────────
