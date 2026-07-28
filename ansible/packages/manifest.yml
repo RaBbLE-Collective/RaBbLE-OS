@@ -619,6 +619,14 @@ packages:
     layer: desktop
     ks: false
 
+  - name: swappy
+    category: desktop.screenshot
+    reason: Screenshot annotate/edit tool — launched from the post-capture quick-action popup
+    source: fedora
+    platform: all
+    layer: desktop
+    ks: false
+
   - name: swayosd
     category: desktop.osd
     reason: On-screen display for volume and brightness feedback — swayosd-server in autostart

@@ -1,30 +1,30 @@
 #!/bin/bash
-# screenshot.sh — RaBbLE-OS screenshot utility
-# Saves to RaBbLE-Captures so all desktop captures land in the project tree.
-# Subdirectory:
-#   region → Design-Iterations/by-date/  (targeted, needs manual classification)
-#   screen → Collective-Atmosphere/      (full desktop state captures)
+# screenshot.sh — RaBbLE-OS screenshot capture
+# Captures straight into swappy for annotate/save/discard (Ctrl+S save,
+# Ctrl+C copy, Escape discard — see config/swappy/config for save_dir).
+#
+# Usage: screenshot.sh [screen|full|region|window]
 
-CAPTURES="$HOME/RaBbLE-Collective/RaBbLE-Captures"
-TIMESTAMP="$(date +%Y-%m-%d_%H-%M-%S)"
+MODE="${1:-region}"
 
-case "$1" in
-    region)
-        DIR="$CAPTURES/Design-Iterations/by-date"
-        mkdir -p "$DIR"
-        FILE="$DIR/capture-region_$TIMESTAMP.png"
-        grim -g "$(slurp)" "$FILE" && notify-send "Screenshot" "Saved: $FILE"
+case "$MODE" in
+    screen|full)
+        grim - | swappy -f -
         ;;
-    screen)
-        DIR="$CAPTURES/Collective-Atmosphere"
-        mkdir -p "$DIR"
-        FILE="$DIR/capture-screen_$TIMESTAMP.png"
-        grim "$FILE" && notify-send "Screenshot" "Saved: $FILE"
+    region)
+        GEOM="$(slurp)" || exit 0
+        grim -g "$GEOM" - | swappy -f -
+        ;;
+    window)
+        if command -v hyprctl &>/dev/null; then
+            GEOM=$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')
+        else
+            GEOM="$(slurp)" || exit 0
+        fi
+        grim -g "$GEOM" - | swappy -f -
         ;;
     *)
-        DIR="$CAPTURES/Design-Iterations/by-date"
-        mkdir -p "$DIR"
-        FILE="$DIR/capture-region_$TIMESTAMP.png"
-        grim -g "$(slurp)" "$FILE" && notify-send "Screenshot" "Saved: $FILE"
+        echo "Usage: screenshot.sh [screen|full|region|window]" >&2
+        exit 1
         ;;
 esac

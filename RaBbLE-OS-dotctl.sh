@@ -55,6 +55,7 @@ declare -A BUNDLE_SRC=(
   [bash]="config/shell/bash"
   [mako]="config/mako"
   [swayosd]="config/swayosd"
+  [swappy]="config/swappy"
   [claude]="config/claude/themes"
   [vscodium]="config/vscodium/User"
   [kvantum]="config/kvantum"
@@ -78,6 +79,7 @@ declare -A BUNDLE_DEST=(
   [bash]="${HOME}"
   [mako]="${HOME}/.config/mako"
   [swayosd]="${HOME}/.config/swayosd"
+  [swappy]="${HOME}/.config/swappy"
   [claude]="${HOME}/.claude/themes"
   [vscodium]="${HOME}/.config/VSCodium/User"
   [kvantum]="${HOME}/.config/Kvantum"
@@ -101,6 +103,7 @@ declare -A BUNDLE_DESC=(
   [bash]="Bash config, aliases, and .zshenv"
   [mako]="Mako notification daemon config (config/mako/config → ~/.config/mako/config)"
   [swayosd]="swayOSD volume/brightness overlay — RaBbLE-Aether gradient ring + flowing text"
+  [swappy]="Swappy screenshot editor — save_dir defaults to ~/Screenshots, panel shown, early-exit on save/copy"
   [claude]="Claude Code RaBbLE theme (themes only — settings.json is not managed)"
   [vscodium]="VSCodium user settings — activates RaBbLE Aether theme (theme artifacts deploy from Aether via Ansible)"
   [kvantum]="Kvantum Qt theme — RaBbLE-Aether synthwave dark (void bg, #f8f4ff text, magenta+cyan accents)"
@@ -113,7 +116,7 @@ declare -A BUNDLE_DESC=(
   [color-schemes]="KDE color scheme .colors file → ~/.local/share/color-schemes (KColorScheme registration)"
 )
 
-BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd claude vscodium kvantum kdeglobals color-schemes qt5ct qt6ct gtk3 gtk4 themes)
+BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd swappy claude vscodium kvantum kdeglobals color-schemes qt5ct qt6ct gtk3 gtk4 themes)
 
 # Post-apply hooks — run after a bundle's files are deployed.
 # Only set for bundles that need more than a file copy (e.g. patching a config key).
@@ -133,6 +136,7 @@ declare -A BUNDLE_RELOAD=(
   [zsh]="source ${HOME}/.config/zsh/.zshrc 2>/dev/null || true"
   [bash]="source ${HOME}/.bashrc 2>/dev/null || true"
   [mako]="makoctl reload"
+  [swappy]="echo 'swappy reads config fresh on each launch — no reload needed'"
 )
 
 # ── Post-apply hooks ──────────────────────────────────────────────────────────
