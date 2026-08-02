@@ -1,0 +1,16 @@
+---
+# ansible/roles/layer/gnome/vars/main.yml
+
+# Explicit package names only — NEVER the `@gnome-desktop` DNF group, which
+# pulls in gdm as a Mandatory member (confirmed via `dnf group info GNOME`).
+# SDDM (boot/session_manager layer) stays the only display manager.
+gnome_packages:
+  - gnome-shell
+  - gnome-session
+  - gnome-session-wayland-session   # provides /usr/share/wayland-sessions/gnome.desktop —
+                                     # plain gnome-session ships no session .desktop files
+                                     # at all; without this SDDM has nothing to list.
+  - gnome-control-center
+  - nautilus
+  - gnome-terminal
+  - gnome-tweaks

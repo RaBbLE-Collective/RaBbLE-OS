@@ -1,0 +1,100 @@
+---
+# ansible/roles/layer/gnome/tasks/theme.yml
+#
+# System-wide Aether defaults for GNOME — additive to, not a replacement for,
+# the per-user theming apps/tasks/qt-gtk-theme.yml already does for Mark's
+# Hyprland account. Deployed to /usr/share + /etc/dconf so a FRESH account
+# gets the Aether look with zero manual gsettings commands — the "standard
+# install path for other users" goal.
+#
+# Theme CSS source: {{ aether_repo_root }}/themes/ (same source
+# apps/tasks/qt-gtk-theme.yml uses for Mark's per-user installed theme) —
+# reused here, not re-authored, to avoid a third copy of the same CSS.
+
+- name: gnome-theme | create system GTK3 theme dir
+  ansible.builtin.file:
+    path: /usr/share/themes/RaBbLE-Aether/gtk-3.0
+    state: directory
+    mode: '0755'
+  become: true
+  tags: [layer, gnome, theme]
+
+- name: gnome-theme | create system GTK4 theme dir
+  ansible.builtin.file:
+    path: /usr/share/themes/RaBbLE-Aether/gtk-4.0
+    state: directory
+    mode: '0755'
+  become: true
+  tags: [layer, gnome, theme]
+
+- name: gnome-theme | deploy system theme index.theme (from Aether)
+  ansible.builtin.copy:
+    src: "{{ aether_repo_root }}/themes/gtk3/index.theme"
+    dest: /usr/share/themes/RaBbLE-Aether/index.theme
+    mode: '0644'
+  become: true
+  tags: [layer, gnome, theme]
+
+- name: gnome-theme | deploy system GTK3 theme CSS (from Aether)
+  ansible.builtin.copy:
+    src: "{{ aether_repo_root }}/themes/gtk3/aether-gtk3.css"
+    dest: /usr/share/themes/RaBbLE-Aether/gtk-3.0/gtk.css
+    mode: '0644'
+  become: true
+  tags: [layer, gnome, theme]
+
+- name: gnome-theme | deploy system GTK4 override CSS (from Aether — libadwaita partial)
+  ansible.builtin.copy:
+    src: "{{ aether_repo_root }}/themes/gtk4/aether-gtk4.css"
+    dest: /usr/share/themes/RaBbLE-Aether/gtk-4.0/gtk.css
+    mode: '0644'
+  become: true
+  tags: [layer, gnome, theme]
+
+- name: gnome-theme | install papirus-folders script (idempotent — shared w/ apps/qt-gtk-theme)
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-folders/master/papirus-folders"
+    dest: /usr/local/bin/papirus-folders
+    mode: '0755'
+    force: false
+  become: true
+  tags: [layer, gnome, theme]
+
+- name: gnome-theme | tint system Papirus-Dark folders magenta
+  ansible.builtin.command: papirus-folders --color magenta --theme Papirus-Dark
+  become: true
+  changed_when: false
+  tags: [layer, gnome, theme]
+  # Runs against the package-owned /usr/share/icons/Papirus-Dark — Aether is
+  # RaBbLE-OS's native theme, so this ships tinted for any account, not just
+  # Mark's per-user copy (apps/tasks/qt-gtk-theme.yml touches ~/.local/share
+  # only). `rpm -V papirus-icon-theme` will flag this as modified afterward —
+  # expected and harmless; `dnf reinstall papirus-icon-theme` reverts it.
+
+- name: gnome-theme | deploy dconf system defaults (Aether GTK/icon/cursor/dark)
+  ansible.builtin.template:
+    src: 01-rabble-aether.j2
+    dest: /etc/dconf/db/local.d/01-rabble-aether
+    mode: '0644'
+  become: true
+  notify: dconf update
+  tags: [layer, gnome, theme]
+  # /etc/dconf/profile/user already exists on stock Fedora (user-db:user +
+  # system-db:local) — no need to create it. Left unlocked (no
+  # /etc/dconf/db/local.d/locks/ entry): these are defaults for new accounts,
+  # not enforced policy, so GNOME Tweaks / manual iteration isn't fought.
+
+- name: gnome-theme | mask tracker-miner-fs-3 for all users (GNOME's file-indexer)
+  ansible.builtin.file:
+    src: /dev/null
+    dest: /etc/systemd/user/tracker-miner-fs-3.service
+    state: link
+    force: true
+  become: true
+  tags: [layer, gnome, theme]
+  # System-wide user-unit mask (/etc/systemd/user/ is searched before
+  # /usr/lib/systemd/user/, shadowing the real unit for every account — a
+  # per-user `systemctl --user mask` wouldn't cover future accounts). Keeps a
+  # tiling-WM daily-driver's fallback DE lean: Nautilus still works, search
+  # just isn't live-indexed. Unmask: delete this symlink + `systemctl --user
+  # daemon-reload`.

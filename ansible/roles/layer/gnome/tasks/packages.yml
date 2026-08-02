@@ -1,0 +1,12 @@
+---
+# ansible/roles/layer/gnome/tasks/packages.yml
+
+- name: gnome | install GNOME Shell (explicit packages — never the @gnome-desktop group)
+  ansible.builtin.dnf:
+    name: "{{ gnome_packages }}"
+    state: present
+  become: true
+  tags: [layer, gnome, packages]
+  # @gnome-desktop / @gnome-desktop-environment pulls gdm as a Mandatory group
+  # member (confirmed via `dnf group info GNOME`) — SDDM must stay the only
+  # display manager, so packages are named explicitly instead of via group.

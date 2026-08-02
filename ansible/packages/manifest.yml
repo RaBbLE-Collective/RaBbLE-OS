@@ -1137,6 +1137,75 @@ packages:
     layer: layer/containers
     ks: false
 
+  # ── layer/gnome ───────────────────────────────────────────────────────────
+  # GNOME Shell as an opt-in secondary DE — simpler fallback for when Hyprland
+  # is misbehaving, and a deterministic testbed for GTK3/4 theming. Opt-in
+  # (rabble_enable_gnome_desktop, default false) — never installed by
+  # `apply all` / `upgrade`. layerctl `apply gnome` / `remove gnome`.
+  # role: ansible/roles/layer/gnome/, play: site.yml.
+  #
+  # Explicit package names only — NEVER the `@gnome-desktop` DNF group, which
+  # pulls in `gdm` as a Mandatory member (confirmed via `dnf group info
+  # GNOME`). SDDM (boot/session_manager layer) must stay the only display
+  # manager. Zero GNOME Shell extensions — stock vanilla shell only.
+  # See: RaBbLE-Grimoire/RaBbLE-OS/desktop/RaBbLE-OS-Desktop-Gnome.md
+
+  - name: gnome-shell
+    category: layer.gnome
+    reason: GNOME Shell compositor + core desktop
+    source: fedora
+    platform: all
+    layer: layer/gnome
+    ks: false
+
+  - name: gnome-session
+    category: layer.gnome
+    reason: GNOME session management — required by gnome-shell, ships no session .desktop files itself
+    source: fedora
+    platform: all
+    layer: layer/gnome
+    ks: false
+
+  - name: gnome-session-wayland-session
+    category: layer.gnome
+    reason: Provides /usr/share/wayland-sessions/gnome.desktop — the file SDDM needs to list a GNOME entry; without it the install is invisible to SDDM
+    source: fedora
+    platform: all
+    layer: layer/gnome
+    ks: false
+
+  - name: gnome-control-center
+    category: layer.gnome
+    reason: GNOME Settings app
+    source: fedora
+    platform: all
+    layer: layer/gnome
+    ks: false
+
+  - name: nautilus
+    category: layer.gnome
+    reason: GNOME Files — default file manager
+    source: fedora
+    platform: all
+    layer: layer/gnome
+    ks: false
+
+  - name: gnome-terminal
+    category: layer.gnome
+    reason: GNOME-native terminal — stock fallback alongside kitty
+    source: fedora
+    platform: all
+    layer: layer/gnome
+    ks: false
+
+  - name: gnome-tweaks
+    category: layer.gnome
+    reason: GTK theme/font/cursor switcher UI — QoL for iterating on Aether GTK3/4 theming
+    source: fedora
+    platform: all
+    layer: layer/gnome
+    ks: false
+
   # ── layer/bottles ──────────────────────────────────────────────────────────
   # Wine app compatibility. Reference implementation of the layer/* pattern —
   # role: ansible/roles/layer/bottles/, play: site.yml, control: layerctl.sh

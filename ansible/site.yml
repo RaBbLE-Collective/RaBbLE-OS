@@ -329,6 +329,14 @@
     - role: layer/containers
       when: rabble_enable_containers | default(false) | bool
 
+- name: "Layer — GNOME Shell (opt-in secondary DE, Aether theming testbed)"
+  hosts: all
+  become: true
+  tags: [layer, gnome]
+  roles:
+    - role: layer/gnome
+      when: rabble_enable_gnome_desktop | default(false) | bool
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Collective — RaBbLE development tooling
 # wrangler (Cloudflare Workers CLI), age (secrets), gh (GitHub CLI).

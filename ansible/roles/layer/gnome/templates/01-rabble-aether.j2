@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+# RaBbLE-OS Aether system defaults for GNOME — layer/gnome
+# Applies to any account without a user-level dconf override (Mark's own
+# Hyprland account already has one from apps/tasks/qt-gtk-theme.yml, which
+# will take precedence over these system defaults — expected).
+
+[org/gnome/desktop/interface]
+gtk-theme='RaBbLE-Aether'
+icon-theme='Papirus-Dark'
+cursor-theme='Adwaita'
+color-scheme='prefer-dark'
+font-name='Exo 2 10'

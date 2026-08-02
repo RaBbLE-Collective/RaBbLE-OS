@@ -1,0 +1,37 @@
+---
+# ansible/roles/layer/gnome/tasks/remove.yml
+#
+# Tag: remove. Selected via `layerctl remove gnome` → `--tags gnome,remove`.
+# Uninstalls the GNOME layer; SDDM and Hyprland are untouched. The system
+# Papirus magenta tint (theme.yml) is intentionally left in place — it's
+# cosmetic-only and harmless; `dnf reinstall papirus-icon-theme` reverts it
+# if desired, but doing that automatically here risks failing offline.
+
+- name: gnome-remove | uninstall GNOME packages
+  ansible.builtin.dnf:
+    name: "{{ gnome_packages }}"
+    state: absent
+  become: true
+  tags: [layer, gnome, remove]
+
+- name: gnome-remove | delete system Aether theme dir
+  ansible.builtin.file:
+    path: /usr/share/themes/RaBbLE-Aether
+    state: absent
+  become: true
+  tags: [layer, gnome, remove]
+
+- name: gnome-remove | delete dconf system defaults
+  ansible.builtin.file:
+    path: /etc/dconf/db/local.d/01-rabble-aether
+    state: absent
+  become: true
+  notify: dconf update
+  tags: [layer, gnome, remove]
+
+- name: gnome-remove | unmask tracker-miner-fs-3
+  ansible.builtin.file:
+    path: /etc/systemd/user/tracker-miner-fs-3.service
+    state: absent
+  become: true
+  tags: [layer, gnome, remove]

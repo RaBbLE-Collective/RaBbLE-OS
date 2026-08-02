@@ -79,6 +79,7 @@ declare -A LAYER_NAMES=(
   [builder-skills]="BuilderIO slash-command skills for Claude Code"
   [bottles]="Bottles — Wine app compat (opt-in: creates+installs UP Studio/Cetus3D bottle, planned Affinity)"
   [containers]="Docker CE + Podman container runtimes (opt-in)"
+  [gnome]="GNOME Shell — Aether-themed secondary DE, SDDM fallback + theming testbed (opt-in)"
   [all]="Full system — all layers in order"
 )
 
@@ -88,6 +89,7 @@ declare -A LAYER_NAMES=(
 declare -A LAYER_EXTRA_VARS=(
   [bottles]="rabble_enable_wine_bottles=true"
   [containers]="rabble_enable_containers=true"
+  [gnome]="rabble_enable_gnome_desktop=true"
 )
 
 declare -A LAYER_VERIFY=(
@@ -113,12 +115,13 @@ declare -A LAYER_VERIFY=(
   [builder-skills]="test -d ${HOME}/.claude/skills"
   [bottles]="flatpak info com.usebottles.bottles"
   [containers]="docker --version && podman --version"
+  [gnome]="rpm -q gnome-shell gnome-session-wayland-session >/dev/null && ! rpm -q gdm >/dev/null 2>&1 && test -f /usr/share/wayland-sessions/gnome.desktop"
   [all]=""
 )
 
 # Ordered list for status display and sequential all-deploy
 # Mirrors site.yml play order: base → hardware → runtime → monitoring → virtualization → boot → ...
-LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers)
+LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers gnome)
 
 # ── State tracking ────────────────────────────────────────────────────────────
 
@@ -249,7 +252,15 @@ cmd_remove() {
   read -rp "$(echo -e "${RED}  Confirm removal of '${layer}'? [y/N]: ${RESET}")" confirm
   [[ "${confirm:-N}" =~ ^[Yy]$ ]] || { info "Aborted."; return; }
 
-  run_playbook "${layer},remove"
+  # Pass the same LAYER_EXTRA_VARS as `apply` — most opt-in roles are gated by
+  # a `when: rabble_enable_*` on the role itself (see site.yml), so without
+  # this the role — including its `remove` tagged tasks — never runs at all.
+  local extra_vars=()
+  if [[ -n "${LAYER_EXTRA_VARS[$layer]:-}" ]]; then
+    extra_vars+=(--extra-vars "${LAYER_EXTRA_VARS[$layer]}")
+  fi
+
+  run_playbook "${layer},remove" "${extra_vars[@]}"
   set_state "$layer" "removed"
   ok "Layer '${layer}' removed."
 }
