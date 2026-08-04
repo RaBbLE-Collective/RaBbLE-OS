@@ -96,6 +96,39 @@
   when: workbench_css.matched > 0
   tags: [apps, vscode]
 
+# product.json is an RPM %config file. On upgrade, if our checksum patch had
+# locally modified it, RPM refuses to overwrite it and drops the package's
+# real product.json next to it as product.json.rpmnew instead — leaving every
+# OTHER checksummed file (workbench.desktop.main.js, extensionHostProcess.js,
+# sessions.*, etc.) upgraded while product.json still lists the old version's
+# checksums for them. That mismatch alone triggers the corrupt banner, even
+# before the CSS is touched. Always adopt .rpmnew first so product.json tracks
+# the version RPM actually installed.
+- name: vscode | resolve VSCodium app root
+  ansible.builtin.set_fact:
+    codium_app_root: "{{ workbench_css.files[0].path.split('/out/')[0] }}"
+  when: workbench_css.matched > 0
+  tags: [apps, vscode]
+
+- name: vscode | check for a pending product.json.rpmnew
+  ansible.builtin.stat:
+    path: "{{ codium_app_root }}/product.json.rpmnew"
+  register: codium_product_rpmnew
+  when: workbench_css.matched > 0
+  tags: [apps, vscode]
+
+- name: vscode | adopt product.json.rpmnew if an upgrade left one behind
+  ansible.builtin.command:
+    argv:
+      - mv
+      - "{{ codium_app_root }}/product.json.rpmnew"
+      - "{{ codium_app_root }}/product.json"
+  become: true
+  when:
+    - workbench_css.matched > 0
+    - codium_product_rpmnew.stat.exists
+  tags: [apps, vscode]
+
 # Injecting @import edits workbench.desktop.main.css, which is integrity-checked
 # in product.json ("checksums"). A stale checksum triggers VSCodium's
 # "Your installation appears to be corrupt" banner. Recompute it to match.
