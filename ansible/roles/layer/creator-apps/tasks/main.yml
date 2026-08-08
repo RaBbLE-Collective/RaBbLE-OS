@@ -1,0 +1,39 @@
+---
+# ansible/roles/layer/creator-apps/tasks/main.yml
+# spark ~ layer/creator-apps >> data-driven single-Flatpak creator app registry // %LAYER_CREATOR_APPS%
+#
+# Opt-in layer (rabble_enable_creator_apps, default false — see defaults/main.yml).
+# Registers small, single-Flatpak creator tools (FreeCAD to start) from ONE
+# list in vars/main.yml — adding a new app is a 3-line vars entry, not a new
+# role/site.yml play/layerctl.sh edit. rabble_creator_app_target selects one
+# app by id, or "all" (default) for every registered app; layerctl's
+# `app <id>` subcommand drives single-app installs, `apply creator-apps`
+# installs everything in the list.
+
+- name: creator-apps | ensure flatpak runtime installed
+  ansible.builtin.dnf:
+    name: flatpak
+    state: present
+  become: true
+  tags: [layer, creator-apps, packages]
+
+- name: creator-apps | ensure Flathub remote is registered (system-wide)
+  community.general.flatpak_remote:
+    name: flathub
+    state: present
+    flatpakrepo_url: https://dl.flathub.org/repo/flathub.flatpakrepo
+    method: system
+  become: true
+  tags: [layer, creator-apps, packages]
+
+- name: "creator-apps | install {{ item.id }}"
+  community.general.flatpak:
+    name: "{{ item.flatpak }}"
+    state: present
+    method: system
+  loop: "{{ rabble_optional_apps }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: rabble_creator_app_target == 'all' or rabble_creator_app_target == item.id
+  become: true
+  tags: [layer, creator-apps, packages]
