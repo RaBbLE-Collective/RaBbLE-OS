@@ -339,6 +339,14 @@
     - role: layer/esp-idf
       when: rabble_enable_esp_idf | default(false) | bool
 
+- name: "Layer — Arduino CLI (ESP32 core, vendor .ino examples reference only)"
+  hosts: all
+  become: true
+  tags: [layer, arduino-cli]
+  roles:
+    - role: layer/arduino-cli
+      when: rabble_enable_arduino_cli | default(false) | bool
+
 - name: "Layer — GNOME Shell (opt-in secondary DE, Aether theming testbed)"
   hosts: all
   become: true

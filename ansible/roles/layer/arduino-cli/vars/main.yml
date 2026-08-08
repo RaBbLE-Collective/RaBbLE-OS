@@ -1,0 +1,23 @@
+---
+# ansible/roles/layer/arduino-cli/vars/main.yml
+
+# No arduino_cli_version — the eim-cli "latest" URL-alias pattern this
+# originally copied from layer/esp-idf doesn't transfer: arduino-cli's
+# release filenames embed the real version number, so there's no static
+# filename to point a /releases/latest/download/ shortcut at (see tasks/
+# main.yml). The vendor's own install.sh resolves latest + arch itself.
+arduino_cli_bin_dir: "{{ rabble_home }}/.local/bin"
+
+# Pinned to the exact version the vendor validated their examples against —
+# firmware/vendor/ESP32-S3-Touch-AMOLED-1.75/docs/getting-started.md, "Build
+# with Arduino" section. Don't bump without checking that doc first; the
+# board's FlashSize=16M/PartitionScheme=app3M_fat9M_16MB settings in
+# ops/arduino-flash.sh are validated against this specific core version too.
+arduino_esp32_core: "esp32:esp32@3.3.10"
+
+# Espressif's documented ESP32 Arduino core board-manager index, as of this
+# writing. arduino-esp32 has relocated this URL before across major core
+# versions — confirm with `arduino-cli core update-index` after the first
+# `apply arduino-cli` (mirrors the honest not-yet-observed caveat left in
+# layer/esp-idf's tasks/main.yml for the eim on-disk layout).
+arduino_esp32_board_index_url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"

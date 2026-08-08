@@ -1529,3 +1529,19 @@ packages:
     platform: all
     layer: layer/esp-idf
     ks: false
+
+  # ── layer/arduino-cli — arduino-cli + ESP32 core ────────────────────────────
+  # Opt-in (rabble_enable_arduino_cli, default false) — never installed by
+  # `apply all` / `upgrade`. layerctl `apply arduino-cli`. role:
+  # ansible/roles/layer/arduino-cli/, play: site.yml. Builds only the vendor's
+  # reference .ino examples (firmware/vendor/.../examples/arduino/) for
+  # comparison — RaBbLE-Pocket's own firmware stays on ESP-IDF (layer/esp-idf).
+  # ADR: RaBbLE-Pocket/planning/decisions/2026-08-07-esp-idf-over-arduino.md
+
+  - name: arduino-cli
+    category: layer.arduino-cli
+    reason: "Arduino's official CLI toolchain manager — installs to a user-local bin dir (no dnf package), then drives ESP32 core install and board-index config."
+    source: "repo:arduino/arduino-cli (GitHub release tarball, not a dnf repo)"
+    platform: all
+    layer: layer/arduino-cli
+    ks: false
