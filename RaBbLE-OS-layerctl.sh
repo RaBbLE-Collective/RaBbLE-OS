@@ -14,6 +14,8 @@
 #   ./layer-ctl.sh verify hardware               — run layer health checks
 #   ./layer-ctl.sh dotfiles                      — re-link dotfiles only
 #   ./layer-ctl.sh menu                          — launch interactive menu
+#   ./layer-ctl.sh app freecad                   — install one registered creator app
+#   ./layer-ctl.sh app list                      — list registered creator apps
 
 set -euo pipefail
 
@@ -23,6 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ANSIBLE_DIR="${SCRIPT_DIR}/ansible"
 INVENTORY="${ANSIBLE_DIR}/inventory/hosts.yml"
 SITE_YML="${ANSIBLE_DIR}/site.yml"
+CREATOR_APPS_VARS="${ANSIBLE_DIR}/roles/layer/creator-apps/vars/main.yml"
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 
@@ -81,7 +84,7 @@ declare -A LAYER_NAMES=(
   [containers]="Docker CE + Podman container runtimes (opt-in)"
   [esp-idf]="ESP-IDF embedded toolchain(s) via EIM CLI + picocom/usbutils/fzf — Espressif SDK for RaBbLE-Pocket firmware (opt-in)"
   [gnome]="GNOME Shell — Aether-themed secondary DE, SDDM fallback + theming testbed (opt-in)"
-  [freecad]="FreeCAD — parametric CAD for creators (opt-in)"
+  [creator-apps]="Creator apps — data-driven single-Flatpak apps (see 'app list') (opt-in)"
   [all]="Full system — all layers in order"
 )
 
@@ -93,7 +96,7 @@ declare -A LAYER_EXTRA_VARS=(
   [containers]="rabble_enable_containers=true"
   [esp-idf]="rabble_enable_esp_idf=true"
   [gnome]="rabble_enable_gnome_desktop=true"
-  [freecad]="rabble_enable_freecad=true"
+  [creator-apps]="rabble_enable_creator_apps=true"
 )
 
 declare -A LAYER_VERIFY=(
@@ -121,13 +124,13 @@ declare -A LAYER_VERIFY=(
   [containers]="docker --version && podman --version"
   [esp-idf]="command -v eim && eim list && test -L ${HOME}/esp/esp-idf-default"
   [gnome]="rpm -q gnome-shell gnome-session-wayland-session >/dev/null && ! rpm -q gdm >/dev/null 2>&1 && test -f /usr/share/wayland-sessions/gnome.desktop"
-  [freecad]="flatpak info org.freecad.FreeCAD"
+  [creator-apps]="verify_creator_apps"
   [all]=""
 )
 
 # Ordered list for status display and sequential all-deploy
 # Mirrors site.yml play order: base → hardware → runtime → monitoring → virtualization → boot → ...
-LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers esp-idf gnome freecad)
+LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers esp-idf gnome creator-apps)
 
 # ── State tracking ────────────────────────────────────────────────────────────
 
@@ -196,6 +199,37 @@ run_playbook_check() {
   local tags="$1"
   shift
   run_playbook "$tags" --check --diff "$@"
+}
+
+# ── Creator apps registry ──────────────────────────────────────────────────────
+#
+# Reads ansible/roles/layer/creator-apps/vars/main.yml (rabble_optional_apps)
+# at runtime via python3+PyYAML (already a hard dependency of this whole
+# system). Adding a new app there makes it available to `app <id>`
+# immediately — no edits below this comment are ever required for a new app.
+
+creator_apps_list() {
+  # Tab-separated: id<TAB>flatpak-id<TAB>desc
+  python3 -c "
+import yaml
+with open('${CREATOR_APPS_VARS}') as f:
+    data = yaml.safe_load(f) or {}
+for a in data.get('rabble_optional_apps', []):
+    print(f\"{a['id']}\t{a['flatpak']}\t{a['desc']}\")
+"
+}
+
+verify_creator_apps() {
+  local all_ok=true
+  while IFS=$'\t' read -r id flatpak_id _desc; do
+    if flatpak info "$flatpak_id" &>/dev/null; then
+      ok "  ${id}"
+    else
+      warn "  ${id} (${flatpak_id}) not installed"
+      all_ok=false
+    fi
+  done < <(creator_apps_list)
+  $all_ok
 }
 
 # ── Commands ──────────────────────────────────────────────────────────────────
@@ -291,6 +325,32 @@ cmd_verify() {
     warn "Layer '${layer}' verification failed. Run 'apply ${layer}' to repair."
     set_state "$layer" "degraded"
   fi
+}
+
+cmd_app() {
+  local target="${1:-}"
+
+  if [[ -z "$target" || "$target" == "list" ]]; then
+    pulse "Registered creator apps"
+    divider
+    creator_apps_list | while IFS=$'\t' read -r id flatpak_id desc; do
+      printf "  ${CYAN}%-14s${RESET} %-26s %s\n" "$id" "$flatpak_id" "$desc"
+    done
+    echo
+    muted "Install one:  layer-ctl app <id>"
+    muted "Install all:  layer-ctl apply creator-apps"
+    return
+  fi
+
+  local flatpak_id
+  flatpak_id=$(creator_apps_list | awk -F'\t' -v id="$target" '$1==id{print $2}')
+  [[ -z "$flatpak_id" ]] && fail "Unknown creator app: '${target}'. Run 'layer-ctl app list' to see registered apps."
+
+  pulse "Applying creator app: ${target} (${flatpak_id})"
+  divider
+  run_playbook "creator-apps" --extra-vars "rabble_enable_creator_apps=true rabble_creator_app_target=${target}"
+  set_state "app-${target}" "applied"
+  ok "App '${target}' applied. // %CREATOR_APP_STABLE%"
 }
 
 cmd_status() {
@@ -431,6 +491,11 @@ cmd_help() {
   echo -e "  ${CYAN}menu${RESET}"
   echo -e "          Launch the interactive bootstrap menu."
   echo
+  echo -e "  ${CYAN}app${RESET}     [ID | list]"
+  echo -e "          Install one registered creator app by id, or list them all."
+  echo -e "          Registry: ansible/roles/layer/creator-apps/vars/main.yml — add"
+  echo -e "          an app there and 'app <id>' picks it up with no other edits."
+  echo
   echo -e "${BOLD}LAYERS${RESET}"
   for layer in "${LAYER_ORDER[@]}" all; do
     printf "  ${CYAN}%-16s${RESET} %s\n" "$layer" "${LAYER_NAMES[$layer]}"
@@ -454,6 +519,8 @@ cmd_help() {
   echo -e "  ${MUTED}./layer-ctl.sh apply boot --config${RESET}"
   echo -e "  ${MUTED}./layer-ctl.sh verify hardware${RESET}"
   echo -e "  ${MUTED}./layer-ctl.sh status${RESET}"
+  echo -e "  ${MUTED}./layer-ctl.sh app freecad${RESET}                      — install just FreeCAD"
+  echo -e "  ${MUTED}./layer-ctl.sh app list${RESET}                         — list registered creator apps"
   echo -e "  ${MUTED}RABBLE_HARDWARE=generic_x64 ./layer-ctl.sh apply hardware${RESET}"
   echo
 }
@@ -481,6 +548,7 @@ case "$COMMAND" in
   upgrade)  cmd_upgrade "$@" ;;
   remove)   cmd_remove "$@" ;;
   verify)   cmd_verify "$@" ;;
+  app)      cmd_app "$@" ;;
   status)   cmd_status ;;
   diff)     cmd_diff "$@" ;;
   dotfiles) cmd_dotfiles ;;

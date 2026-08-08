@@ -23,7 +23,7 @@
 #   --tags layer                 → Optional feature groups (opt-in, see rabble_enable_* vars)
 #   --tags bottles               → Bottles (Wine app compat) only, opt-in
 #   --tags esp-idf               → ESP-IDF embedded toolchain (RaBbLE-Pocket firmware) only, opt-in
-#   --tags freecad               → FreeCAD parametric CAD only, opt-in
+#   --tags creator-apps          → Data-driven single-Flatpak creator apps (FreeCAD, …), opt-in
 #   --tags collective            → RaBbLE Collective dev tooling (Node.js, wrangler, age, gh)
 #   --tags ai-harnesses          → sCoRE local AI layer (claude-code, codex, opencode, aider, gemini-cli, ollama, vllm, free-claude-code, builder-skills)
 #   --tags free-claude-code      → free-claude-code proxy only
@@ -347,13 +347,13 @@
     - role: layer/gnome
       when: rabble_enable_gnome_desktop | default(false) | bool
 
-- name: "Layer — FreeCAD (parametric CAD for creators)"
+- name: "Layer — Creator Apps (data-driven single-Flatpak apps for creators)"
   hosts: all
   become: true
-  tags: [layer, freecad]
+  tags: [layer, creator-apps]
   roles:
-    - role: layer/freecad
-      when: rabble_enable_freecad | default(false) | bool
+    - role: layer/creator-apps
+      when: rabble_enable_creator_apps | default(false) | bool
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Collective — RaBbLE development tooling

@@ -1231,27 +1231,32 @@ packages:
     layer: layer/bottles
     ks: false
 
-  # ── layer/freecad ────────────────────────────────────────────────────────
-  # Parametric CAD for creators. Not in Fedora's repos (confirmed via dnf
-  # search, S207) — installed from Flathub. Opt-in (rabble_enable_freecad,
-  # default false) — never installed by `apply all` / `upgrade`. layerctl
-  # `apply freecad`. role: ansible/roles/layer/freecad/, play: site.yml.
-  # First use: RaBbLE-Pocket battery mount design (Mark, S207).
+  # ── layer/creator-apps ──────────────────────────────────────────────────
+  # Data-driven registry of small, single-Flatpak creator apps. The
+  # mechanical install list lives in
+  # ansible/roles/layer/creator-apps/vars/main.yml (rabble_optional_apps) —
+  # adding a new app there is enough to make it installable via
+  # `layerctl app <id>`; no new role, no new site.yml play, no
+  # layerctl.sh edits. Entries below are the decision record (the WHY),
+  # kept in sync by hand when an app is added or dropped. Opt-in
+  # (rabble_enable_creator_apps, default false) — never installed by
+  # `apply all` / `upgrade`. role: ansible/roles/layer/creator-apps/,
+  # play: site.yml.
 
   - name: flatpak
-    category: layer.freecad
-    reason: Flatpak runtime — required to install FreeCAD; ensured here even if layer/flatpak was never separately applied
+    category: layer.creator-apps
+    reason: Flatpak runtime — required by every registered creator app; ensured here even if layer/flatpak was never separately applied
     source: fedora
     platform: all
-    layer: layer/freecad
+    layer: layer/creator-apps
     ks: false
 
   - name: org.freecad.FreeCAD
-    category: layer.freecad
-    reason: Parametric 3D CAD — mechanical design work (RaBbLE-Pocket enclosure/battery mount), native Linux app via Flathub
+    category: layer.creator-apps
+    reason: "Parametric 3D CAD — mechanical design work (RaBbLE-Pocket enclosure/battery mount), native Linux app via Flathub. Not in Fedora's repos (confirmed via dnf search, S211). First registered creator app, S211."
     source: flatpak
     platform: all
-    layer: layer/freecad
+    layer: layer/creator-apps
     ks: false
 
   # ── apps.collective — RaBbLE Collective development tooling ───────────────
