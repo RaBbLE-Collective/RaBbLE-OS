@@ -83,3 +83,31 @@
   become: true
   notify: reload systemd daemon
   tags: [boot, plymouth, config]
+
+# ── SDDM greeter DRM race fix (S207) ────────────────────────────────────────
+# sddm.service is vendor-ordered After=plymouth-quit.service (fires the quit
+# signal, doesn't wait for it), not plymouth-quit-wait.service (actually
+# blocks until Plymouth releases DRM). The greeter's sway compositor does a
+# single non-retrying DRM open() and dies instantly if it loses that race —
+# see files/sddm-plymouth-handoff.conf for full real-boot evidence.
+
+- name: Create sddm.service drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/sddm.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [boot, sddm, config]
+
+- name: Deploy sddm plymouth-quit-wait ordering drop-in
+  ansible.builtin.copy:
+    src: sddm-plymouth-handoff.conf
+    dest: /etc/systemd/system/sddm.service.d/plymouth-handoff.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload systemd daemon
+  tags: [boot, sddm, config]

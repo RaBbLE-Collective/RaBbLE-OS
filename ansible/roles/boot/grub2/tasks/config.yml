@@ -131,3 +131,30 @@
     mode: "0644"
   become: true
   tags: [boot, grub, console, tty, palette]
+
+# ── TTY font — Plymouth handoff race fix (S207) ─────────────────────────────
+# systemd-vconsole-setup races Plymouth for console ownership and loses on
+# every observed boot ("All allocated virtual consoles are busy, will not
+# configure key mapping and font"), so ter-v32b above never actually lands.
+# Separately, fbcon=font:TER16x32 on the GRUB cmdline is a dead no-op on this
+# kernel (CONFIG_FONT_8x16 only, no CONFIG_FONT_TER16x32 built in) — full
+# real-boot evidence in files/rabble-console-font.service.
+
+- name: Deploy rabble-console-font.service (reapply TTY font after Plymouth)
+  ansible.builtin.copy:
+    src: rabble-console-font.service
+    dest: /etc/systemd/system/rabble-console-font.service
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  register: console_font_unit
+  tags: [boot, grub, console, tty]
+
+- name: Enable rabble-console-font.service
+  ansible.builtin.systemd:
+    name: rabble-console-font.service
+    enabled: true
+    daemon_reload: "{{ console_font_unit.changed }}"
+  become: true
+  tags: [boot, grub, console, tty]

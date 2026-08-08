@@ -1,0 +1,45 @@
+# /etc/systemd/system/rabble-console-font.service
+# Deployed by: ansible/roles/boot/grub2/tasks/config.yml
+#
+# S207 fix: TTY font stays tiny instead of the HiDPI ter-v32b in vconsole.conf.
+#
+# Two stacked causes:
+#  1. `fbcon=font:TER16x32` on the GRUB cmdline is a no-op on this kernel —
+#     Fedora's kernel is built with CONFIG_FONT_8x16 only, no
+#     CONFIG_FONT_TER16x32, so the early framebuffer console silently falls
+#     back to the stock 8x16 VGA font (confirmed via
+#     `dmesg | grep "Console: switching"` -> 480x150 = 3840/8 x 2400/16,
+#     never the 240x75 that a 16x32 font would give).
+#  2. The real mechanism — systemd-vconsole-setup applying ter-v32b from
+#     /etc/vconsole.conf — races Plymouth for console ownership and loses on
+#     every boot observed:
+#       systemd-vconsole-setup: All allocated virtual consoles are busy,
+#       will not configure key mapping and font.
+#     vconsole-setup skips rather than waits/retries, so the font never gets
+#     set at all, early or late.
+#
+# Fix: explicitly reapply the configured font once Plymouth has actually let
+# go of the consoles (After=plymouth-quit-wait.service), before any getty
+# can display a login prompt on a still-tiny font.
+#
+# Deliberately calls `setfont -C <vt>` directly rather than re-invoking
+# systemd-vconsole-setup: that binary has its own "is this console busy"
+# self-check, which is exactly the check that is skipping the font today.
+# setfont has no such guard — it unconditionally loads the font via the
+# console font ioctl, which is safe even if a getty already attached.
+# Loops over tty1-tty6 (Fedora's standard text-VT range) since setfont only
+# touches the one console device it's pointed at.
+
+[Unit]
+Description=RaBbLE-OS — reapply HiDPI TTY console font after Plymouth releases the VTs
+After=plymouth-quit-wait.service systemd-vconsole-setup.service
+Before=getty.target
+ConditionPathExists=/etc/vconsole.conf
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c '. /etc/vconsole.conf; for vt in /dev/tty[1-6]; do [ -e "$vt" ] && setfont "$FONT" -C "$vt"; done; true'
+
+[Install]
+WantedBy=multi-user.target
