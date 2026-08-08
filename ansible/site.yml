@@ -22,6 +22,7 @@
 #   --tags apps                  → Layer 4: applications
 #   --tags layer                 → Optional feature groups (opt-in, see rabble_enable_* vars)
 #   --tags bottles               → Bottles (Wine app compat) only, opt-in
+#   --tags esp-idf               → ESP-IDF embedded toolchain (RaBbLE-Pocket firmware) only, opt-in
 #   --tags collective            → RaBbLE Collective dev tooling (Node.js, wrangler, age, gh)
 #   --tags ai-harnesses          → sCoRE local AI layer (claude-code, codex, opencode, aider, gemini-cli, ollama, vllm, free-claude-code, builder-skills)
 #   --tags free-claude-code      → free-claude-code proxy only
@@ -328,6 +329,14 @@
   roles:
     - role: layer/containers
       when: rabble_enable_containers | default(false) | bool
+
+- name: "Layer — ESP-IDF (Espressif embedded toolchain, RaBbLE-Pocket firmware)"
+  hosts: all
+  become: true
+  tags: [layer, esp-idf]
+  roles:
+    - role: layer/esp-idf
+      when: rabble_enable_esp_idf | default(false) | bool
 
 - name: "Layer — GNOME Shell (opt-in secondary DE, Aether theming testbed)"
   hosts: all

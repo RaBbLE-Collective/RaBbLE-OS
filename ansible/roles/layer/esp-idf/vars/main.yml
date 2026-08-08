@@ -1,0 +1,27 @@
+---
+# ansible/roles/layer/esp-idf/vars/main.yml
+
+# Pinned to match Waveshare's Brookesia reference firmware validation for the
+# ESP32-S3-Touch-AMOLED-1.75 board (RaBbLE-Pocket) — see
+# RaBbLE-Grimoire/RaBbLE-Pocket/RaBbLE-Pocket-Architecture.md. v6.0.2 is also
+# supported by the vendor's plain examples if a newer IDF is ever needed.
+esp_idf_version: "v5.5.4"
+esp_idf_target: "esp32s3"
+
+# Espressif's documented Linux/Fedora build prerequisites for install.sh.
+# ESP-IDF itself is not a Fedora package — cloned from GitHub, see tasks/main.yml.
+esp_idf_prereq_packages:
+  - git
+  - wget
+  - flex
+  - bison
+  - gperf
+  - python3
+  - python3-pip
+  - cmake
+  - ninja-build
+  - ccache
+  - dfu-util
+  - libusbx
+  - openssl-devel
+  - libffi-devel

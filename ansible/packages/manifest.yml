@@ -1356,3 +1356,116 @@ packages:
     platform: all
     layer: runtime
     ks: false
+
+  # ── layer.esp-idf — Espressif ESP-IDF embedded toolchain ──────────────────
+  # Opt-in (rabble_enable_esp_idf, default false) — never installed by
+  # `apply all` / `upgrade`. layerctl `apply esp-idf`. role:
+  # ansible/roles/layer/esp-idf/, play: site.yml. Dnf packages are Espressif's
+  # documented Linux/Fedora build prerequisites; ESP-IDF itself is not a
+  # Fedora package — cloned from GitHub + installed via its own install.sh
+  # (see role tasks). Serves RaBbLE-Pocket firmware — ADR:
+  # RaBbLE-Pocket/planning/decisions/2026-08-07-esp-idf-over-arduino.md
+
+  - name: git
+    category: layer.esp-idf
+    reason: Clone ESP-IDF from GitHub (already present via ks-bootstrap, listed for the layer's decision record)
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: wget
+    category: layer.esp-idf
+    reason: install.sh prerequisite — fetches toolchain archives
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: flex
+    category: layer.esp-idf
+    reason: install.sh build prerequisite — lexer generator used by toolchain components
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: bison
+    category: layer.esp-idf
+    reason: install.sh build prerequisite — parser generator used by toolchain components
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: gperf
+    category: layer.esp-idf
+    reason: install.sh build prerequisite — perfect hash generator used by ESP-IDF's build
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: python3-pip
+    category: layer.esp-idf
+    reason: install.sh bootstraps its own Python venv via pip
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: cmake
+    category: layer.esp-idf
+    reason: ESP-IDF's build system (already present via runtime.llama-cpp on machines with that layer; listed here for esp-idf's own decision record)
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: ninja-build
+    category: layer.esp-idf
+    reason: ESP-IDF's default CMake generator/build backend
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: ccache
+    category: layer.esp-idf
+    reason: Speeds up repeat ESP-IDF builds — used automatically when present
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: dfu-util
+    category: layer.esp-idf
+    reason: DFU flashing support for boards/targets that use it
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: libusbx
+    category: layer.esp-idf
+    reason: libusb-1.0 — JTAG/USB device access for flashing and debugging
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: openssl-devel
+    category: layer.esp-idf
+    reason: install.sh Python venv build prerequisite (cryptography package headers)
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: libffi-devel
+    category: layer.esp-idf
+    reason: install.sh Python venv build prerequisite (cffi/cryptography headers)
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false

@@ -1,0 +1,50 @@
+---
+# ansible/roles/layer/esp-idf/tasks/main.yml
+# spark ~ layer/esp-idf >> Espressif ESP-IDF toolchain (RaBbLE-Pocket firmware) // %LAYER_ESP_IDF%
+#
+# Opt-in layer (rabble_enable_esp_idf, default false — see defaults/main.yml).
+# System prerequisites come from dnf; ESP-IDF itself is not a Fedora package —
+# cloned from Espressif's repo and installed into the user's home via its own
+# install.sh (self-contained Python venv + cross-compiler toolchain download),
+# same shape as the powerlevel10k git-clone in desktop/shell/zsh/tasks/packages.yml.
+# See ADR: RaBbLE-Pocket/planning/decisions/2026-08-07-esp-idf-over-arduino.md
+
+- name: esp-idf | install system prerequisites
+  ansible.builtin.dnf:
+    name: "{{ esp_idf_prereq_packages }}"
+    state: present
+  become: true
+  tags: [layer, esp-idf, packages]
+
+- name: esp-idf | add user to dialout group (USB-serial flashing access)
+  ansible.builtin.user:
+    name: "{{ rabble_user }}"
+    groups: dialout
+    append: true
+  become: true
+  tags: [layer, esp-idf, usb-serial]
+  # Same rationale as layer/bottles: the board enumerates as /dev/ttyACM* over
+  # its native USB; esptool.py (via idf.py flash) needs dialout to open the
+  # port without sudo. Group membership requires a new login session.
+
+- name: esp-idf | clone ESP-IDF {{ esp_idf_version }}
+  ansible.builtin.git:
+    repo: https://github.com/espressif/esp-idf.git
+    dest: "{{ rabble_home }}/esp/esp-idf"
+    version: "{{ esp_idf_version }}"
+    recursive: true
+    update: false
+  become: false
+  tags: [layer, esp-idf, packages]
+  # become: false explicitly — must clone/own as the regular user, not root;
+  # the play this role runs under defaults become: true.
+
+- name: esp-idf | run install.sh for {{ esp_idf_target }}
+  ansible.builtin.command:
+    cmd: "./install.sh {{ esp_idf_target }}"
+    chdir: "{{ rabble_home }}/esp/esp-idf"
+    creates: "{{ rabble_home }}/.espressif/python_env"
+  become: false
+  tags: [layer, esp-idf, packages]
+  # Idempotency guard via `creates:` — install.sh downloads the toolchain and
+  # builds the Python venv here on first success.

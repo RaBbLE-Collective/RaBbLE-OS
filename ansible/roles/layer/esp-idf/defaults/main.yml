@@ -1,0 +1,6 @@
+---
+# ansible/roles/layer/esp-idf/defaults/main.yml
+# Opt-in gate — this layer never runs under `apply all` / `upgrade` unless
+# flipped. layerctl flips it automatically for `apply esp-idf` via
+# LAYER_EXTRA_VARS (see RaBbLE-OS-layerctl.sh).
+rabble_enable_esp_idf: false
