@@ -81,6 +81,7 @@ declare -A LAYER_NAMES=(
   [containers]="Docker CE + Podman container runtimes (opt-in)"
   [esp-idf]="ESP-IDF embedded toolchain(s) via EIM CLI + picocom/usbutils/fzf — Espressif SDK for RaBbLE-Pocket firmware (opt-in)"
   [gnome]="GNOME Shell — Aether-themed secondary DE, SDDM fallback + theming testbed (opt-in)"
+  [freecad]="FreeCAD — parametric CAD for creators (opt-in)"
   [all]="Full system — all layers in order"
 )
 
