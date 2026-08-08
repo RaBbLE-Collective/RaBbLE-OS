@@ -1517,9 +1517,9 @@ packages:
     layer: layer/esp-idf
     ks: false
 
-  - name: eim-gui
+  - name: eim-cli
     category: layer.esp-idf
-    reason: "Espressif's official multi-version ESP-IDF installer/manager (GUI) — Mark wants all generally-useful official ESP tools available, not just RaBbLE-Pocket's own esp-idf-select.sh workflow. Not the primary flow here."
+    reason: "Espressif's official multi-version ESP-IDF installer/registry — now the actual mechanism this layer's tasks/main.yml uses to install ESP-IDF versions (`eim install`), not just a standalone extra. Chosen over eim-gui: full command parity confirmed via `eim --help` on the extracted binary, plus --non-interactive scriptability the GUI lacks. eim-cli and eim-gui both claim /usr/bin/eim (different binaries, confirmed by hash) so only one can be installed — CLI wins now that it's load-bearing."
     source: "repo:espressif/idf-im-ui (GitHub release .rpm, not a dnf repo)"
     platform: all
     layer: layer/esp-idf

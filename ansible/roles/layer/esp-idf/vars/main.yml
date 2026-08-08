@@ -1,19 +1,23 @@
 ---
 # ansible/roles/layer/esp-idf/vars/main.yml
 
-# Multiple versions can be installed side by side — each gets its own
-# directory (~/esp/esp-idf-<version>) and its own cached toolchain/venv under
-# ~/.espressif/ (Espressif keys those by version, no collision risk). Which
-# one a given firmware project actually uses is a project-level concern, not
-# a machine-level one — see RaBbLE-Pocket/firmware/.esp-idf-version and
-# RaBbLE-Pocket/ops/esp-idf-select.sh. Start with the one the ADR pinned;
-# append more here (e.g. "v6.0.2") when a second is actually needed.
+# Multiple versions install side by side under esp_idf_eim_path, each its own
+# --version-name subdirectory — EIM's registry (`eim list`) tracks what's
+# installed; its toolchain/venv caches under ~/.espressif/ are keyed by
+# version too, so this never collides. Which one a given firmware project
+# actually uses is a project-level concern, not a machine-level one — see
+# RaBbLE-Pocket/firmware/.esp-idf-version and RaBbLE-Pocket/ops/esp-idf-select.sh.
+# Start with the one the ADR pinned; append more here (e.g. "v6.0.2") when a
+# second is actually needed.
 esp_idf_versions:
   - "v5.5.4"
 esp_idf_target: "esp32s3"
+esp_idf_eim_path: "{{ rabble_home }}/esp/esp-idf-eim"
 
-# Espressif's documented Linux/Fedora build prerequisites for install.sh.
-# ESP-IDF itself is not a Fedora package — cloned from GitHub, see tasks/main.yml.
+# Espressif's documented Linux/Fedora build prerequisites — eim's `install`
+# still needs these present; it doesn't auto-install Linux system deps
+# (its --install-all-prerequisites flag is Windows-only per --help).
+# ESP-IDF itself is not a Fedora package — installed via eim, see tasks/main.yml.
 esp_idf_prereq_packages:
   - git
   - wget

@@ -1,19 +1,30 @@
 ---
 # ansible/roles/layer/esp-idf/tasks/main.yml
-# spark ~ layer/esp-idf >> Espressif ESP-IDF toolchain(s) (RaBbLE-Pocket firmware) // %LAYER_ESP_IDF%
+# spark ~ layer/esp-idf >> Espressif ESP-IDF toolchain(s) via EIM CLI (RaBbLE-Pocket firmware) // %LAYER_ESP_IDF%
 #
 # Opt-in layer (rabble_enable_esp_idf, default false — see defaults/main.yml).
-# System prerequisites come from dnf; ESP-IDF itself is not a Fedora package —
-# cloned from Espressif's repo and installed into the user's home via its own
-# install.sh (self-contained Python venv + cross-compiler toolchain download),
-# same shape as the powerlevel10k git-clone in desktop/shell/zsh/tasks/packages.yml.
-# See ADR: RaBbLE-Pocket/planning/decisions/2026-08-07-esp-idf-over-arduino.md
+# System prerequisites come from dnf; ESP-IDF itself is not a Fedora package.
+# Provisioning goes through Espressif's own EIM CLI (`eim install`) rather
+# than a hand-rolled git-clone + install.sh loop — EIM is Espressif's
+# documented, non-interactive-capable multi-version installer/registry, a
+# better fit than reinventing that mechanism ourselves. See ADRs:
+#   RaBbLE-Pocket/planning/decisions/2026-08-07-esp-idf-over-arduino.md
+#   RaBbLE-Pocket/planning/decisions/2026-08-07-esp-idf-multiversion-and-eim.md
+#   RaBbLE-Pocket/planning/decisions/2026-08-08-eim-cli-provisioning.md
 #
 # Multiple versions (esp_idf_versions list) install side by side, one
-# directory each — Espressif's own toolchain/venv caches under ~/.espressif/
-# are already keyed by version, so this never collides. Picking which one a
-# given firmware project actually uses is handled at the project level —
-# RaBbLE-Pocket/ops/esp-idf-select.sh — not here.
+# `--version-name` each under a shared --path — EIM's own registry
+# (`eim list`, ~/.espressif/tools/eim_idf.json) tracks what's installed.
+# Picking which one a given firmware project actually uses is handled at
+# the project level — RaBbLE-Pocket/ops/esp-idf-select.sh — not here.
+#
+# NOTE — first real end-to-end run of this exact flow: `eim install`'s flags
+# are all taken from `eim install --help` (verified by extracting the
+# binary and running it), but the resulting on-disk layout under
+# --path/--version-name was not observed on a live install before writing
+# this. esp-idf-select.sh relies on that exact layout
+# ({{ esp_idf_eim_path }}/<version>/export.sh) — worth a quick look after
+# the first `apply esp-idf` to confirm it matches.
 
 - name: esp-idf | install system prerequisites
   ansible.builtin.dnf:
@@ -40,37 +51,72 @@
   # its native USB; esptool.py (via idf.py flash) needs dialout to open the
   # port without sudo. Group membership requires a new login session.
 
-- name: esp-idf | clone ESP-IDF versions
-  ansible.builtin.git:
-    repo: https://github.com/espressif/esp-idf.git
-    dest: "{{ rabble_home }}/esp/esp-idf-{{ item }}"
-    version: "{{ item }}"
-    recursive: true
-    update: false
-  loop: "{{ esp_idf_versions }}"
-  become: false
-  tags: [layer, esp-idf, packages]
-  # become: false explicitly — must clone/own as the regular user, not root;
-  # the play this role runs under defaults become: true.
+# ── EIM CLI — Espressif's own multi-version installer/registry ─────────────
+# Not a dnf-repo package — Espressif ships it as a prebuilt .rpm release
+# asset. "latest" release URL used deliberately so this doesn't need a
+# pinned version bump here.
+#
+# CLI, not GUI: espressif/idf-im-ui ships eim-cli and eim-gui as SEPARATE
+# packages that both install to /usr/bin/eim — confirmed by hash, genuinely
+# different binaries (32MB vs 51MB, different sha256), so dnf refuses to
+# have both installed at once (real file-path conflict). CLI chosen over the
+# GUI this installed originally: `eim --help` showed full command parity
+# (install/list/select/run/remove/rename/wizard/...) plus scriptability
+# (--non-interactive) the GUI doesn't offer, and it's the tool this role
+# actually drives below — not just a standalone extra.
 
-- name: esp-idf | run install.sh for {{ esp_idf_target }} (each version)
-  ansible.builtin.shell:
-    cmd: "./install.sh {{ esp_idf_target }} && touch .rabble_installed"
-    chdir: "{{ rabble_home }}/esp/esp-idf-{{ item }}"
-    creates: "{{ rabble_home }}/esp/esp-idf-{{ item }}/.rabble_installed"
-  loop: "{{ esp_idf_versions }}"
+- name: esp-idf | download EIM CLI (eim-cli) .rpm
+  ansible.builtin.get_url:
+    url: https://github.com/espressif/idf-im-ui/releases/latest/download/eim-cli-linux-x64.rpm
+    dest: /tmp/eim-cli-linux-x64.rpm
+    mode: "0644"
+    force: true
   become: false
   tags: [layer, esp-idf, packages]
-  # Idempotency guard is our own marker file, not export.sh (which already
-  # ships in the git checkout before install.sh ever runs — using it as the
-  # `creates:` target would skip the actual toolchain/venv install entirely).
-  # Marker is per-clone-directory, so each version in the loop is judged
-  # independently — one already-installed version never causes another to
-  # be skipped.
+
+- name: esp-idf | install EIM CLI
+  ansible.builtin.dnf:
+    name: /tmp/eim-cli-linux-x64.rpm
+    state: present
+    disable_gpg_check: true
+  become: true
+  tags: [layer, esp-idf, packages]
+  # disable_gpg_check: unsigned third-party release rpm, not from a
+  # dnf-managed repo — no GPG key to verify against.
+
+# ── ESP-IDF versions, via eim install ───────────────────────────────────────
+
+- name: esp-idf | check which versions eim already has registered
+  ansible.builtin.command: eim list
+  register: esp_idf_eim_list
+  changed_when: false
+  failed_when: false
+  become: false
+  tags: [layer, esp-idf, packages]
+  # failed_when: false — a fresh eim with nothing installed yet may exit
+  # non-zero on `list`; either way esp_idf_eim_list.stdout is what we grep.
+
+- name: esp-idf | install ESP-IDF versions via eim
+  ansible.builtin.command:
+    cmd: >
+      eim install
+      --path {{ esp_idf_eim_path }}
+      --version-name {{ item }}
+      --idf-versions {{ item }}
+      --target {{ esp_idf_target }}
+      --non-interactive true
+      --do-not-track true
+  loop: "{{ esp_idf_versions }}"
+  when: item not in esp_idf_eim_list.stdout
+  become: false
+  tags: [layer, esp-idf, packages]
+  # Idempotency guard: skip a version already showing up in `eim list`
+  # rather than a filesystem `creates:` (eim owns its own registry — no
+  # point maintaining a second one just to check "already done").
 
 - name: esp-idf | symlink default version for tooling that expects one path
   ansible.builtin.file:
-    src: "{{ rabble_home }}/esp/esp-idf-{{ esp_idf_versions[0] }}"
+    src: "{{ esp_idf_eim_path }}/{{ esp_idf_versions[0] }}"
     dest: "{{ rabble_home }}/esp/esp-idf-default"
     state: link
   become: false
@@ -78,38 +124,3 @@
   # esp_idf_versions[0] is the primary/default — esp-idf-select.sh resolves
   # through the project's .esp-idf-version pin first and only falls back to
   # this symlink when a project hasn't pinned one.
-
-# ── EIM GUI — Espressif's own multi-version installer/registry ──────────────
-# Not the primary workflow here (esp-idf-select.sh + per-project pin file is)
-# — installed because Mark wants every generally-useful official ESP tool
-# available, not just the ones RaBbLE-Pocket's own tooling uses day to day.
-# Not a dnf-repo package — Espressif ships it as a prebuilt .rpm release
-# asset. "latest" release URL used deliberately so this doesn't need a
-# pinned version bump here.
-#
-# GUI only, not GUI+CLI: espressif/idf-im-ui ships eim-cli and eim-gui as
-# SEPARATE packages that both install to /usr/bin/eim — confirmed by hash,
-# they're genuinely different binaries (32MB vs 51MB, different sha256), so
-# dnf refuses to have both installed at once (real file-path conflict, not
-# just a hypothetical). Installing the GUI since that's what was asked for;
-# swap this task to eim-cli-linux-x64.rpm instead if CLI-only is ever
-# preferred over the GUI app.
-
-- name: esp-idf | download EIM GUI (eim-gui) .rpm
-  ansible.builtin.get_url:
-    url: https://github.com/espressif/idf-im-ui/releases/latest/download/eim-gui-linux-x64.rpm
-    dest: /tmp/eim-gui-linux-x64.rpm
-    mode: "0644"
-    force: true
-  become: false
-  tags: [layer, esp-idf, packages]
-
-- name: esp-idf | install EIM GUI
-  ansible.builtin.dnf:
-    name: /tmp/eim-gui-linux-x64.rpm
-    state: present
-    disable_gpg_check: true
-  become: true
-  tags: [layer, esp-idf, packages]
-  # disable_gpg_check: unsigned third-party release rpm, not from a
-  # dnf-managed repo — no GPG key to verify against.
