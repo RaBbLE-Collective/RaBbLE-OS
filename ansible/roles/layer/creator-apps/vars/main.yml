@@ -7,10 +7,39 @@
 # (shown by `app list` and `status`). `cli` is optional — the in-sandbox
 # binary name (via `flatpak run --command=`) to alias on the host shell, for
 # apps that ship a scriptable CLI alongside the GUI; omit it if the app has
-# none. Record the WHY as a decision-record entry in
-# ansible/packages/manifest.yml, same as every other package.
+# none. `env` is optional — a list of `KEY=VALUE` strings applied as
+# `flatpak override --user` after install; omit if the app needs none. Record
+# the WHY as a decision-record entry in ansible/packages/manifest.yml, same
+# as every other package.
+#
+# HiDPI on freecad/librecad — UNSOLVED, do not re-add a bare QT_SCALE_FACTOR
+# override (S212): both apps' Flathub packaging only requests the X11 socket
+# (no `wayland`; FreeCAD's manifest additionally hardcodes
+# QT_QPA_PLATFORM=xcb), so on Hyprland they always run under XWayland.
+# Hyprland's compositor bitmap-scales XWayland surfaces by the output scale
+# unconditionally (default xwayland:force_zero_scaling=off) — REGARDLESS of
+# what the client itself renders. QT_SCALE_FACTOR=2 alone was tried and made
+# it worse: Qt renders at 2x (correctly, crisp) and the compositor then
+# scales that already-2x window by another 2x on top — 4x too large and
+# still blurry from the second, uncontrolled bitmap pass. Confirmed by
+# reverting the override, which returned the apps to their original
+# small-but-blurry baseline.
+#
+# The real fix needs xwayland:force_zero_scaling=true (stops the compositor
+# from double-scaling) PAIRED with a Qt-side scale factor (so the client
+# takes over doing it correctly instead). That Hyprland setting is NOT safe
+# to toggle live — doing so via `hyprctl keyword` restarted XWayland and
+# killed every running X11/XWayland client instantly, mid-session, with no
+# warning (S212). It has to go through config/hypr/ + dotctl like any other
+# Hyprland setting, and only get applied at a Hyprland restart/relogin Mark
+# deliberately chooses with nothing important open — never scripted live
+# again.
 rabble_optional_apps:
   - id: freecad
     flatpak: org.freecad.FreeCAD
     desc: "Parametric CAD — mechanical design (RaBbLE-Pocket enclosure/battery mount)"
     cli: freecadcmd
+
+  - id: librecad
+    flatpak: org.librecad.librecad
+    desc: "2D CAD — DWG/DXF viewing and conversion (RaBbLE-Pocket enclosure drawing has no FreeCAD-native import path)"

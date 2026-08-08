@@ -1253,7 +1253,15 @@ packages:
 
   - name: org.freecad.FreeCAD
     category: layer.creator-apps
-    reason: "Parametric 3D CAD — mechanical design work (RaBbLE-Pocket enclosure/battery mount), native Linux app via Flathub. Not in Fedora's repos (confirmed via dnf search, S211). First registered creator app, S211."
+    reason: "Parametric 3D CAD — mechanical design work (RaBbLE-Pocket enclosure/battery mount), native Linux app via Flathub. Not in Fedora's repos (confirmed via dnf search, S211). First registered creator app, S211. S212: pixelated/blurry UI on the 3840x2400 HiDPI panel — root cause is X11-only Flathub sandbox (no wayland socket; QT_QPA_PLATFORM=xcb hardcoded) forcing XWayland, whose surfaces Hyprland bitmap-scales unconditionally. A bare QT_SCALE_FACTOR=2 override was tried and reverted — it compounds with the compositor's own scaling (4x too large, still blurry). Real fix needs xwayland:force_zero_scaling=true in Hyprland config (NOT live-toggled — killed every XWayland client instantly when tried live, S212) paired with a Qt scale factor. Unsolved, tracked as a blocker."
+    source: flatpak
+    platform: all
+    layer: layer/creator-apps
+    ks: false
+
+  - name: org.librecad.librecad
+    category: layer.creator-apps
+    reason: "2D CAD/drafting — the only local path to open the RaBbLE-Pocket enclosure's vendor DWG (ESP32-S3-Touch-AMOLED-1.75-B.dwg, AutoCAD 2013-2017 format): FreeCAD's Import module only reads DXF, no native DWG support. Confirmed working, S212 — opened this exact DWG cleanly despite the recent AutoCAD version, no ODA File Converter fallback needed. Available on Flathub (org.librecad.librecad) and Fedora repos (2.2.1.2) — registered as the Flathub creator-app entry for consistency with freecad. Same unresolved HiDPI/XWayland double-scaling issue as freecad — see its entry."
     source: flatpak
     platform: all
     layer: layer/creator-apps

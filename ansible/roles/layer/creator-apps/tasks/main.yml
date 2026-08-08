@@ -38,6 +38,22 @@
   become: true
   tags: [layer, creator-apps, packages]
 
+# User-scope (no become) — applies regardless of whether the app itself was
+# installed system- or user-wide, and needs no elevated permission. See the
+# QT_SCALE_FACTOR comment in vars/main.yml for why freecad/librecad carry one:
+# their Flathub packaging forces XWayland, which doesn't reliably pick up
+# Hyprland's HiDPI scale on its own.
+- name: "creator-apps | apply flatpak overrides for {{ item.0.id }}"
+  ansible.builtin.command:
+    cmd: "flatpak override --user --env={{ item.1 }} {{ item.0.flatpak }}"
+  loop: "{{ rabble_optional_apps | subelements('env', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.id }} {{ item.1 }}"
+  when: rabble_creator_app_target == 'all' or rabble_creator_app_target == item.0.id
+  changed_when: true
+  become: false
+  tags: [layer, creator-apps, packages]
+
 - name: creator-apps | ensure state dir exists
   ansible.builtin.file:
     path: "{{ rabble_home }}/.local/state/rabble"
