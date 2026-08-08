@@ -79,7 +79,7 @@ declare -A LAYER_NAMES=(
   [builder-skills]="BuilderIO slash-command skills for Claude Code"
   [bottles]="Bottles — Wine app compat (opt-in: creates+installs UP Studio/Cetus3D bottle, planned Affinity)"
   [containers]="Docker CE + Podman container runtimes (opt-in)"
-  [esp-idf]="ESP-IDF embedded toolchain — Espressif SDK for RaBbLE-Pocket firmware (opt-in)"
+  [esp-idf]="ESP-IDF embedded toolchain(s) + EIM GUI + picocom/usbutils/fzf — Espressif SDK for RaBbLE-Pocket firmware (opt-in)"
   [gnome]="GNOME Shell — Aether-themed secondary DE, SDDM fallback + theming testbed (opt-in)"
   [all]="Full system — all layers in order"
 )
@@ -92,6 +92,7 @@ declare -A LAYER_EXTRA_VARS=(
   [containers]="rabble_enable_containers=true"
   [esp-idf]="rabble_enable_esp_idf=true"
   [gnome]="rabble_enable_gnome_desktop=true"
+  [freecad]="rabble_enable_freecad=true"
 )
 
 declare -A LAYER_VERIFY=(
@@ -117,14 +118,15 @@ declare -A LAYER_VERIFY=(
   [builder-skills]="test -d ${HOME}/.claude/skills"
   [bottles]="flatpak info com.usebottles.bottles"
   [containers]="docker --version && podman --version"
-  [esp-idf]="test -f ${HOME}/esp/esp-idf/export.sh && test -d ${HOME}/.espressif/python_env"
+  [esp-idf]="test -L ${HOME}/esp/esp-idf-default && test -d ${HOME}/.espressif/python_env && command -v eim"
   [gnome]="rpm -q gnome-shell gnome-session-wayland-session >/dev/null && ! rpm -q gdm >/dev/null 2>&1 && test -f /usr/share/wayland-sessions/gnome.desktop"
+  [freecad]="flatpak info org.freecad.FreeCAD"
   [all]=""
 )
 
 # Ordered list for status display and sequential all-deploy
 # Mirrors site.yml play order: base → hardware → runtime → monitoring → virtualization → boot → ...
-LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers gnome)
+LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers esp-idf gnome freecad)
 
 # ── State tracking ────────────────────────────────────────────────────────────
 

@@ -1,11 +1,15 @@
 ---
 # ansible/roles/layer/esp-idf/vars/main.yml
 
-# Pinned to match Waveshare's Brookesia reference firmware validation for the
-# ESP32-S3-Touch-AMOLED-1.75 board (RaBbLE-Pocket) — see
-# RaBbLE-Grimoire/RaBbLE-Pocket/RaBbLE-Pocket-Architecture.md. v6.0.2 is also
-# supported by the vendor's plain examples if a newer IDF is ever needed.
-esp_idf_version: "v5.5.4"
+# Multiple versions can be installed side by side — each gets its own
+# directory (~/esp/esp-idf-<version>) and its own cached toolchain/venv under
+# ~/.espressif/ (Espressif keys those by version, no collision risk). Which
+# one a given firmware project actually uses is a project-level concern, not
+# a machine-level one — see RaBbLE-Pocket/firmware/.esp-idf-version and
+# RaBbLE-Pocket/ops/esp-idf-select.sh. Start with the one the ADR pinned;
+# append more here (e.g. "v6.0.2") when a second is actually needed.
+esp_idf_versions:
+  - "v5.5.4"
 esp_idf_target: "esp32s3"
 
 # Espressif's documented Linux/Fedora build prerequisites for install.sh.
@@ -25,3 +29,13 @@ esp_idf_prereq_packages:
   - libusbx
   - openssl-devel
   - libffi-devel
+
+# Broader embedded-dev tools, not required by install.sh itself but directly
+# useful for USB/serial work on this board. picocom: lightweight serial
+# terminal, handy without idf.py's environment active. usbutils: lsusb, for
+# diagnosing device enumeration. fzf: nicer picker in esp-idf-select.sh (that
+# script falls back to plain `select` if fzf isn't present).
+esp_idf_extra_packages:
+  - picocom
+  - usbutils
+  - fzf
