@@ -4,9 +4,13 @@
 # appending one entry here — no new role, no new site.yml play, no
 # layerctl.sh edits required. `id` is the layerctl-facing name (`app <id>`);
 # `flatpak` is the exact Flathub application id; `desc` is short CLI text
-# (shown by `app list` and `status`). Record the WHY as a decision-record
-# entry in ansible/packages/manifest.yml, same as every other package.
+# (shown by `app list` and `status`). `cli` is optional — the in-sandbox
+# binary name (via `flatpak run --command=`) to alias on the host shell, for
+# apps that ship a scriptable CLI alongside the GUI; omit it if the app has
+# none. Record the WHY as a decision-record entry in
+# ansible/packages/manifest.yml, same as every other package.
 rabble_optional_apps:
   - id: freecad
     flatpak: org.freecad.FreeCAD
     desc: "Parametric CAD — mechanical design (RaBbLE-Pocket enclosure/battery mount)"
+    cli: freecadcmd

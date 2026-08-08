@@ -37,3 +37,26 @@
   when: rabble_creator_app_target == 'all' or rabble_creator_app_target == item.id
   become: true
   tags: [layer, creator-apps, packages]
+
+- name: creator-apps | ensure state dir exists
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.local/state/rabble"
+    state: directory
+    mode: "0755"
+  become: false
+  tags: [layer, creator-apps, config]
+
+- name: creator-apps | generate CLI aliases for the full registry
+  ansible.builtin.template:
+    src: creator-apps-aliases.zsh.j2
+    dest: "{{ rabble_home }}/.local/state/rabble/creator-apps-aliases.zsh"
+    mode: "0644"
+  become: false
+  tags: [layer, creator-apps, config]
+  # Always regenerated from the FULL rabble_optional_apps list, regardless of
+  # rabble_creator_app_target — a single-app `app <id>` install still keeps
+  # every other app's alias intact rather than clobbering the file down to
+  # just the one being installed. config/shell/zsh/.zshrc and
+  # config/shell/bash/.bashrc both source this path unconditionally, so a
+  # fresh machine that's never applied this layer just skips the `[[ -f ]]`
+  # guard — no per-app edit to either dotfile is ever required.

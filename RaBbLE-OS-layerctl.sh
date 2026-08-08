@@ -209,19 +209,19 @@ run_playbook_check() {
 # immediately — no edits below this comment are ever required for a new app.
 
 creator_apps_list() {
-  # Tab-separated: id<TAB>flatpak-id<TAB>desc
+  # Tab-separated: id<TAB>flatpak-id<TAB>cli(may be empty)<TAB>desc
   python3 -c "
 import yaml
 with open('${CREATOR_APPS_VARS}') as f:
     data = yaml.safe_load(f) or {}
 for a in data.get('rabble_optional_apps', []):
-    print(f\"{a['id']}\t{a['flatpak']}\t{a['desc']}\")
+    print(f\"{a['id']}\t{a['flatpak']}\t{a.get('cli', '')}\t{a['desc']}\")
 "
 }
 
 verify_creator_apps() {
   local all_ok=true
-  while IFS=$'\t' read -r id flatpak_id _desc; do
+  while IFS=$'\t' read -r id flatpak_id _cli _desc; do
     if flatpak info "$flatpak_id" &>/dev/null; then
       ok "  ${id}"
     else
@@ -333,8 +333,9 @@ cmd_app() {
   if [[ -z "$target" || "$target" == "list" ]]; then
     pulse "Registered creator apps"
     divider
-    creator_apps_list | while IFS=$'\t' read -r id flatpak_id desc; do
+    creator_apps_list | while IFS=$'\t' read -r id flatpak_id cli desc; do
       printf "  ${CYAN}%-14s${RESET} %-26s %s\n" "$id" "$flatpak_id" "$desc"
+      [[ -n "$cli" ]] && muted "                 shell alias: ${cli}"
     done
     echo
     muted "Install one:  layer-ctl app <id>"
