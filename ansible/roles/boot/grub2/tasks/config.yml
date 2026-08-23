@@ -22,7 +22,7 @@
     for entry in /boot/loader/entries/*.conf; do
       [ -f "$entry" ] || continue
       ver=$(awk '/^version /{print $2; exit}' "$entry")
-      new_title="{{ rabble_os_name }} — {{ rabble_epoch_name }}${ver:+ (${ver})}"
+      new_title="{{ rabble_os_name }} - {{ rabble_epoch_name }}${ver:+ (${ver})}"
       if ! grep -qF "title ${new_title}" "$entry"; then
         sed -i "s|^title .*|title ${new_title}|" "$entry"
         changed=1
