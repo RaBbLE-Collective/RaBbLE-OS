@@ -84,6 +84,7 @@ declare -A LAYER_NAMES=(
   [containers]="Docker CE + Podman container runtimes (opt-in)"
   [esp-idf]="ESP-IDF embedded toolchain(s) via EIM CLI + picocom/usbutils/fzf — Espressif SDK for RaBbLE-Pocket firmware (opt-in)"
   [arduino-cli]="arduino-cli + ESP32 core — builds the vendor's reference .ino examples only, RaBbLE-Pocket firmware itself stays on ESP-IDF (opt-in)"
+  [dotnet-sdk]=".NET SDK (dotnet-sdk-8.0) — dev tool, Fedora-native package (opt-in)"
   [gnome]="GNOME Shell — Aether-themed secondary DE, SDDM fallback + theming testbed (opt-in)"
   [creator-apps]="Creator apps — data-driven single-Flatpak apps (see 'app list') (opt-in)"
   [all]="Full system — all layers in order"
@@ -97,6 +98,7 @@ declare -A LAYER_EXTRA_VARS=(
   [containers]="rabble_enable_containers=true"
   [esp-idf]="rabble_enable_esp_idf=true"
   [arduino-cli]="rabble_enable_arduino_cli=true"
+  [dotnet-sdk]="rabble_enable_dotnet_sdk=true"
   [gnome]="rabble_enable_gnome_desktop=true"
   [creator-apps]="rabble_enable_creator_apps=true"
 )
@@ -126,6 +128,7 @@ declare -A LAYER_VERIFY=(
   [containers]="docker --version && podman --version"
   [esp-idf]="command -v eim && eim list && test -L ${HOME}/esp/esp-idf-default"
   [arduino-cli]="${HOME}/.local/bin/arduino-cli version && ${HOME}/.local/bin/arduino-cli core list | grep -q esp32:esp32"
+  [dotnet-sdk]="command -v dotnet && dotnet --list-sdks"
   [gnome]="rpm -q gnome-shell gnome-session-wayland-session >/dev/null && ! rpm -q gdm >/dev/null 2>&1 && test -f /usr/share/wayland-sessions/gnome.desktop"
   [creator-apps]="verify_creator_apps"
   [all]=""
@@ -133,7 +136,7 @@ declare -A LAYER_VERIFY=(
 
 # Ordered list for status display and sequential all-deploy
 # Mirrors site.yml play order: base → hardware → runtime → monitoring → virtualization → boot → ...
-LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers esp-idf arduino-cli gnome creator-apps)
+LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers esp-idf arduino-cli dotnet-sdk gnome creator-apps)
 
 # ── State tracking ────────────────────────────────────────────────────────────
 

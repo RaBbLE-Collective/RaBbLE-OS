@@ -347,6 +347,14 @@
     - role: layer/arduino-cli
       when: rabble_enable_arduino_cli | default(false) | bool
 
+- name: "Layer — .NET SDK (dev tool, opt-in)"
+  hosts: all
+  become: true
+  tags: [layer, dotnet-sdk]
+  roles:
+    - role: layer/dotnet-sdk
+      when: rabble_enable_dotnet_sdk | default(false) | bool
+
 - name: "Layer — GNOME Shell (opt-in secondary DE, Aether theming testbed)"
   hosts: all
   become: true

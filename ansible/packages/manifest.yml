@@ -1553,3 +1553,18 @@ packages:
     platform: all
     layer: layer/arduino-cli
     ks: false
+
+  # ── layer/dotnet-sdk — .NET SDK ──────────────────────────────────────────
+  # Opt-in (rabble_enable_dotnet_sdk, default false) — never installed by
+  # `apply all` / `upgrade`. layerctl `apply dotnet-sdk`. role:
+  # ansible/roles/layer/dotnet-sdk/, play: site.yml. Ground truth for
+  # `sudo dnf install -y dotnet-sdk-8.0` — Mark's manual install now tracked
+  # here instead of living only as shell history.
+
+  - name: dotnet-sdk-8.0
+    category: layer.dotnet-sdk
+    reason: ".NET SDK — Red Hat maintained, ships directly in Fedora's own repos (no MS repo needed, unlike VSCode); dev tool layer, opt-in."
+    source: fedora
+    platform: all
+    layer: layer/dotnet-sdk
+    ks: false
