@@ -69,8 +69,8 @@
 # matched by PCI vendor ID rather than card number OR raw by-path — survives
 # BOTH card renumbering (Phase-2 simpledrm suppression) and any future PCI
 # bus/slot change, since it never encodes position. The AMD alias fixes the
-# greeter pin below; the NVIDIA alias exists because `config/hypr/conf.d/
-# env.conf` ALSO hardcodes both cards by number for the live desktop session
+# greeter pin below; the NVIDIA alias exists because `config/hypr/conf_d/
+# env.lua` ALSO hardcodes both cards by number for the live desktop session
 # (AQ_DRM_DEVICES=/dev/dri/card1:/dev/dri/card0, hybrid rendering) — same
 # renumbering fragility, latent until Phase 2, fixed here for both consumers.
 # This is asus_proart_p16-only (dispatched by host group in site.yml); the
@@ -112,6 +112,22 @@
     group: root
     mode: "0755"
 
+# S207/S216/S223: sddm.service already waits for plymouth-quit-wait.service
+# (files/sddm-plymouth-handoff.conf, boot/session_manager role), but that
+# unit finishing only means plymouth's `quit` client exited — not that
+# plymouthd itself has released DRM master yet. sway's KMS backend does a
+# single non-retrying open() and dies instantly on EBUSY when it loses that
+# residual race. Route the greeter through a small retry wrapper instead of
+# invoking sddm-compositor-sway directly.
+- name: Deploy SDDM greeter DRM-race retry wrapper (S207/S216/S223 residual race)
+  copy:
+    src: rabble-sddm-compositor-wait.sh
+    dest: /usr/libexec/rabble-sddm-compositor-wait
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart sddm
+
 - name: Pin SDDM sway greeter to AMD card (stable udev alias)
   copy:
     dest: /etc/sddm.conf.d/rabble-gpu.conf
@@ -125,8 +141,10 @@
       # names contain colons (see the regression note above this task).
       # Do not repoint this at /dev/dri/by-path/... directly.
       # NVIDIA (card0) has no CRTCs in Optimus hybrid mode — sway compositor crashes without this.
+      # Routed through rabble-sddm-compositor-wait (S207/S216/S223) — see that
+      # task above for the plymouth->DRM-master residual-race rationale.
       [Wayland]
-      CompositorCommand=env WLR_DRM_DEVICES=/dev/dri/rabble-amdgpu-card /usr/libexec/sddm-compositor-sway
+      CompositorCommand=/usr/libexec/rabble-sddm-compositor-wait
   notify: restart sddm
 
 # ─── Step 2: NVIDIA Driver Installation ──────────────────────────
