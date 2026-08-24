@@ -17,6 +17,12 @@ ansible/.vault_pass
 ansible/vault_pass
 *.vault
 
+# eim (Espressif ESP-IDF installer, layer/esp-idf) — writes its own local
+# state wherever `eim install` runs from; machine-specific paths, redundant
+# with ansible/roles/layer/esp-idf/vars/main.yml. See RaBbLE-Pocket/ops/
+# esp-idf-select.sh for the toolchain this feeds.
+ansible/eim_config.toml
+
 # Python (galaxy deps, generate scripts)
 __pycache__/
 *.py[cod]
