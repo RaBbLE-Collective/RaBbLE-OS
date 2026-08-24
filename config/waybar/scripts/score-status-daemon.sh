@@ -14,7 +14,7 @@
 #                                on top of that cache at high frequency; Waybar
 #                                runs it continuously (no "interval" polling)
 #
-# Run as a persistent background process (see hypr/conf.d/autostart.conf),
+# Run as a persistent background process (see hypr/conf_d/autostart.lua),
 # alongside score-usage-api-poll.py.
 
 set -euo pipefail

@@ -4,7 +4,7 @@
 # Left-clicking the pulseaudio module runs this. First click opens the mixer as
 # a small floating panel anchored top-right under the bar; clicking again
 # dismisses it. float/size/opacity come from Hyprland windowrules keyed on the
-# pavucontrol class (config/hypr/conf.d/windowrules.conf, ## Audio mixer popup);
+# pavucontrol class (config/hypr/conf_d/windowrules.lua, ## Audio mixer popup);
 # the top-right *position* is set here imperatively — Hyprland auto-centers new
 # floats and ignores a `move` windowrule for this GTK app, so we place it after
 # it maps. Resolution-independent: computed from the focused monitor's logical
