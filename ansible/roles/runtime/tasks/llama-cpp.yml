@@ -39,23 +39,34 @@
   tags: [runtime, llama-cpp]
 
 # ── Resolve version ────────────────────────────────────────────────────────────
+# NOT /releases/latest: upstream started publishing an occasional semver
+# milestone tag (e.g. v0.2.0, 2026-08-21) as GitHub's "latest" release with
+# ZERO binary assets — just a nightly-tag.txt pointer. The real per-commit
+# CI releases (tag bNNNN, 27 binary assets each, multiple per day) keep
+# publishing normally alongside it; GitHub's "latest" marker just doesn't
+# point at them anymore. Pull the recent releases list instead and pick the
+# newest tag matching the bNNNN scheme, skipping any asset-less milestone tag.
 
-- name: Fetch latest llama.cpp release info from GitHub
+- name: Fetch recent llama.cpp releases from GitHub
   ansible.builtin.uri:
-    url: https://api.github.com/repos/ggml-org/llama.cpp/releases/latest
+    url: https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=10
     return_content: true
     headers:
       Accept: "application/vnd.github+json"
-  register: _llama_gh_release
+  register: _llama_gh_releases
   when: llama_cpp.version == "latest"
   tags: [runtime, llama-cpp]
 
 - name: Set resolved llama.cpp version
   ansible.builtin.set_fact:
     _llama_resolved_version: >-
-      {{ _llama_gh_release.json.tag_name
-         if llama_cpp.version == 'latest'
-         else llama_cpp.version }}
+      {{
+        (_llama_gh_releases.json
+          | selectattr('tag_name', 'match', '^b[0-9]+$')
+          | map(attribute='tag_name') | first)
+        if llama_cpp.version == 'latest'
+        else llama_cpp.version
+      }}
   tags: [runtime, llama-cpp]
 
 # ── Version check (idempotency via stamp file) ────────────────────────────────
