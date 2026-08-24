@@ -43,7 +43,7 @@ See Grimoire: `../RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-CommitStyle.md` (Pulse Pro
 
 **TL;DR:** `[impulse] ~ [organ] >> [revelation] // %STATE%` — `spark` new · `harmonize` cleanup · `mend` fix · `transcribe` docs · `ingest` deps · `evolve` epoch
 
-Active branch: `RaBbLE-OS-New-Horizons`
+Active branch: `new-horizons`
 
 **End-of-session breadcrumb** — tag this session's token spend by feature (agent-agnostic; feeds analytics):
 ```bash
