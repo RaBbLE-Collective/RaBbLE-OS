@@ -56,12 +56,23 @@
       #   Without it, 100+ "sh: /usr/bin/fc-match: No such file or directory" entries
       #   flood the journal per boot. dracut auto-resolves its shared libs (libfontconfig).
       #
-      # add_drivers (amdgpu): present in initrd for DRM availability + seamless=1 support.
+      # amdgpu (force_drivers, not add_drivers — S224): amdgpu needs ~2.5s to load its
+      #   own firmware (DMUB/PSP/VBIOS/SMU) before it can modeset eDP-1. With plain
+      #   add_drivers it's only in the initramfs for normal udev coldplug, which doesn't
+      #   reach it until ~T+4.2s — well into Plymouth's simpledrm-drawn splash, so the
+      #   later amdgpu modeset yanks the CRTC out from under Plymouth (the
+      #   "Console: switching to colour dummy device" black, see anatomy §3.3/§4).
+      #   force_drivers explicitly modprobes it in dracut's early pre-udev hook instead,
+      #   so the firmware-load clock starts as early as the kernel allows — ideally
+      #   amdgpu is ready before or as Plymouth starts, instead of yanking the rug out
+      #   mid-splash. Does NOT remove simpledrm (unlike the reverted S172/S173
+      #   initcall_blacklist attempt) — the early EFI fb fallback stays intact if amdgpu
+      #   is ever slow or fails. Real-HW reboot-verify required (see boot-diagnose.sh).
       install_items+=" /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Bold.otf /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Regular.otf /usr/share/fonts/rabble-fonts/Orbitron-Variable.ttf "
       install_items+=" /usr/share/plymouth/themes/rabble-aether/ "
       install_items+=" /usr/lib64/plymouth/label-pango.so "
       install_items+=" /usr/bin/fc-match "
-      add_drivers+=" amdgpu "
+      force_drivers+=" amdgpu "
     owner: root
     group: root
     mode: "0644"

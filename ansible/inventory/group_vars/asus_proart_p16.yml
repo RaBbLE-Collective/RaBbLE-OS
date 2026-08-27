@@ -54,6 +54,14 @@ rabble_grub_theme_body:  32
 rabble_grub_theme_sub:   36
 rabble_grub_theme_title: 72
 
+# S224: seamless theatrical boot, Mark's call — no visible menu on the normal path
+# (the §3.1 "black box after selection" only happens when a menu is actually drawn/
+# torn down; skipping that path sidesteps it for every normal boot). grub2-mkconfig's
+# stock hidden-timeout wrapper (any keypress during the brief `sleep --interruptible`
+# window reveals the real menu — hold a key, not specifically Shift, through POST) is
+# what provides recovery access; confirm the exact reveal key on the verify reboot.
+rabble_grub_timeout_style: "hidden"
+
 # GFXPAYLOAD = the framebuffer handed to the kernel / simpledrm / Plymouth. It does
 # NOT have to match the GRUB menu mode above. It MUST be the panel's NATIVE 3840x2400.
 #
