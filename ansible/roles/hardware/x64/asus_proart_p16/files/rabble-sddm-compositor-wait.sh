@@ -1,5 +1,5 @@
 #!/usr/bin/sh
-# RaBbLE-OS: retry-guard for the plymouth->DRM-master handoff race (S207/S216/S223/S224).
+# RaBbLE-OS: retry-guard for the plymouth->DRM-master handoff race (S207/S216/S223/S224/S226).
 #
 # S207's sddm.service ordering fix (After=plymouth-quit-wait.service) narrowed
 # the race but did not close it: "Finished plymouth-quit-wait.service" only
@@ -10,7 +10,7 @@
 #   sway: [ERROR] Failed to open device: '/dev/dri/rabble-amdgpu-card': Device or resource busy
 #   sway: [ERROR] Found 0 GPUs, cannot create backend
 # The greeter session then closes and the login screen never appears — no
-# way in but a TTY (real-boot evidence, S211, reproduced again S224).
+# way in but a TTY (real-boot evidence, S211, reproduced again S224, S226).
 #
 # S223 FIX WAS WRONG: it relaunched sway and used "did the process live
 # >=500ms" as a proxy for "was that a real session, not a crash." On this
@@ -19,21 +19,39 @@
 # the wrapper classified its own crash as a legitimate session and gave up
 # after one try. Same black screen, disguised as a fix.
 #
-# S224: wait on the real signal instead of guessing from elapsed time. DRM
-# master is tied to plymouthd's open fd on the device; once the plymouthd
-# process itself has exited (not just its `quit` client), the kernel has
-# released master and the device is guaranteed openable. Poll for that,
-# bounded, before ever invoking sway — no relaunch-and-time heuristic needed.
+# S224 FIX WAS ALSO WRONG: it polled `pgrep -x plymouthd` and only launched
+# sway once the daemon process itself was gone, on the theory that DRM
+# master is tied to plymouthd's fd and its exit guarantees the device is
+# free. Real-boot journal (S226) disproves it: sway's KMS open() still hit
+# EBUSY on the very first launch, ~330ms after plymouth-quit-wait finished.
+# Process absence is not a reliable proxy for "master released" on this
+# hardware — there is no advance signal for that, so guessing the wait
+# window (short or long) is the wrong shape of fix entirely.
+#
+# S226: stop predicting and retry the actual operation. Launch sway for
+# real; if it exits fast with the specific EBUSY signature (not a generic
+# timing guess — S223's mistake), retry after a short delay, bounded. A
+# real working session runs until logout and never matches the grep, so
+# this can't misfire on a legitimate session the way the elapsed-time
+# heuristic did.
 
-max_wait_ms=4000
-delay_ms=100
-waited_ms=0
-while pgrep -x plymouthd >/dev/null 2>&1; do
-    if [ "$waited_ms" -ge "$max_wait_ms" ]; then
-        break
+max_attempts=10
+delay_s=0.25
+device=/dev/dri/rabble-amdgpu-card
+out=/run/rabble-sddm-compositor-wait.out
+
+attempt=1
+while [ "$attempt" -le "$max_attempts" ]; do
+    env WLR_DRM_DEVICES="$device" /usr/libexec/sddm-compositor-sway "$@" >"$out" 2>&1
+    status=$?
+    cat "$out" >&2
+    if ! grep -q "Device or resource busy" "$out"; then
+        rm -f "$out"
+        exit "$status"
     fi
-    sleep 0.1
-    waited_ms=$((waited_ms + delay_ms))
+    attempt=$((attempt + 1))
+    sleep "$delay_s"
 done
 
-exec env WLR_DRM_DEVICES=/dev/dri/rabble-amdgpu-card /usr/libexec/sddm-compositor-sway "$@"
+rm -f "$out"
+exit "$status"

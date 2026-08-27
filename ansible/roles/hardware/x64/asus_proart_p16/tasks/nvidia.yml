@@ -112,16 +112,17 @@
     group: root
     mode: "0755"
 
-# S207/S216/S223/S224: sddm.service already waits for plymouth-quit-wait.service
+# S207/S216/S223/S224/S226: sddm.service already waits for plymouth-quit-wait.service
 # (files/sddm-plymouth-handoff.conf, boot/session_manager role), but that
 # unit finishing only means plymouth's `quit` client exited — not that
 # plymouthd itself has released DRM master yet. sway's KMS backend does a
 # single non-retrying open() and dies instantly on EBUSY when it loses that
-# residual race. Route the greeter through a wrapper that waits for plymouthd
-# to actually exit (S224 — the S223 elapsed-time retry heuristic was itself
-# broken, see the wrapper script header) instead of invoking
-# sddm-compositor-sway directly.
-- name: Deploy SDDM greeter DRM-race retry wrapper (S207/S216/S223/S224 residual race)
+# residual race. S224's fix (wait for plymouthd's process to exit before ever
+# launching sway) was disproven on real hardware S226 — process absence isn't
+# a reliable proxy for master release here. The wrapper now retries the
+# actual sway launch on the specific EBUSY signature instead of predicting
+# a safe wait window (see the wrapper script header for the full history).
+- name: Deploy SDDM greeter DRM-race retry wrapper (S207/S216/S223/S224/S226 residual race)
   copy:
     src: rabble-sddm-compositor-wait.sh
     dest: /usr/libexec/rabble-sddm-compositor-wait
@@ -143,7 +144,7 @@
       # names contain colons (see the regression note above this task).
       # Do not repoint this at /dev/dri/by-path/... directly.
       # NVIDIA (card0) has no CRTCs in Optimus hybrid mode — sway compositor crashes without this.
-      # Routed through rabble-sddm-compositor-wait (S207/S216/S223/S224) — see that
+      # Routed through rabble-sddm-compositor-wait (S207/S216/S223/S224/S226) — see that
       # task above for the plymouth->DRM-master residual-race rationale.
       [Wayland]
       CompositorCommand=/usr/libexec/rabble-sddm-compositor-wait
