@@ -1,5 +1,5 @@
 #!/usr/bin/sh
-# RaBbLE-OS: retry-guard for the plymouth->DRM-master handoff race (S207/S216/S223/S224/S226).
+# RaBbLE-OS: retry-guard for the plymouth->DRM-master handoff race (S207/S216/S223/S224/S226/S228).
 #
 # S207's sddm.service ordering fix (After=plymouth-quit-wait.service) narrowed
 # the race but did not close it: "Finished plymouth-quit-wait.service" only
@@ -38,7 +38,14 @@
 max_attempts=10
 delay_s=0.25
 device=/dev/dri/rabble-amdgpu-card
-out=/run/rabble-sddm-compositor-wait.out
+# S228: /run is root:root 0755 — the greeter runs as the unprivileged `sddm`
+# user (not root), so a fixed /run path can't be created here and every
+# redirection below silently failed to open, meaning sway never even
+# launched (real-boot journal, S228: "Permission denied" on this path,
+# then "No such file or directory" on every later read of it). /tmp is
+# sticky-writable by any user; mktemp also sidesteps any collision between
+# concurrent greeter launches.
+out="$(mktemp /tmp/rabble-sddm-compositor-wait.XXXXXX)"
 
 attempt=1
 while [ "$attempt" -le "$max_attempts" ]; do

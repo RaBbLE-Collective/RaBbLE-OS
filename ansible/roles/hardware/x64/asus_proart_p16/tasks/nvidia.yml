@@ -123,7 +123,15 @@
 # a reliable proxy for master release here. The wrapper now retries the
 # actual sway launch on the specific EBUSY signature instead of predicting
 # a safe wait window (see the wrapper script header for the full history).
-- name: Deploy SDDM greeter DRM-race retry wrapper (S207/S216/S223/S224/S226 residual race)
+# S228: deliberately no `notify: restart sddm` (see boot/session_manager/
+# tasks/config.yml for the same rule, already documented there) — restarting
+# SDDM live kills the active graphical session. This task was unreachable
+# under `--tags boot` until S227/S228's tag fixes, so the notify handler
+# here had never actually fired before; the very first time it did (S228
+# real-hardware run) it tore down Mark's live Hyprland session mid-`apply
+# boot`. The wrapper only ever matters at the NEXT greeter start (a reboot),
+# same as the SDDM theme deploy — never live.
+- name: Deploy SDDM greeter DRM-race retry wrapper (S207/S216/S223/S224/S226/S228 residual race)
   copy:
     src: rabble-sddm-compositor-wait.sh
     dest: /usr/libexec/rabble-sddm-compositor-wait
@@ -131,7 +139,6 @@
     group: root
     mode: "0755"
   tags: [boot]
-  notify: restart sddm
 
 # S227: this task and the wrapper deploy above previously carried only the
 # role-inherited [hardware, asus_proart_p16] tags. `layerctl apply boot`
@@ -160,7 +167,6 @@
       [Wayland]
       CompositorCommand=/usr/libexec/rabble-sddm-compositor-wait
   tags: [boot]
-  notify: restart sddm
 
 # ─── Step 2: NVIDIA Driver Installation ──────────────────────────
 - name: Install akmod-nvidia (auto-rebuilds on kernel updates)
