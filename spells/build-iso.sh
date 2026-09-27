@@ -22,7 +22,6 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KS_SRC="${REPO_DIR}/RaBbLE-OS.ks"
-VOLID="RaBbLE-OS"
 
 info()  { echo -e "\033[0;36m[build-iso]\033[0m $*"; }
 error() { echo -e "\033[0;31m[build-iso]\033[0m $*" >&2; exit 1; }
@@ -74,7 +73,12 @@ info "Base ISO: $iso"
 info "Branch:   $branch"
 info "Output:   $out"
 rm -f "$out"
-mkksiso --ks "$ks" -V "$VOLID" "$iso" "$out"
+# mkksiso rebuilds images/efiboot.img (mkefiboot, needs root) so the inst.ks
+# arg also lands in the ESP's grub.cfg — UEFI USB boots read that copy, so
+# --skip-mkefiboot would silently boot without the KS. Only this step is sudo.
+SUDO=""; (( EUID == 0 )) || SUDO="sudo"
+$SUDO mkksiso --ks "$ks" "$iso" "$out"
+[[ -n "$SUDO" ]] && sudo chown "$(id -u):$(id -g)" "$out"
 
 info "Done: $out"
 info "Flash it, boot it, then: pick the disk, create your user (tick 'administrator'),"
