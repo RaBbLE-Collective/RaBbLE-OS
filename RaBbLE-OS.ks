@@ -21,8 +21,13 @@
 #   2. Sets up user 'rabble' with passwordless sudo
 #   3. Clones the RaBbLE-OS repo
 #   4. Enables a firstboot systemd service that runs Bootstrap
-#   After first boot: Ansible installs base + boot + desktop (Hyprland)
-#   Result: SDDM greeter with a working Hyprland session on first login
+#   After first boot: Ansible installs base + boot + desktop (Hyprland + GNOME)
+#   Result: SDDM greeter listing both a Hyprland and a GNOME session on first login
+#   — GNOME ships here as a first-class fallback DE (vanilla Shell, zero
+#   extensions, Aether-themed, no GDM — see RaBbLE-Grimoire
+#   RaBbLE-OS/desktop/RaBbLE-OS-Desktop-Gnome.md). `apply all`/upgrade on an
+#   already-installed system still treats it as opt-in (`layerctl apply gnome`)
+#   — only this firstboot path defaults it on, via RABBLE_EXTRA_VARS below.
 #
 # PARTITIONING:
 #   Default: auto LVM on btrfs (good for VMs)
@@ -137,17 +142,21 @@ clone_as_rabble "${GH_BASE}/RaBbLE-Grimoire.git" "${RABBLE_ROOT}/RaBbLE-Grimoire
 clone_as_rabble "${GH_BASE}/RaBbLE-OS.git" "${RABBLE_ROOT}/RaBbLE-OS" "$OS_BRANCH" || {
     echo "[RaBbLE-OS KS] WARNING: RaBbLE-OS clone failed"
     echo "[RaBbLE-OS KS] After first boot, manually run:"
-    echo "  cd ~/RaBbLE/RaBbLE-OS && RABBLE_TAGS=base,boot,desktop ./RaBbLE-OS-Bootstrap.sh --unattended --inventory ansible/inventory/vm.hosts.yml"
+    echo "  cd ~/RaBbLE/RaBbLE-OS && RABBLE_TAGS=base,boot,desktop,gnome RABBLE_EXTRA_VARS=rabble_enable_gnome_desktop=true ./RaBbLE-OS-Bootstrap.sh --unattended --inventory ansible/inventory/vm.hosts.yml"
     exit 0
 }
 
 # ── Firstboot setup service ───────────────────────────────────────────────────
-# Runs Bootstrap (base + boot + desktop) on first boot after network is up.
+# Runs Bootstrap (base + boot + desktop + gnome) on first boot after network is up.
+# gnome's play is gated by rabble_enable_gnome_desktop (default false, so
+# `apply all`/upgrade on an already-installed system never adds it silently) —
+# RABBLE_EXTRA_VARS flips it on for this firstboot run only, same mechanism
+# layerctl's `apply gnome` uses (see RaBbLE-OS-layerctl.sh LAYER_EXTRA_VARS).
 # Monitor with: journalctl -u rabble-os-setup -f
-# After completion: SDDM greeter appears with Hyprland session ready.
+# After completion: SDDM greeter appears listing both Hyprland and GNOME.
 cat > /etc/systemd/system/rabble-os-setup.service << 'SVCEOF'
 [Unit]
-Description=RaBbLE-OS First-Boot Setup (base + boot + desktop)
+Description=RaBbLE-OS First-Boot Setup (base + boot + desktop + gnome)
 After=network-online.target
 Wants=network-online.target
 ConditionPathExists=/home/rabble/RaBbLE/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh
@@ -157,7 +166,8 @@ ConditionPathExists=!/var/lib/rabble-os/.setup-complete
 Type=oneshot
 User=rabble
 WorkingDirectory=/home/rabble/RaBbLE/RaBbLE-OS
-Environment=RABBLE_TAGS=base,boot,desktop
+Environment=RABBLE_TAGS=base,boot,desktop,gnome
+Environment=RABBLE_EXTRA_VARS=rabble_enable_gnome_desktop=true
 Environment=TERM=xterm-256color
 ExecStartPre=+/bin/mkdir -p /var/lib/rabble-os
 ExecStart=/bin/bash /home/rabble/RaBbLE/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh \
@@ -185,8 +195,8 @@ echo "    ~/RaBbLE/                  (Collective root)"
 echo "    ~/RaBbLE/RaBbLE-Grimoire/  (knowledge layer)"
 echo "    ~/RaBbLE/RaBbLE-OS/        (OS member)"
 echo ""
-echo "  Next: reboot → firstboot service runs Bootstrap (base + boot + desktop)"
-echo "  After completion: SDDM greeter with Hyprland session ready."
+echo "  Next: reboot → firstboot service runs Bootstrap (base + boot + desktop + gnome)"
+echo "  After completion: SDDM greeter lists Hyprland and GNOME sessions."
 echo "  To install apps post-login:"
 echo "    cd ~/RaBbLE/RaBbLE-OS"
 echo "    RABBLE_TAGS=apps ./RaBbLE-OS-Bootstrap.sh \\"

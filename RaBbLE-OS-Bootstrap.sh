@@ -103,6 +103,10 @@ run_playbook() {
     # Tags allow selective runs; default = all
     local tags="${RABBLE_TAGS:-all}"
     local extra_vars="rabble_os_version=${RABBLE_OS_VERSION} rabble_user=${USER} rabble_home=${HOME}"
+    # Optional caller-supplied vars (e.g. firstboot flipping an opt-in layer's
+    # gate var for this install only — see RaBbLE-OS.ks) — appended, not merged,
+    # so a later key wins if duplicated.
+    [[ -n "${RABBLE_EXTRA_VARS:-}" ]] && extra_vars="${extra_vars} ${RABBLE_EXTRA_VARS}"
 
     # Run ansible, tee to log and terminal
     local become_flag="--ask-become-pass"

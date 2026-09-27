@@ -50,8 +50,13 @@ rabble_default_shell: zsh    # zsh | bash
 # rabble_enable_gnome_desktop  → layer/gnome (default false; layerctl flips
 #                                 it for `apply gnome` / `remove gnome` — see
 #                                 LAYER_EXTRA_VARS in RaBbLE-OS-layerctl.sh).
-#                                 Opt-in secondary DE; SDDM stays the only
-#                                 display manager (no gdm installed/enabled).
+#                                 Opt-in for `apply all`/upgrade on an
+#                                 already-installed system — RaBbLE-OS.ks's
+#                                 firstboot service flips it on by default for
+#                                 fresh installs (RABBLE_EXTRA_VARS), shipping
+#                                 GNOME as a first-class fallback DE alongside
+#                                 Hyprland. SDDM stays the only display manager
+#                                 either way (no gdm installed/enabled).
 
 # ── GRUB boot display ─────────────────────────────────────────────────────────
 # Font size used for GRUB's own console/gfxterm UI. Theme font sizes derive from
