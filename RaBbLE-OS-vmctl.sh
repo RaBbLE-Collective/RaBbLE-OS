@@ -582,7 +582,10 @@ cmd_cast_ks() {
     ks_hash="$(openssl passwd -6 "$ks_password")"
 
     local ks_tmp="/tmp/RaBbLE-OS.ks"
-    sed -e "s|__RABBLE_PASSWORD_HASH__|${ks_hash}|g" \
+    # VM render: enable #@VM@ lines (user, disk, NIC, serial), drop #@BARE@ ones.
+    sed -e '/#@BARE@$/d' \
+        -e 's|^#@VM@ ||' \
+        -e "s|__RABBLE_PASSWORD_HASH__|${ks_hash}|g" \
         -e "s|__RABBLE_BRANCH__|${RABBLE_BRANCH}|g" \
         RaBbLE-OS.ks > "$ks_tmp"
     local ks_path="$ks_tmp"
@@ -649,8 +652,9 @@ cmd_cast_ks() {
     connect_to_vm
 
     info "KS install is running. VM will reboot automatically when done."
-    info "After reboot, firstboot service runs Bootstrap (Phase 1: base + boot)."
-    info "When SDDM appears, Phase 1 smoke test is done."
+    info "Bootstrap (base + boot + desktop + gnome) runs inside the installer's %post;"
+    info "first boot should land on the themed SDDM greeter. If %post's run failed,"
+    info "rabble-os-setup.service retries on first boot (journalctl -u rabble-os-setup -f)."
 }
 
 # ── status ─────────────────────────────────────────────────────────────────────

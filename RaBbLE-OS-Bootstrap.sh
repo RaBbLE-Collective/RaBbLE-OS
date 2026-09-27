@@ -178,7 +178,7 @@ EOF
 main() {
     parse_args "$@"
 
-    clear
+    clear 2>/dev/null || true   # no TERM inside the KS %post chroot
     echo -e "${BOLD}${CYAN}"
     echo "  RaBbLE-OS Bootstrap — Transmogrification Engine"
     echo "  Fedora ──→ RaBbLE-OS v${RABBLE_OS_VERSION}"

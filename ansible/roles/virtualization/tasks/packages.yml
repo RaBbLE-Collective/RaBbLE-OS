@@ -18,6 +18,7 @@
       - virt-manager          # graphical VM manager
       - virt-install          # CLI VM provisioner
       - virt-viewer           # SPICE/VNC display client
+      - lorax                 # mkksiso — spells/build-iso.sh bakes RaBbLE-OS.ks into the netinstall ISO
     state: present
   tags: [virtualization, packages]
 

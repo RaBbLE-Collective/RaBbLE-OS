@@ -101,7 +101,7 @@
   tags: [boot, plymouth, config]
 
 - name: Rebuild initramfs with current Plymouth theme and dracut conf
-  ansible.builtin.command: dracut --force
+  ansible.builtin.command: dracut --force --regenerate-all  # every installed kernel, not `uname -r` (wrong inside the KS %post chroot)
   become: true
   changed_when: true
   tags: [boot, plymouth, config]
