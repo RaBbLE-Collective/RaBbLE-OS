@@ -39,6 +39,22 @@ fail()    { echo -e "${RED}${BOLD}  ✗${RESET} ${RED}$*${RESET}"; exit 1; }
 muted()   { echo -e "${MUTED}    $*${RESET}"; }
 divider() { echo -e "${MUTED}────────────────────────────────────────────────${RESET}"; }
 
+# ── Dynamic destinations ──────────────────────────────────────────────────────
+
+# Firefox's profile dir has a random name (xxxxxxxx.default-release). Resolve
+# the one this install actually launches: profiles.ini [Install*] Default=,
+# else the newest *.default-release. Empty until Firefox has run once.
+_firefox_profile_dir() {
+  local base="${HOME}/.mozilla/firefox" rel
+  [[ -f "${base}/profiles.ini" ]] || return 0
+  rel="$(awk -F= '/^\[Install/{i=1;next} /^\[/{i=0} i&&$1=="Default"{print $2; exit}' "${base}/profiles.ini")"
+  if [[ -z "$rel" ]]; then
+    rel="$(cd "$base" && ls -1dt -- *.default-release 2>/dev/null | head -1)"
+  fi
+  [[ -n "$rel" && -d "${base}/${rel}" ]] && echo "${base}/${rel}"
+  return 0
+}
+
 # ── Bundle definitions ────────────────────────────────────────────────────────
 #
 # Add new bundles here as config/ grows (waybar, mako, quickshell, etc.)
@@ -66,6 +82,7 @@ declare -A BUNDLE_SRC=(
   [gtk4]="config/gtk-4.0"
   [themes]="config/themes"
   [color-schemes]="config/color-schemes"
+  [firefox]="config/firefox"
 )
 
 declare -A BUNDLE_DEST=(
@@ -90,6 +107,7 @@ declare -A BUNDLE_DEST=(
   [gtk4]="${HOME}/.config/gtk-4.0"
   [themes]="${HOME}/.local/share/themes"
   [color-schemes]="${HOME}/.local/share/color-schemes"
+  [firefox]="$(_firefox_profile_dir)"
 )
 
 declare -A BUNDLE_DESC=(
@@ -114,9 +132,10 @@ declare -A BUNDLE_DESC=(
   [gtk4]="GTK4 CSS variables — Aether palette (limited effect due to libadwaita sandboxing)"
   [themes]="GTK installed themes (RaBbLE-Aether) → ~/.local/share/themes"
   [color-schemes]="KDE color scheme .colors file → ~/.local/share/color-schemes (KColorScheme registration)"
+  [firefox]="Firefox Aether theme → active profile (chrome/*.css symlinked from RaBbLE-Aether, user.js prefs)"
 )
 
-BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd swappy claude vscodium kvantum kdeglobals color-schemes qt5ct qt6ct gtk3 gtk4 themes)
+BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd swappy claude vscodium kvantum kdeglobals color-schemes qt5ct qt6ct gtk3 gtk4 themes firefox)
 
 # Post-apply hooks — run after a bundle's files are deployed.
 # Only set for bundles that need more than a file copy (e.g. patching a config key).
@@ -137,6 +156,7 @@ declare -A BUNDLE_RELOAD=(
   [bash]="source ${HOME}/.bashrc 2>/dev/null || true"
   [mako]="makoctl reload"
   [swappy]="echo 'swappy reads config fresh on each launch — no reload needed'"
+  [firefox]="echo 'Firefox reads userChrome/userContent/user.js at startup — fully quit and relaunch it'"
 )
 
 # ── Post-apply hooks ──────────────────────────────────────────────────────────
@@ -263,12 +283,23 @@ walk_bundle() {
     warn "Bundle '${bundle}' source not found, skipping: ${src_root}"
     return 0
   fi
+  if [[ -z "$dest_root" ]]; then
+    warn "Bundle '${bundle}' has no destination yet, skipping (firefox: launch it once to create a profile)"
+    return 0
+  fi
+
+  # Symlinks in config/ point at their single source (e.g. firefox/chrome/*.css
+  # → RaBbLE-Aether); cp/sha256sum/diff all read through them. A dangling one
+  # means the sibling repo isn't cloned — say so instead of failing mid-apply.
+  while IFS= read -r -d '' link; do
+    warn "Dangling symlink skipped: ${link#${src_root}/} → $(readlink "$link")"
+  done < <(find "$src_root" -xtype l -print0)
 
   while IFS= read -r -d '' src_file; do
     local rel="${src_file#${src_root}/}"
     local dest_file="${dest_root}/${rel}"
     "$callback" "$src_file" "$dest_file" "$rel"
-  done < <(find "$src_root" -type f -print0 | sort -z)
+  done < <(find "$src_root" \( -type f -o \( -type l -xtype f \) \) -print0 | sort -z)
 }
 
 # ── apply ─────────────────────────────────────────────────────────────────────
