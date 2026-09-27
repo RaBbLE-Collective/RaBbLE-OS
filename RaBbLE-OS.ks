@@ -19,8 +19,12 @@
 # WHAT THIS DOES:
 #   1. Installs Fedora 44 minimal base
 #   2. Sets up user 'rabble' with passwordless sudo
-#   3. Clones the RaBbLE-OS repo
-#   4. Enables a firstboot systemd service that runs Bootstrap
+#   3. Enables a firstboot systemd service (After=network-online.target) that
+#      clones Collective/Grimoire/OS (retry with backoff) and then runs Bootstrap
+#   NOTE: the clone happens on FIRST BOOT, not during %post — installer-chroot
+#   networking is a race even with `network --activate`; a post-boot systemd
+#   target is a real guarantee. See fix/RaBbLE-OS-KnownIssues.md if you land at
+#   a blank TTY with no ~/RaBbLE and no rabble-os-setup.service.
 #   After first boot: Ansible installs base + boot + desktop (Hyprland + GNOME)
 #   Result: SDDM greeter listing both a Hyprland and a GNOME session on first login
 #   — GNOME ships here as a first-class fallback DE (vanilla Shell, zero
@@ -98,56 +102,89 @@ echo "[RaBbLE-OS KS] Starting post-install setup..."
 echo "rabble ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/10-rabble-setup
 chmod 440 /etc/sudoers.d/10-rabble-setup
 
-# ── Clone Collective + Grimoire + RaBbLE-OS ──────────────────────────────────
-# Canonical structure: ~/RaBbLE/ (Collective root)
+# ── Firstboot script: clone Collective/Grimoire/OS, then run Bootstrap ───────
+# Deliberately NOT done here in %post: this script runs inside the installer's
+# own chroot, where network state is whatever DHCP/NetworkManager happened to
+# reach by this instant — a race, even with `network --activate` set above.
+# One earlier version cloned here directly with no retry; a single lost race
+# meant a silent early exit (exit 0 "succeeds" under --erroronfail) and NONE
+# of Grimoire/OS/the firstboot service/serial console got set up — landing at
+# a blank TTY with no ~/RaBbLE at all. A post-boot systemd unit gated on
+# network-online.target is a real guarantee instead of a race, so the clone
+# moves there, with retry/backoff as defense in depth.
+# Canonical structure once it runs: ~/RaBbLE/ (Collective root)
 #   ~/RaBbLE/RaBbLE-Grimoire/   (knowledge layer)
 #   ~/RaBbLE/RaBbLE-OS/         (this member)
-# Skips other members — install only what the OS needs.
+mkdir -p /usr/local/sbin
+cat > /usr/local/sbin/rabble-os-firstboot.sh << 'FIRSTBOOTEOF'
+#!/usr/bin/env bash
+# rabble-os-firstboot.sh — clone Collective/Grimoire/OS, then hand off to
+# Bootstrap. Runs as 'rabble' via rabble-os-setup.service (network-online.target).
+set -uo pipefail
 
 RABBLE_ROOT="/home/rabble/RaBbLE"
 GH_BASE="https://github.com/markm1206"
-# Branch placeholders are replaced at cast time by vmctl (--branch, default = OS
-# repo's current checkout). All three members track the same branch in lockstep.
-# Fallback to new-horizons if the KS is used directly without vmctl templating.
+# Branch placeholders replaced at cast time by vmctl (--branch). All three
+# members track the same branch in lockstep. Fallback if KS used without vmctl.
 COLLECTIVE_BRANCH="__RABBLE_BRANCH__"
 GRIMOIRE_BRANCH="__RABBLE_BRANCH__"
 OS_BRANCH="__RABBLE_BRANCH__"
-# If run without vmctl (placeholders untouched), fall back to a real branch.
 [[ "$COLLECTIVE_BRANCH" == __RABBLE_BRANCH__ ]] && COLLECTIVE_BRANCH="new-horizons"
 [[ "$GRIMOIRE_BRANCH"   == __RABBLE_BRANCH__ ]] && GRIMOIRE_BRANCH="new-horizons"
 [[ "$OS_BRANCH"         == __RABBLE_BRANCH__ ]] && OS_BRANCH="new-horizons"
 
-clone_as_rabble() {
-    local url="$1" dest="$2" branch="${3:-}"
-    local branch_flag=""
-    [[ -n "$branch" ]] && branch_flag="-b $branch"
-    echo "[RaBbLE-OS KS] Cloning ${url} → ${dest}"
-    # shellcheck disable=SC2086
-    sudo -u rabble git clone $branch_flag "$url" "$dest"
+log() { echo "[rabble-os-firstboot] $*"; }
+
+wait_for_network() {
+    log "Waiting for network..."
+    local tries=0 max=60   # up to 5 min (5s * 60)
+    until getent hosts github.com &>/dev/null; do
+        if (( tries++ >= max )); then
+            log "WARNING: github.com never resolved after $((max*5))s — trying anyway."
+            return 0
+        fi
+        sleep 5
+    done
+    log "Network is up (github.com resolves) after $((tries*5))s."
 }
 
-# Step 1: Collective (the root working directory)
-clone_as_rabble "${GH_BASE}/RaBbLE-Collective.git" "$RABBLE_ROOT" "$COLLECTIVE_BRANCH" || {
-    echo "[RaBbLE-OS KS] WARNING: Collective clone failed"
-    exit 0
+clone_with_retry() {
+    local url="$1" dest="$2" branch="$3"
+    if [[ -d "$dest/.git" ]]; then
+        log "Already cloned: $dest — skipping."
+        return 0
+    fi
+    [[ -e "$dest" ]] && { log "Removing incomplete $dest"; rm -rf "$dest"; }
+
+    local attempt=1 max=6 delay=10
+    while (( attempt <= max )); do
+        log "Cloning $url -> $dest (attempt $attempt/$max)"
+        git clone -b "$branch" "$url" "$dest" && return 0
+        log "Clone failed, retrying in ${delay}s..."
+        sleep "$delay"
+        (( attempt++ ))
+        (( delay *= 2 ))
+    done
+    log "ERROR: giving up on $url after $max attempts."
+    return 1
 }
 
-# Step 2: Grimoire (knowledge layer — agent docs, palette, registry)
-clone_as_rabble "${GH_BASE}/RaBbLE-Grimoire.git" "${RABBLE_ROOT}/RaBbLE-Grimoire" "$GRIMOIRE_BRANCH" || {
-    echo "[RaBbLE-OS KS] WARNING: Grimoire clone failed"
-    exit 0
-}
+wait_for_network
+mkdir -p "$RABBLE_ROOT"
 
-# Step 3: RaBbLE-OS (the member we need for Bootstrap)
-clone_as_rabble "${GH_BASE}/RaBbLE-OS.git" "${RABBLE_ROOT}/RaBbLE-OS" "$OS_BRANCH" || {
-    echo "[RaBbLE-OS KS] WARNING: RaBbLE-OS clone failed"
-    echo "[RaBbLE-OS KS] After first boot, manually run:"
-    echo "  cd ~/RaBbLE/RaBbLE-OS && RABBLE_TAGS=base,boot,desktop,gnome RABBLE_EXTRA_VARS=rabble_enable_gnome_desktop=true ./RaBbLE-OS-Bootstrap.sh --unattended --inventory ansible/inventory/vm.hosts.yml"
-    exit 0
-}
+clone_with_retry "${GH_BASE}/RaBbLE-Collective.git" "$RABBLE_ROOT" "$COLLECTIVE_BRANCH" || exit 1
+clone_with_retry "${GH_BASE}/RaBbLE-Grimoire.git" "${RABBLE_ROOT}/RaBbLE-Grimoire" "$GRIMOIRE_BRANCH" || exit 1
+clone_with_retry "${GH_BASE}/RaBbLE-OS.git" "${RABBLE_ROOT}/RaBbLE-OS" "$OS_BRANCH" || exit 1
+
+log "Clone complete — handing off to Bootstrap."
+cd "${RABBLE_ROOT}/RaBbLE-OS"
+exec ./RaBbLE-OS-Bootstrap.sh --unattended --inventory ansible/inventory/vm.hosts.yml
+FIRSTBOOTEOF
+chmod 755 /usr/local/sbin/rabble-os-firstboot.sh
 
 # ── Firstboot setup service ───────────────────────────────────────────────────
-# Runs Bootstrap (base + boot + desktop + gnome) on first boot after network is up.
+# Clones the repos (retry with backoff) and runs Bootstrap (base + boot +
+# desktop + gnome) once network is genuinely up post-boot.
 # gnome's play is gated by rabble_enable_gnome_desktop (default false, so
 # `apply all`/upgrade on an already-installed system never adds it silently) —
 # RABBLE_EXTRA_VARS flips it on for this firstboot run only, same mechanism
@@ -156,23 +193,19 @@ clone_as_rabble "${GH_BASE}/RaBbLE-OS.git" "${RABBLE_ROOT}/RaBbLE-OS" "$OS_BRANC
 # After completion: SDDM greeter appears listing both Hyprland and GNOME.
 cat > /etc/systemd/system/rabble-os-setup.service << 'SVCEOF'
 [Unit]
-Description=RaBbLE-OS First-Boot Setup (base + boot + desktop + gnome)
+Description=RaBbLE-OS First-Boot Setup (clone + base + boot + desktop + gnome)
 After=network-online.target
 Wants=network-online.target
-ConditionPathExists=/home/rabble/RaBbLE/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh
 ConditionPathExists=!/var/lib/rabble-os/.setup-complete
 
 [Service]
 Type=oneshot
 User=rabble
-WorkingDirectory=/home/rabble/RaBbLE/RaBbLE-OS
 Environment=RABBLE_TAGS=base,boot,desktop,gnome
 Environment=RABBLE_EXTRA_VARS=rabble_enable_gnome_desktop=true
 Environment=TERM=xterm-256color
 ExecStartPre=+/bin/mkdir -p /var/lib/rabble-os
-ExecStart=/bin/bash /home/rabble/RaBbLE/RaBbLE-OS/RaBbLE-OS-Bootstrap.sh \
-    --unattended \
-    --inventory ansible/inventory/vm.hosts.yml
+ExecStart=/usr/local/sbin/rabble-os-firstboot.sh
 ExecStartPost=+/bin/touch /var/lib/rabble-os/.setup-complete
 RemainAfterExit=yes
 StandardOutput=journal+console
@@ -190,12 +223,14 @@ systemctl enable serial-getty@ttyS0.service
 
 echo "[RaBbLE-OS KS] Post-install complete."
 echo ""
-echo "  Structure:"
+echo "  Structure (created on FIRST BOOT, not during install):"
 echo "    ~/RaBbLE/                  (Collective root)"
 echo "    ~/RaBbLE/RaBbLE-Grimoire/  (knowledge layer)"
 echo "    ~/RaBbLE/RaBbLE-OS/        (OS member)"
 echo ""
-echo "  Next: reboot → firstboot service runs Bootstrap (base + boot + desktop + gnome)"
+echo "  Next: reboot → firstboot service clones the repos, then runs Bootstrap"
+echo "  (base + boot + desktop + gnome). Watch it with:"
+echo "    journalctl -u rabble-os-setup -f"
 echo "  After completion: SDDM greeter lists Hyprland and GNOME sessions."
 echo "  To install apps post-login:"
 echo "    cd ~/RaBbLE/RaBbLE-OS"
