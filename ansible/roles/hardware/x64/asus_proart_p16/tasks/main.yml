@@ -12,3 +12,4 @@
 - { ansible.builtin.include_tasks: tuned.yml,     tags: [hardware, power, tuned],          }
 - { ansible.builtin.include_tasks: arbitration.yml, tags: [hardware, power, arbitration]        }
 - { ansible.builtin.include_tasks: config.yml,          tags: [hardware, config]         }
+- { ansible.builtin.include_tasks: hypr-machine.yml,    tags: [hardware, hyprland, config] }

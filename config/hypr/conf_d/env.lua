@@ -54,25 +54,15 @@ hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Classic")
 
 -- XCURSOR_SIZE and HYPRCURSOR_SIZE are set in machine.conf per display
 
--- ── NVIDIA hybrid (AMD primary, NVIDIA drives HDMI) ──────────────────────────
+-- ── Machine-specific env (optional) ─────────────────────────────────────────
 
--- AQ_DRM_DEVICES: AMD first (primary renderer), NVIDIA second (HDMI scanout).
+-- GPU pinning (AQ_DRM_DEVICES) and NVIDIA env are hardware-specific: the old
+-- unconditional ProArt pin made Hyprland abort with "CBackend::create()
+-- failed!" on every other machine (seen on the S236 test VM). Hardware
+-- roles write conf_d/machine.lua; dotctl never deploys it, so on a machine
+-- without one this is a no-op and aquamarine picks the GPU itself.
 
--- Colon-delimited, so pinned via the stable vendor-ID udev aliases (deployed by
-
--- ansible/roles/hardware/x64/asus_proart_p16/tasks/nvidia.yml Step 1c), NOT raw
-
--- card numbers — those renumber if Phase 2 (simpledrm suppression) lands.
-
-hl.env("AQ_DRM_DEVICES", "/dev/dri/rabble-amdgpu-card:/dev/dri/rabble-nvidia-card")
-
-hl.env("LIBVA_DRIVER_NAME", "nvidia")
-
-hl.env("NVD_BACKEND", "direct")
-
--- Hardware cursors on NVIDIA Wayland cause artifacts — disable
-
-hl.env("HYPRLAND_NO_HARDWARE_CURSORS", 1)
+pcall(require, "conf_d.machine")
 
 -- ── Editors / tools ───────────────────────────────────────────────────────────
 

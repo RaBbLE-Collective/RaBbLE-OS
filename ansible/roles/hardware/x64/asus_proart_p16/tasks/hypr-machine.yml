@@ -1,0 +1,22 @@
+---
+# hardware/x64/asus_proart_p16/tasks/hypr-machine.yml
+# ProArt-only Hyprland env (GPU pin + NVIDIA) → ~/.config/hypr/conf_d/machine.lua.
+# Kept out of config/hypr (dotctl) because the pin aborts Hyprland on any
+# machine without the rabble-*-card udev aliases from nvidia.yml.
+- name: hypr-machine | ensure ~/.config/hypr/conf_d exists
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.config/hypr/conf_d"
+    state: directory
+    owner: "{{ rabble_user }}"
+    mode: '0755'
+  become: true
+  tags: [hardware, hyprland, config]
+
+- name: hypr-machine | deploy ProArt machine.lua (GPU pin + NVIDIA env)
+  ansible.builtin.copy:
+    src: hypr-machine.lua
+    dest: "{{ rabble_home }}/.config/hypr/conf_d/machine.lua"
+    owner: "{{ rabble_user }}"
+    mode: '0644'
+  become: true
+  tags: [hardware, hyprland, config]
