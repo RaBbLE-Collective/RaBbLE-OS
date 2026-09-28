@@ -42,10 +42,16 @@ keyboard --vckeymap=us --xlayouts='us'
 timezone America/Los_Angeles --utc
 
 # ── Network ───────────────────────────────────────────────────────────────────
-# Bare metal: no --device/--activate so Anaconda's WiFi picker stays usable
-# (KS `network` has no WPA support). The connection it makes persists into %post.
-#@VM@ network --bootproto=dhcp --device=link --activate --onboot=yes
-network --hostname=rabble-os
+# Bare metal: NO `network` command at all — any KS `network` line, even a bare
+# --hostname=-only one, makes Anaconda treat networking as KS-managed and can
+# both (a) skip persisting the interactively-configured WiFi connection into
+# the target, and (b) let Installation Source / Software Selection resolve
+# eagerly instead of waiting on the Network spoke. Leaving it fully interactive
+# uses Anaconda's normal hub gating (package source can't complete until
+# Network does) and its normal live-connection-to-target copy. Hostname is set
+# in %post instead (below) so it doesn't depend on any of that. VM stays fully
+# scripted since it's unattended — no interactive spoke to gate on.
+#@VM@ network --bootproto=dhcp --device=link --activate --onboot=yes --hostname=rabble-os
 
 # ── Installation source ──────────────────────────────────────────────────────
 # Netinstall ISO has no packages — fetch from Fedora mirrors
@@ -91,8 +97,22 @@ python3
 # fail even though the installer itself just downloaded every package. This is
 # the most likely real cause of the S232 "clone race". Stash a resolved copy;
 # the chrooted %post swaps it in only if github.com doesn't already resolve.
+#
+# Belt-and-suspenders: bare metal no longer has any KS `network` line (see
+# above), which should make Anaconda persist the interactively-configured WiFi
+# connection into the target on its own. Copy it explicitly too in case that
+# default behavior doesn't hold across Anaconda versions — this is what was
+# actually missing when DHCP/IPv6/DNS all worked fine during install but
+# nothing worked after reboot (S236 bare metal, S237 desktop).
 %post --nochroot
 cp -L /etc/resolv.conf "${ANA_INSTALL_PATH:-/mnt/sysroot}/root/.rabble-resolv.conf" 2>/dev/null || true
+target_nm="${ANA_INSTALL_PATH:-/mnt/sysroot}/etc/NetworkManager/system-connections"
+if ls /etc/NetworkManager/system-connections/*.nmconnection >/dev/null 2>&1; then
+    mkdir -p "$target_nm"
+    cp -a /etc/NetworkManager/system-connections/*.nmconnection "$target_nm/" 2>/dev/null || true
+    chown -R root:root "$target_nm"
+    chmod 600 "$target_nm"/*.nmconnection 2>/dev/null || true
+fi
 %end
 
 # ── Post-install (chroot): firstboot script + service, then run it NOW ────────
@@ -101,6 +121,10 @@ cp -L /etc/resolv.conf "${ANA_INSTALL_PATH:-/mnt/sysroot}/root/.rabble-resolv.co
 set -euo pipefail
 
 echo "[RaBbLE-OS KS] Starting post-install setup..."
+
+# Hostname: set here instead of via KS `network --hostname=` (bare metal has
+# no `network` line at all now — see the Network section above for why).
+hostnamectl set-hostname rabble-os
 
 # ── Target user: whoever Anaconda created (VM: rabble; bare metal: typed) ─────
 RABBLE_USER="$(awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }' /etc/passwd)"
