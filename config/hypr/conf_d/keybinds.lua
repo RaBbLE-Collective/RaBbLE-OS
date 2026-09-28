@@ -164,9 +164,9 @@ hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "J", hl.dsp.window.swap({ direction 
 
 -- Arrows — smart move: tries movewindow, creates vertical split if no neighbor above/below
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "left", { direction = "l" })
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "left", hl.dsp.exec_cmd("~/.config/hypr/scripts/smart-movewindow.sh l"))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "right", { direction = "r" })
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "right", hl.dsp.exec_cmd("~/.config/hypr/scripts/smart-movewindow.sh r"))
 
 hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "up", hl.dsp.exec_cmd("~/.config/hypr/scripts/smart-movewindow.sh u"))
 
