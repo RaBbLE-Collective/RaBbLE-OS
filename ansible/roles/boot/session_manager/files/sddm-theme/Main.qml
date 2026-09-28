@@ -55,18 +55,31 @@ Rectangle {
     }
 
     function cycleUser() {
-        if (userModel.count < 2) {
+        if (userNames.length < 2) {
             root.notifyMsg = "no other users";
             notifyAnim.restart();
             return;
         }
-        for (var i = 0; i < userModel.count; i++) {
-            if (userModel.get(i, "name") === currentUser) {
-                currentUser = userModel.get((i + 1) % userModel.count, "name");
-                return;
+        var i = userNames.indexOf(currentUser);
+        currentUser = userNames[(i + 1) % userNames.length];
+    }
+
+    // userModel is SDDM's C++ list model — read names through a Repeater (roles
+    // only, no get()). On a fresh install lastUser is empty; without this the
+    // greeter showed "guest" and doLogin() refused to run, so nobody could log in.
+    property var userNames: []
+    Repeater {
+        model: userModel
+        delegate: Item {
+            visible: false
+            Component.onCompleted: {
+                var names = root.userNames.slice();
+                names[index] = model.name;
+                root.userNames = names;
+                if (root.currentUser === "" && index === 0)
+                    root.currentUser = model.name;
             }
         }
-        currentUser = userModel.get(0, "name");
     }
 
     function cycleSession() {
