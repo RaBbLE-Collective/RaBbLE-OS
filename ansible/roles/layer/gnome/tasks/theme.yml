@@ -82,6 +82,25 @@
   # only). `rpm -V papirus-icon-theme` will flag this as modified afterward —
   # expected and harmless; `dnf reinstall papirus-icon-theme` reverts it.
 
+- name: gnome-theme | create system wallpaper dir
+  ansible.builtin.file:
+    path: /usr/share/backgrounds/rabble
+    state: directory
+    mode: '0755'
+  become: true
+  tags: [layer, gnome, theme]
+
+- name: gnome-theme | install RaBbLE wallpaper system-wide (from config/wallpapers)
+  # Same image hyprpaper uses (config/wallpapers/RaBbLE_WP.PNG, deployed per-user
+  # by dotctl). GNOME's system default needs a system path, so copy it here and
+  # point the dconf background keys at it — otherwise GNOME shows Fedora's blue.
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/wallpapers/RaBbLE_WP.PNG"
+    dest: /usr/share/backgrounds/rabble/RaBbLE_WP.png
+    mode: '0644'
+  become: true
+  tags: [layer, gnome, theme]
+
 - name: gnome-theme | deploy dconf system defaults (Aether GTK/icon/cursor/dark)
   ansible.builtin.template:
     src: 01-rabble-aether.j2

@@ -21,6 +21,13 @@
   become: true
   tags: [layer, gnome, remove]
 
+- name: gnome-remove | delete system RaBbLE wallpaper dir
+  ansible.builtin.file:
+    path: /usr/share/backgrounds/rabble
+    state: absent
+  become: true
+  tags: [layer, gnome, remove]
+
 - name: gnome-remove | delete dconf system defaults
   ansible.builtin.file:
     path: /etc/dconf/db/local.d/01-rabble-aether
