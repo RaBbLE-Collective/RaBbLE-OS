@@ -151,6 +151,23 @@ AETHER_BRANCH="__RABBLE_BRANCH__"
 
 log() { echo "[rabble-os-firstboot] $*"; }
 
+# Self-heal: bare-metal installs defer WiFi activation to the interactive
+# Network spoke, so Anaconda evaluates `url --mirrorlist=` / `%packages`
+# before network is up. That can force a manual re-visit of Installation
+# Source / Software Selection, and the base package list (git, ansible,
+# curl, python3) can silently come out short. Network is guaranteed up by
+# the time this runs (network-online.target), so fix it here instead of
+# relying on the %packages transaction having landed cleanly.
+ensure_base_tools() {
+    local missing=() pkg
+    for pkg in git ansible curl python3; do
+        command -v "$pkg" &>/dev/null || missing+=("$pkg")
+    done
+    (( ${#missing[@]} == 0 )) && return 0
+    log "Missing base tools (${missing[*]}) — installing via dnf."
+    sudo dnf install -y "${missing[@]}"
+}
+
 wait_for_network() {
     log "Waiting for network..."
     local tries=0 max=60   # up to 5 min (5s * 60)
@@ -186,6 +203,7 @@ clone_with_retry() {
 }
 
 wait_for_network
+ensure_base_tools
 mkdir -p "$RABBLE_ROOT"
 
 clone_with_retry "${GH_BASE}/RaBbLE-Collective.git" "$RABBLE_ROOT" "$COLLECTIVE_BRANCH" || exit 1
