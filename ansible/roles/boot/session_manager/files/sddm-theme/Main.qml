@@ -89,6 +89,27 @@ Rectangle {
             return;
         }
         currentSessionIndex = (currentSessionIndex + 1) % sessionModel.count;
+        // Name the session we just switched to — the cycle was silent before.
+        root.notifyMsg = sessionNames[currentSessionIndex] || ("session " + (currentSessionIndex + 1));
+        notifyAnim.restart();
+    }
+
+    // Session names via Repeater (roles only, same reason as userNames). On a
+    // fresh install (no lastUser yet) lastIndex is just 0 — alphabetically
+    // GNOME — so default to plain Hyprland, RaBbLE-OS's primary session.
+    property var sessionNames: []
+    Repeater {
+        model: sessionModel
+        delegate: Item {
+            visible: false
+            Component.onCompleted: {
+                var names = root.sessionNames.slice();
+                names[index] = model.name;
+                root.sessionNames = names;
+                if (userModel.lastUser === "" && model.name === "Hyprland")
+                    root.currentSessionIndex = index;
+            }
+        }
     }
 
     Connections {
