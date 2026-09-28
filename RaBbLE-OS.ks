@@ -196,7 +196,17 @@ clone_with_retry "${GH_BASE}/RaBbLE-Aether.git" "${RABBLE_ROOT}/RaBbLE-Aether" "
 
 log "Clone complete — handing off to Bootstrap."
 cd "${RABBLE_ROOT}/RaBbLE-OS" || exit 1
-exec ./RaBbLE-OS-Bootstrap.sh --unattended --inventory ansible/inventory/vm.hosts.yml
+./RaBbLE-OS-Bootstrap.sh --unattended --inventory ansible/inventory/vm.hosts.yml
+rc=$?
+
+# Ansible's dotfile tasks are stubs; user configs (hypr, waybar, kitty, zsh, …)
+# deploy only through dotctl. Run it even if Bootstrap failed, so a retry-bound
+# install still logs in to a configured shell. Plain file copies: chroot-safe.
+log "Deploying dotfiles (dotctl apply all)."
+./RaBbLE-OS-dotctl.sh apply all
+dot_rc=$?
+(( rc != 0 )) && exit "$rc"
+exit "$dot_rc"
 FIRSTBOOTEOF
 chmod 755 /usr/local/sbin/rabble-os-firstboot.sh
 
