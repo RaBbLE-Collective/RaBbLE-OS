@@ -90,6 +90,11 @@ def main():
     # @core, not @^minimal-environment — Fedora 44 comps groups changed
     # (see Grimoire RaBbLE-OS-AgentGuide.md, Kickstart lessons)
     print("@core")
+    # Device firmware (WiFi: iwlwifi/realtek/mt7xxx/atheros/brcm; GPU: amd/nvidia/
+    # intel). @core has none, so bare-metal installs lost WiFi and GPU init after
+    # reboot even though the installer (which ships firmware) worked. Workstation
+    # gets these from the same group.
+    print("@hardware-support")
     for pkg in sorted(set(packages)):
         print(pkg)
     print("%end")

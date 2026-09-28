@@ -75,6 +75,7 @@ reboot
 # Regenerate with: python3 spells/generate-kickstart.py
 %packages
 @core
+@hardware-support
 NetworkManager
 NetworkManager-wifi
 ansible
