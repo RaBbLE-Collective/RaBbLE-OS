@@ -96,7 +96,7 @@ hl.workspace_rule({
     workspace = 11,
     monitor = "HDMI-A-1",
     persistent = 0,
-    defaultName = "hdmi",
+    default_name = "hdmi",
 })
 
 -- ── Special (scratchpad) ──────────────────────────────────────────────────────
@@ -105,5 +105,5 @@ hl.workspace_rule({
 
 hl.workspace_rule({
     workspace = "special:scratchpad",
-    ["on-created-empty"] = "kitty",
+    on_created_empty = "kitty",
 })
