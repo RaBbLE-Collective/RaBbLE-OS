@@ -1206,6 +1206,14 @@ packages:
     layer: layer/gnome
     ks: false
 
+  - name: papirus-icon-theme
+    category: layer.gnome
+    reason: papirus-folders tints Papirus-Dark for GNOME (already owned by apps, listed for the layer's decision record; installed by theme.yml, never removed with gnome_packages)
+    source: fedora
+    platform: all
+    layer: layer/gnome
+    ks: false
+
   # ── layer/bottles ──────────────────────────────────────────────────────────
   # Wine app compatibility. Reference implementation of the layer/* pattern —
   # role: ansible/roles/layer/bottles/, play: site.yml, control: layerctl.sh

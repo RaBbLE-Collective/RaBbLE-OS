@@ -60,6 +60,17 @@
   become: true
   tags: [layer, gnome, theme]
 
+- name: gnome-theme | ensure Papirus icon theme is present (shared w/ apps layer)
+  # papirus-folders below needs Papirus-Dark installed. The apps layer owns this
+  # package, but the KS install runs gnome without apps, so it must not assume
+  # apps ran first. Deliberately NOT in gnome_packages: `remove gnome` uninstalls
+  # that list and would pull the icon theme out from under the apps layer.
+  ansible.builtin.dnf:
+    name: papirus-icon-theme
+    state: present
+  become: true
+  tags: [layer, gnome, theme]
+
 - name: gnome-theme | tint system Papirus-Dark folders magenta
   ansible.builtin.command: papirus-folders --color magenta --theme Papirus-Dark
   become: true
