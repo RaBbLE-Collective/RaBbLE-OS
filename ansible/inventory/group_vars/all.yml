@@ -35,7 +35,7 @@ rabble_epoch_name:     "Episode 1 Preview"
 rabble_os_name:        "RaBbLE-OS"
 rabble_os_pretty_name: "RaBbLE-OS - {{ rabble_epoch_name }} (Fedora {{ rabble_fedora_version }})"
 rabble_os_variant:     "RaBbLE Desktop"
-rabble_os_home_url:    "https://github.com/markm1206/RaBbLE-OS"
+rabble_os_home_url:    "https://github.com/RaBbLE-Collective/RaBbLE-OS"
 rabble_fedora_version: "43"
 
 # ── Desktop ───────────────────────────────────────────────────────────────────

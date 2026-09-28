@@ -126,24 +126,27 @@ chmod 440 /etc/sudoers.d/10-rabble-setup
 # Canonical structure once it runs: ~/RaBbLE/ (Collective root)
 #   ~/RaBbLE/RaBbLE-Grimoire/   (knowledge layer)
 #   ~/RaBbLE/RaBbLE-OS/         (this member)
+#   ~/RaBbLE/RaBbLE-Aether/     (theme source Ansible deploys from)
 mkdir -p /usr/local/sbin
 cat > /usr/local/sbin/rabble-os-firstboot.sh << 'FIRSTBOOTEOF'
 #!/usr/bin/env bash
-# rabble-os-firstboot.sh — clone Collective/Grimoire/OS, then hand off to
+# rabble-os-firstboot.sh — clone Collective/Grimoire/OS/Aether, then hand off to
 # Bootstrap. Runs as the install user, from KS %post (installer chroot) and,
 # as a fallback, from rabble-os-setup.service (network-online.target).
 set -uo pipefail
 
 RABBLE_ROOT="${HOME}/RaBbLE"
-GH_BASE="https://github.com/markm1206"
+GH_BASE="https://github.com/RaBbLE-Collective"
 # Branch placeholders replaced at render time (vmctl --branch / build-iso.sh).
-# All three members track the same branch in lockstep.
+# All members track the same branch in lockstep.
 COLLECTIVE_BRANCH="__RABBLE_BRANCH__"
 GRIMOIRE_BRANCH="__RABBLE_BRANCH__"
 OS_BRANCH="__RABBLE_BRANCH__"
+AETHER_BRANCH="__RABBLE_BRANCH__"
 [[ "$COLLECTIVE_BRANCH" == __RABBLE_BRANCH__ ]] && COLLECTIVE_BRANCH="new-horizons"
 [[ "$GRIMOIRE_BRANCH"   == __RABBLE_BRANCH__ ]] && GRIMOIRE_BRANCH="new-horizons"
 [[ "$OS_BRANCH"         == __RABBLE_BRANCH__ ]] && OS_BRANCH="new-horizons"
+[[ "$AETHER_BRANCH"     == __RABBLE_BRANCH__ ]] && AETHER_BRANCH="new-horizons"
 
 log() { echo "[rabble-os-firstboot] $*"; }
 
@@ -187,6 +190,9 @@ mkdir -p "$RABBLE_ROOT"
 clone_with_retry "${GH_BASE}/RaBbLE-Collective.git" "$RABBLE_ROOT" "$COLLECTIVE_BRANCH" || exit 1
 clone_with_retry "${GH_BASE}/RaBbLE-Grimoire.git" "${RABBLE_ROOT}/RaBbLE-Grimoire" "$GRIMOIRE_BRANCH" || exit 1
 clone_with_retry "${GH_BASE}/RaBbLE-OS.git" "${RABBLE_ROOT}/RaBbLE-OS" "$OS_BRANCH" || exit 1
+# Aether is the theme source Ansible reads (aether_repo_root): GNOME/GTK
+# index.theme, Qt/GTK + VSCodium themes, Firefox CSS (config/firefox symlinks).
+clone_with_retry "${GH_BASE}/RaBbLE-Aether.git" "${RABBLE_ROOT}/RaBbLE-Aether" "$AETHER_BRANCH" || exit 1
 
 log "Clone complete — handing off to Bootstrap."
 cd "${RABBLE_ROOT}/RaBbLE-OS" || exit 1

@@ -5,7 +5,7 @@
 # Version: 0.0.1
 #
 # Curl install (HTTPS clone — no SSH key required):
-#   curl -fsSL https://raw.githubusercontent.com/markm1206/RaBbLE-OS/main/RaBbLE-OS-Install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/RaBbLE-Collective/RaBbLE-OS/main/RaBbLE-OS-Install.sh | bash
 #
 # Local run (SSH clone — SSH key must already be registered):
 #   bash RaBbLE-OS-Install.sh
@@ -25,8 +25,8 @@ CYAN='\033[0;36m'; BOLD='\033[1m';     RESET='\033[0m'
 RABBLE_OS_VERSION="0.0.1"
 # HTTPS is the default — works immediately from curl without SSH key pre-registered.
 # After install, the SSH key setup converts your working copy remote to SSH if desired.
-# Override with: RABBLE_OS_REPO=git@github.com:markm1206/RaBbLE-OS.git bash install.sh
-RABBLE_OS_REPO="${RABBLE_OS_REPO:-https://github.com/markm1206/RaBbLE-OS.git}"
+# Override with: RABBLE_OS_REPO=git@github.com:RaBbLE-Collective/RaBbLE-OS.git bash install.sh
+RABBLE_OS_REPO="${RABBLE_OS_REPO:-https://github.com/RaBbLE-Collective/RaBbLE-OS.git}"
 RABBLE_OS_DIR="${RABBLE_OS_DIR:-$HOME/RaBbLE-OS}"
 MIN_FEDORA_VERSION=43
 SSH_CONFIG="$HOME/.ssh/config"
