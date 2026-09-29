@@ -16,6 +16,15 @@
   args:
     creates: "{{ lookup('env', 'HOME') }}/.local/bin/uv"
 
+# Upstream pins a minimum uv (pyproject `required-version`); the installer's
+# `creates:` guard above never upgrades, so refresh it. Non-installer uv (e.g. an
+# RPM) can't self-update — tolerate that and let `uv sync` report a real mismatch.
+- name: Update uv to the latest release
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/uv self update"
+  register: _fcc_uv_update
+  changed_when: "'Upgraded' in (_fcc_uv_update.stderr ~ _fcc_uv_update.stdout)"
+  failed_when: false
+
 - name: Clone free-claude-code repository
   ansible.builtin.git:
     repo: "https://github.com/Alishahryar1/free-claude-code.git"
@@ -24,12 +33,7 @@
     depth: 1
     force: false
 
-- name: Install Python version required by free-claude-code
-  ansible.builtin.command: >
-    {{ lookup('env', 'HOME') }}/.local/bin/uv python install
-  args:
-    chdir: "{{ lookup('env', 'HOME') }}/.local/share/RaBbLE/free-claude-code"
-
+# uv sync also fetches the interpreter upstream pins (requires-python == 3.14.x).
 - name: Install free-claude-code dependencies via uv
   ansible.builtin.command: >
     {{ lookup('env', 'HOME') }}/.local/bin/uv sync
@@ -160,6 +164,7 @@
     mode: '0755'
 
 - name: Deploy free-claude-code systemd user service
+  register: _fcc_unit
   ansible.builtin.copy:
     dest: "{{ lookup('env', 'HOME') }}/.config/systemd/user/free-claude-code.service"
     mode: '0644'
@@ -171,8 +176,16 @@
       [Service]
       Type=simple
       WorkingDirectory=%h/.local/share/RaBbLE/free-claude-code
+      # Upstream moved to a src/free_claude_code package; `uvicorn server:app` no
+      # longer imports. fcc-server is the supported entrypoint; bind via env.
+      # SECURITY: upstream reads HOST/PORT (its example's FCC_HOST is NOT honored)
+      # and defaults to 0.0.0.0. The proxy accepts a no-auth key, so it MUST stay
+      # on loopback.
+      Environment=HOST=127.0.0.1
+      Environment=PORT=8082
+      # After Environment= so fcc.env can override the defaults above.
       EnvironmentFile=-%h/.config/RaBbLE/fcc.env
-      ExecStart=%h/.local/share/RaBbLE/free-claude-code/.venv/bin/uvicorn server:app --host 127.0.0.1 --port 8082
+      ExecStart=%h/.local/share/RaBbLE/free-claude-code/.venv/bin/fcc-server
       Restart=on-failure
       RestartSec=5
 
@@ -188,7 +201,7 @@
   ansible.builtin.systemd:
     name: free-claude-code
     enabled: true
-    state: started
+    state: "{{ 'restarted' if _fcc_unit is changed else 'started' }}"
     scope: user
     daemon_reload: true
 
