@@ -8,7 +8,7 @@
 # ║  NVIDIA is used via DRI_PRIME=1 for GPU-intensive workloads      ║
 # ║  (LLM inference, rendering, CUDA compute).                       ║
 # ║                                                                  ║
-# ║  CRITICAL: nouveau is loaded by default on Fedora 43.            ║
+# ║  CRITICAL: nouveau is loaded by default on Fedora.            ║
 # ║  It MUST be blacklisted before akmod-nvidia installation.        ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
@@ -178,7 +178,7 @@
       - xorg-x11-drv-nvidia-cuda-libs
       - xorg-x11-drv-nvidia-power # Ships nvidia-suspend/-hibernate/-resume/-powerd.service
                                    # + /usr/lib/systemd/system-sleep hooks (D3cold/RTD3 stack)
-      - libva-nvidia-driver  # The current Fedora 43 naming convention for Vid Accel
+      - libva-nvidia-driver  # The current Fedora naming convention for Vid Accel
       - libva-utils
     state: present
 
