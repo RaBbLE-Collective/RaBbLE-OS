@@ -58,6 +58,19 @@
 
 -- override. Modal = true catches Qt/GTK dialogs that set transient_for.
 
+-- ── Ignore client-requested maximize ─────────────────────────────────────────
+-- Apps (kitty in particular) ask to be maximized on open; honoring it makes
+-- new terminals cover every other tile. Fullscreen/maximize is ours to
+-- toggle via keybinds (Super+F / Super+Shift+F), not the client's.
+
+hl.window_rule({
+    name  = "suppress_maximize",
+    match = {
+        class = ".*",
+    },
+    suppress_event = "maximize",
+})
+
 hl.window_rule({
     name  = "float_true_1",
     match = {

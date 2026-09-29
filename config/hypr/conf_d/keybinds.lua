@@ -56,11 +56,16 @@ hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "C", hl.dsp.exec_cmd("cliphist list|
 
 -- ── Window layout ─────────────────────────────────────────────────────────────
 
-hl.bind(mod .. " + " .. "F", hl.dsp.window.fullscreen())
+-- Super+F = true fullscreen (toggle); Super+Shift+F = maximize (keeps bar/gaps)
+hl.bind(mod .. " + " .. "F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "F", hl.dsp.window.fullscreen())
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "F", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }))
 
--- fake-fullscreen
+-- Raise the focused window above all others (mainly for floating windows)
+hl.bind(mod .. " + " .. "U", hl.dsp.window.bring_to_top())
+
+-- Pin = keep on top and visible on every workspace (toggle)
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "U", hl.dsp.window.pin())
 
 hl.bind(mod .. " + " .. "V", hl.dsp.window.float())
 
