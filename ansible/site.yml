@@ -41,6 +41,34 @@
 #   ansible-playbook -i inventory/hosts.yml site.yml -K
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Hardware detection — runs first, always. Places hosts in asus_proart_p16 or
+# generic_x64 so the Layer 1 plays below dispatch correctly.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Hardware detection — assign hardware group from DMI"
+  hosts: all
+  gather_facts: true
+  become: false
+  tags: [always]
+  tasks:
+    # ProArt P16 reports product_name "ProArt P16 H7606WV_H7606WV" (board H7606WV).
+    # Anything else is generic_x64. Override: -e rabble_hardware=generic_x64|asus_proart_p16
+    - name: Group host by detected hardware
+      ansible.builtin.group_by:
+        key: >-
+          {{ rabble_hardware
+             | default('asus_proart_p16'
+                       if (ansible_product_name | default('')) is match('ProArt P16')
+                       else 'generic_x64') }}
+      changed_when: false
+
+    - name: Report detected hardware
+      ansible.builtin.debug:
+        msg: >-
+          product_name="{{ ansible_product_name | default('unknown') }}"
+          → {{ rabble_hardware | default('asus_proart_p16' if (ansible_product_name | default('')) is match('ProArt P16') else 'generic_x64') }}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Layer 0 — Base System
 # All hosts. Always runs first.
 # ─────────────────────────────────────────────────────────────────────────────

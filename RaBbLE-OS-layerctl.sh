@@ -173,8 +173,9 @@ get_state_time() {
 # ── Ansible runner ────────────────────────────────────────────────────────────
 
 # Resolved at runtime so RABBLE_HARDWARE can be set after sourcing
+# Empty unless RABBLE_HARDWARE is set: site.yml auto-detects hardware from DMI.
 ansible_hardware_var() {
-  echo "${RABBLE_HARDWARE:-generic_x64}"
+  echo "${RABBLE_HARDWARE:-}"
 }
 
 run_playbook() {
@@ -187,8 +188,8 @@ run_playbook() {
     -i "$INVENTORY"
     "$SITE_YML"
     -K
-    --extra-vars "rabble_target=$(ansible_hardware_var)"
   )
+  [[ -n "$(ansible_hardware_var)" ]] && cmd+=(--extra-vars "rabble_hardware=$(ansible_hardware_var)")
 
   if [[ "$tags" != "all" ]]; then
     cmd+=(--tags "$tags")
@@ -515,7 +516,7 @@ cmd_help() {
   echo
   echo -e "${BOLD}HARDWARE PROFILES${RESET}"
   echo -e "  Set via ${CYAN}--hardware PROFILE${RESET} or ${CYAN}RABBLE_HARDWARE${RESET} env var."
-  echo -e "  ${MUTED}asus_proart_p16  (default if detected)${RESET}"
+  echo -e "  ${MUTED}asus_proart_p16  (auto-detected from DMI)${RESET}"
   echo -e "  ${MUTED}generic_x64${RESET}"
   echo
   echo -e "${BOLD}EXAMPLES${RESET}"
