@@ -12,6 +12,27 @@
   notify: rebuild grub config
   tags: [base, config, identity]
 
+# ── Hostname — replace the DHCP/reverse-DNS transient name ──────────────────
+# With no static hostname, systemd adopts whatever DHCP/rDNS hands out (e.g.
+# syn-2603-6013-....res6.spectrum.com). Set a static one — but ONLY when none is
+# set, so a hostname the user chose is never overwritten. Per-machine names:
+# override rabble_hostname in host_vars/.
+- name: Read static hostname
+  ansible.builtin.command: hostnamectl --static
+  register: _static_hostname
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags: [base, config, identity]
+
+- name: Set static hostname (none configured)
+  ansible.builtin.hostname:
+    name: "{{ rabble_hostname }}"
+    use: systemd
+  become: true
+  when: (_static_hostname.stdout | default('') | trim) in ['', 'localhost', 'localhost.localdomain']
+  tags: [base, config, identity]
+
 # ── Boot speed — remove unnecessary wait gates ──────────────────────────────
 # NetworkManager-wait-online delays remote-fs.target ~4s via the iscsi.service
 # After=network-online.target chain (even though iscsi is conditioned out, systemd
