@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # RaBbLE-OS-Install.sh
-# Bootstrap installer — transforms Fedora 43+ Sway spin into RaBbLE-OS
+# Bootstrap installer — transforms Fedora 44+ Sway spin into RaBbLE-OS
 # Version: 0.0.1
 #
 # Curl install (HTTPS clone — no SSH key required):
@@ -22,13 +22,13 @@ RED='\033[0;31m';  GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m';     RESET='\033[0m'
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-RABBLE_OS_VERSION="0.0.1"
+RABBLE_OS_VERSION="0.0.0.0"   # Five-Es; keep in step with all.yml rabble_os_version
 # HTTPS is the default — works immediately from curl without SSH key pre-registered.
 # After install, the SSH key setup converts your working copy remote to SSH if desired.
 # Override with: RABBLE_OS_REPO=git@github.com:RaBbLE-Collective/RaBbLE-OS.git bash install.sh
 RABBLE_OS_REPO="${RABBLE_OS_REPO:-https://github.com/RaBbLE-Collective/RaBbLE-OS.git}"
 RABBLE_OS_DIR="${RABBLE_OS_DIR:-$HOME/RaBbLE-OS}"
-MIN_FEDORA_VERSION=43
+MIN_FEDORA_VERSION=44
 SSH_CONFIG="$HOME/.ssh/config"
 GIT_SSH_KEY="$HOME/.ssh/id_ed25519"
 

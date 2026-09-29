@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # RaBbLE-OS-Bootstrap.sh
-# Ansible-driven system transmogrification: Fedora 43 Sway → RaBbLE-OS Base
+# Ansible-driven system transmogrification: Fedora Sway → RaBbLE-OS Base
 # Version: 0.0.1
 # Called by: RaBbLE-OS-Install.sh  |  or manually post-clone
 # ==============================================================================
@@ -28,7 +28,7 @@ PLAYBOOK="${ANSIBLE_DIR}/site.yml"
 INVENTORY="${ANSIBLE_DIR}/inventory/hosts.yml"
 LOG_DIR="${SCRIPT_DIR}/logs"
 LOG_FILE="${LOG_DIR}/bootstrap-$(date +%Y%m%d-%H%M%S).log"
-RABBLE_OS_VERSION="0.0.1"
+RABBLE_OS_VERSION="0.0.0.0"   # Five-Es; keep in step with all.yml rabble_os_version
 UNATTENDED=false
 
 # ── Argument parsing ───────────────────────────────────────────────────────────
@@ -145,7 +145,6 @@ ${BOLD}${MAGENTA}
   ╚═╝  ╚═╝    ╚═█ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝    ╚═════╝ ╚══════╝
 ${RESET}
 ${BOLD}  Version   : ${RABBLE_OS_VERSION}${RESET}
-${BOLD}  Built on  : Fedora $(grep -oP '(?<=^VERSION_ID=)\d+' /etc/os-release)${RESET}
 ${BOLD}  Log saved : ${LOG_FILE}${RESET}
 
 ${CYAN}  What was installed:${RESET}

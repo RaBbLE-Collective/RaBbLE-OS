@@ -2,8 +2,9 @@
 # /etc/os-release — RaBbLE-OS system identity
 #
 # GRUB reads PRETTY_NAME from this file to label boot menu entries.
-# ID and VERSION_ID must stay as fedora/{{ rabble_fedora_version }} for DNF, RPM,
-# and Fedora module stream compatibility. Everything else is ours.
+# ID, ID_LIKE, VERSION_ID and PLATFORM_ID must stay Fedora's for DNF, RPM,
+# and Fedora module stream compatibility ($releasever = VERSION_ID). Everything
+# else is ours, and nothing user-visible mentions the Fedora base.
 #
 # To distinguish multiple installs in GRUB, set rabble_epoch_name in
 # ansible/inventory/host_vars/localhost.yml before running the playbook.
@@ -12,11 +13,13 @@ NAME="{{ rabble_os_name }}"
 PRETTY_NAME="{{ rabble_os_pretty_name }}"
 ID=fedora
 ID_LIKE=fedora
-VERSION="{{ rabble_fedora_version }} ({{ rabble_os_variant }})"
+VERSION="{{ rabble_os_version }} ({{ rabble_os_variant }})"
 VERSION_ID={{ rabble_fedora_version }}
 PLATFORM_ID="platform:f{{ rabble_fedora_version }}"
 VARIANT="{{ rabble_os_variant }}"
 VARIANT_ID=rabble
+RABBLE_VERSION="{{ rabble_os_version }}"
+RABBLE_BASE="f{{ rabble_fedora_version }}"
 ANSI_COLOR="1;35"
 HOME_URL="{{ rabble_os_home_url }}"
 SUPPORT_URL="{{ rabble_os_home_url }}/issues"

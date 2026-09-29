@@ -29,14 +29,20 @@ rabble_color_surface: "#120025"   # Elevated surface — input fields, cards
 
 # ── OS Identity ───────────────────────────────────────────────────────────────
 # Controls /etc/os-release — what GRUB entries, fastfetch, hostnamectl show.
-# ID and VERSION_ID stay as fedora/43 for DNF/RPM/repo compatibility.
+# Nothing user-visible mentions the Fedora base. ID/VERSION_ID/PLATFORM_ID keep
+# Fedora's real values for DNF/RPM/repo compatibility ($releasever comes from
+# VERSION_ID) and are derived from the running system, never hardcoded.
+# rabble_os_version follows the Five-Es format (v{Epoch}.{Evolution}.{Echo}.{Episode}.{Event},
+# see Grimoire RaBbLE-Versioning.md); bump only when the Collective's version advances.
 # Override rabble_epoch_name in host_vars/ to distinguish installs in GRUB.
 rabble_epoch_name:     "Episode 1 Preview"
 rabble_os_name:        "RaBbLE-OS"
-rabble_os_pretty_name: "RaBbLE-OS - {{ rabble_epoch_name }} (Fedora {{ rabble_fedora_version }})"
+rabble_os_pretty_name: "RaBbLE-OS - {{ rabble_epoch_name }}"
+rabble_os_version:     "0.0.0.0"
+rabble_hostname:       "rabble-os"   # static hostname, set only if none exists; override per machine in host_vars/
 rabble_os_variant:     "RaBbLE Desktop"
 rabble_os_home_url:    "https://github.com/RaBbLE-Collective/RaBbLE-OS"
-rabble_fedora_version: "43"
+rabble_fedora_version: "{{ ansible_facts['distribution_major_version'] }}"   # internal only (os-release ID fields)
 
 # ── Desktop ───────────────────────────────────────────────────────────────────
 rabble_default_shell: zsh    # zsh | bash

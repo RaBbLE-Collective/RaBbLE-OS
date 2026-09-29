@@ -420,8 +420,8 @@ cmd_cast() {
         | grep -oP 'fedora\d+' \
         | grep -v 'fedora4\b' \
         | sort -t'a' -k2 -V \
-        | tail -1)" || os_variant="fedora43"
-    [[ -z "$os_variant" ]] && os_variant="fedora43"
+        | tail -1)" || os_variant="fedora44"
+    [[ -z "$os_variant" ]] && os_variant="fedora44"
 
     local graphics video
     graphics="$(detect_graphics)"
@@ -558,8 +558,8 @@ cmd_cast_ks() {
         | grep -oP 'fedora\d+' \
         | grep -v 'fedora4\b' \
         | sort -t'a' -k2 -V \
-        | tail -1)" || os_variant="fedora43"
-    [[ -z "$os_variant" ]] && os_variant="fedora43"
+        | tail -1)" || os_variant="fedora44"
+    [[ -z "$os_variant" ]] && os_variant="fedora44"
 
     # KS install is text-only (Anaconda); GL acceleration is unnecessary and
     # breaks when libvirtd's qemu can't reach the user's Wayland socket.

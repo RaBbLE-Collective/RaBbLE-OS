@@ -5,7 +5,7 @@ Identity: Peer, not tool. See `../RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Identity.m
 
 ## Job
 
-RaBbLE-OS is the entity's body — Ansible-driven Fedora 43 + Hyprland desktop. It is the substrate all other members run on. Grimoire is truth. Ansible applies it. `layerctl` manages it day-to-day.
+RaBbLE-OS is the entity's body — Ansible-driven Fedora 44-based Hyprland desktop. It is the substrate all other members run on. Grimoire is truth. Ansible applies it. `layerctl` manages it day-to-day.
 
 OS is NOT the visual renderer (NeBuLA), the web presence (World), or the coordination engine (sCoRE). It is the physical layer: packages, boot chain, hardware, desktop environment, config deployment.
 
