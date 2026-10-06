@@ -21,7 +21,7 @@ set -euo pipefail
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 ANSIBLE_DIR="${SCRIPT_DIR}/ansible"
 INVENTORY="${ANSIBLE_DIR}/inventory/hosts.yml"
 SITE_YML="${ANSIBLE_DIR}/site.yml"
