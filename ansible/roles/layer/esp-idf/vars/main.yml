@@ -11,6 +11,7 @@
 # second is actually needed.
 esp_idf_versions:
   - "v5.5.4"
+  - "v6.0.1"   # Muse Gadget SDK requires exactly this (Pocket muse bring-up)
 esp_idf_target: "esp32s3"
 esp_idf_eim_path: "{{ rabble_home }}/esp/esp-idf-eim"
 
