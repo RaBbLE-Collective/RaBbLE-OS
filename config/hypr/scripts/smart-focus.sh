@@ -9,14 +9,18 @@
 
 dir="${1:-d}"
 
+# Lua-config dispatch (Hyprland 0.56): legacy `hyprctl dispatch movefocus l`
+# is a Lua syntax error now, so use hl.dsp.* forms with full direction names.
+case "$dir" in l) dname=left ;; r) dname=right ;; u) dname=up ;; *) dname=down ;; esac
+
 before=$(hyprctl activewindow -j 2>/dev/null | jq -r '.address // empty')
-hyprctl dispatch movefocus "$dir" 2>/dev/null
+hyprctl dispatch "hl.dsp.focus({ direction = \"$dname\" })" >/dev/null 2>&1
 after=$(hyprctl activewindow -j 2>/dev/null | jq -r '.address // empty')
 
 [[ -n "$before" && "$before" != "$after" ]] && exit 0
 
 # Focus didn't move — cycle
 case "$dir" in
-    u|l) hyprctl dispatch cyclenext prev ;;
-    d|r) hyprctl dispatch cyclenext ;;
+    u|l) hyprctl dispatch 'hl.dsp.window.cycle_next({ next = false })' >/dev/null ;;
+    d|r) hyprctl dispatch 'hl.dsp.window.cycle_next()' >/dev/null ;;
 esac

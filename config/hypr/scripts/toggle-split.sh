@@ -17,10 +17,10 @@ current=$(cat "$STATE" 2>/dev/null || echo "h")
 
 if [ "$current" = "h" ]; then
     echo "v" > "$STATE"
-    hyprctl dispatch layoutmsg "preselect d"
+    hyprctl dispatch 'hl.dsp.layout("preselect d")'
     notify-send -t 1200 -u low "" "Split  ↓  vertical"
 else
     echo "h" > "$STATE"
-    hyprctl dispatch layoutmsg "preselect r"
+    hyprctl dispatch 'hl.dsp.layout("preselect r")'
     notify-send -t 1200 -u low "" "Split  →  horizontal"
 fi

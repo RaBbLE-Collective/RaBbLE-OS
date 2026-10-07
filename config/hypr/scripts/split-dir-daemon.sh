@@ -16,9 +16,9 @@ SOCK="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
 socat -U - "UNIX-CONNECT:$SOCK" | while IFS= read -r line; do
     if [[ "$line" == openwindow* ]]; then
         if [[ "$(cat "$STATE" 2>/dev/null)" == "v" ]]; then
-            hyprctl dispatch layoutmsg "preselect d" >/dev/null 2>&1
+            hyprctl dispatch 'hl.dsp.layout("preselect d")' >/dev/null 2>&1
         else
-            hyprctl dispatch layoutmsg "preselect r" >/dev/null 2>&1
+            hyprctl dispatch 'hl.dsp.layout("preselect r")' >/dev/null 2>&1
         fi
     fi
 done
