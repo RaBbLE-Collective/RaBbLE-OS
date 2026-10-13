@@ -1,51 +1,87 @@
 ---
 # ansible/roles/hardware/x64/asus_proart_p16/tasks/tuned.yml
-# tuned + tuned-ppd — the canonical power stack for the ProArt P16.
+# tuned is OFF on the ProArt P16: asusd/asusctl is the sole power controller.
 #
-# CANONICAL DECISION (RaBbLE-Grimoire/RaBbLE-OS/RaBbLE-OS-AgentGuide.md:64-66):
-# tuned + tuned-ppd IS the power stack. power-profiles-daemon must NEVER be
-# installed alongside it — it conflicts, claiming the same D-Bus name
-# (org.freedesktop.UPower.PowerProfiles) that tuned-ppd owns. tuned-ppd is a
-# compatibility shim: `powerprofilesctl` works unmodified against it, so
-# asusctl and this role's waybar script (config/waybar/scripts/power-profile.sh)
-# consume the standard PPD interface without power-profiles-daemon ever
-# existing on disk. The explicit guard-and-mask task for this lives in
-# arbitration.yml (tag: power/arbitration, runs after this file) — this file
-# only installs and enables the real stack.
+# DECISION (S245, Mark): on this machine asusd owns the kernel platform_profile
+# (firmware power limits), the CPU EPP/governor (platform_profile_linked_epp) and
+# the per-profile fan curves. tuned conflicts with it. Measured on this hardware:
+#   - tuned-ppd did NOT follow asusd's platform-profile changes: after
+#     `asusctl profile set Balanced` tuned stayed on throughput-performance and
+#     the PPD D-Bus profile stayed "performance".
+#   - Only asusd's EPP/governor writes made Balanced act like Balanced; tuned's
+#     other settings stayed on the performance values, and tuned was a second
+#     writer for the same CPU knobs.
+# Generic (non-ASUS) hardware still uses tuned + tuned-ppd; see
+# roles/hardware/x64/generic/tasks/tuned.yml. Flip rabble_tuned_enabled: true in
+# group_vars/asus_proart_p16.yml to bring the old behaviour back (not recommended).
 #
-# Both packages are already declared in ansible/packages/manifest.yml
-# (category hardware.power, platform asus_proart_p16) — this task is what
-# actually installs them; the manifest is the inventory, not the installer.
+# power-profiles-daemon stays guarded off in arbitration.yml: it would also
+# write EPP and fight asusd.
 
-- name: tuned | install tuned + tuned-ppd
-  ansible.builtin.dnf:
-    name:
-      - tuned
-      - tuned-ppd
-    state: present
-  become: true
-  tags: [hardware, power, tuned]
+- name: tuned | disable tuned stack (asusctl is the sole power controller)
+  when: not (rabble_tuned_enabled | default(false))
+  block:
+    - name: tuned | stop and disable tuned-ppd + tuned
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: false
+        state: stopped
+      loop:
+        - tuned-ppd.service
+        - tuned.service
+      become: true
+      failed_when: false   # unit absent on a fresh install is fine
+      tags: [hardware, power, tuned]
 
-- name: tuned | enable and start tuned.service
-  ansible.builtin.systemd:
-    name: tuned.service
-    enabled: true
-    state: started
-  become: true
-  tags: [hardware, power, tuned]
+    # Disable alone is not enough: other packages can pull tuned-ppd back in or
+    # socket/dbus-activate it. Mask so asusd stays the only writer.
+    - name: tuned | mask tuned-ppd + tuned
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        masked: true
+      loop:
+        - tuned-ppd.service
+        - tuned.service
+      become: true
+      failed_when: false
+      tags: [hardware, power, tuned]
 
-# Idempotent profile switch: read what's active first so a re-run of this
-# playbook against an already-converged host doesn't report "changed" every
-# time (tuned-adm itself doesn't give a clean idempotent CLI signal).
-- name: tuned | read currently active tuned profile
-  ansible.builtin.command: tuned-adm active
-  register: rabble_tuned_active
-  changed_when: false
-  become: true
-  tags: [hardware, power, tuned]
+- name: "tuned | legacy path — tuned + tuned-ppd enabled (rabble_tuned_enabled true)"
+  when: rabble_tuned_enabled | default(false)
+  block:
+    - name: tuned | unmask tuned-ppd + tuned
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        masked: false
+      loop: [tuned.service, tuned-ppd.service]
+      become: true
+      failed_when: false
+      tags: [hardware, power, tuned]
 
-- name: "tuned | set default active profile ({{ tuned_active_profile | default('balanced') }})"
-  ansible.builtin.command: "tuned-adm profile {{ tuned_active_profile | default('balanced') }}"
-  become: true
-  when: (tuned_active_profile | default('balanced')) not in rabble_tuned_active.stdout
-  tags: [hardware, power, tuned]
+    - name: tuned | install tuned + tuned-ppd
+      ansible.builtin.dnf:
+        name: [tuned, tuned-ppd]
+        state: present
+      become: true
+      tags: [hardware, power, tuned]
+
+    - name: tuned | enable and start tuned.service
+      ansible.builtin.systemd:
+        name: tuned.service
+        enabled: true
+        state: started
+      become: true
+      tags: [hardware, power, tuned]
+
+    - name: tuned | read currently active tuned profile
+      ansible.builtin.command: tuned-adm active
+      register: rabble_tuned_active
+      changed_when: false
+      become: true
+      tags: [hardware, power, tuned]
+
+    - name: "tuned | set default active profile ({{ tuned_active_profile | default('balanced') }})"
+      ansible.builtin.command: "tuned-adm profile {{ tuned_active_profile | default('balanced') }}"
+      become: true
+      when: "('Current active profile: ' ~ (tuned_active_profile | default('balanced'))) not in rabble_tuned_active.stdout"
+      tags: [hardware, power, tuned]

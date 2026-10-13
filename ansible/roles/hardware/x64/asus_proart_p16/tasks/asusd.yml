@@ -18,3 +18,34 @@
     state: started
   become: true
   tags: [hardware, power, asusd]
+
+# ── Balanced power limits (PL1/PL2/PL3) ──────────────────────────────────────
+# asusd applies a profile's tuning group automatically on profile change and on
+# AC/battery change when `enabled: true` (ac_profile_tunings / dc_profile_tunings
+# in asusd.ron). Stock Balanced is PL1=80 W sustained; see group_vars
+# asus_balanced_ppt for the rationale and values.
+#
+# There is no CLI for persisting per-profile tunings (`asusctl armoury set`
+# changes the live firmware attribute only), so asusd.ron is edited in place.
+# asusd serialises its maps in random order, so the Balanced entry is matched by
+# key within the right map rather than by position. The edit is idempotent:
+# re-running writes identical text.
+- name: asusd | set Balanced power-limit tunings in asusd.ron
+  ansible.builtin.replace:
+    path: /etc/asusd/asusd.ron
+    regexp: '(?s)({{ item.map }}:\s*\{(?:(?!\n    \}).)*?Balanced:\s*\(\s*enabled:\s*)\w+(,\s*group:\s*)\{[^}]*\}'
+    replace: '\1true\2{ {% for k, v in item.ppt.items() %}{{ k }}: {{ v }}{% if not loop.last %}, {% endif %}{% endfor %} }'
+  loop:
+    - { map: ac_profile_tunings, ppt: "{{ asus_balanced_ppt.ac }}" }
+    - { map: dc_profile_tunings, ppt: "{{ asus_balanced_ppt.battery }}" }
+  loop_control:
+    label: "{{ item.map }}"
+  become: true
+  notify: restart asusd
+  tags: [hardware, power, asusd]
+
+# Run the restart now (not at end of play) so the arbitration fan-curve calls
+# and anything after talk to the daemon that has read the new tunings.
+- name: asusd | apply tunings now
+  ansible.builtin.meta: flush_handlers
+  tags: [hardware, power, asusd]

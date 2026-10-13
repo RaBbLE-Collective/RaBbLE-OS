@@ -27,3 +27,39 @@
   failed_when: false
   become: true
   tags: [hardware, asus, power]
+
+# The AC/battery pins are what asusd re-applies on every boot and plug event
+# (asusd.ron: platform_profile_on_ac / platform_profile_on_battery, both with
+# change_platform_profile_on_* true). asusd ships AC=Performance, which silently
+# overrides the one-shot `profile set` above on the next boot or AC event and
+# leaves the machine at governor=performance, EPP=performance, ~27 W package
+# power at idle (measured S245, 2026-10-11). Pin them explicitly through the CLI
+# so the daemon rewrites its own config (no hand-editing /etc/asusd/asusd.ron).
+# Read the current pins first so a converged host reports "ok", not "changed".
+- name: asusctl | read current AC/battery profile pins
+  ansible.builtin.command: asusctl profile get
+  register: rabble_asusctl_profile_pins
+  changed_when: false
+  failed_when: false
+  become: true
+  tags: [hardware, asus, power]
+
+- name: "asusctl | pin AC profile ({{ asus_power_profile_ac | default('Balanced') }})"
+  ansible.builtin.command: "asusctl profile set --ac {{ asus_power_profile_ac | default('Balanced') }}"
+  when: >-
+    ('AC profile ' ~ (asus_power_profile_ac | default('Balanced')))
+    not in rabble_asusctl_profile_pins.stdout
+  changed_when: true
+  failed_when: false
+  become: true
+  tags: [hardware, asus, power]
+
+- name: "asusctl | pin battery profile ({{ asus_power_profile_battery | default('Quiet') }})"
+  ansible.builtin.command: "asusctl profile set --battery {{ asus_power_profile_battery | default('Quiet') }}"
+  when: >-
+    ('Battery profile ' ~ (asus_power_profile_battery | default('Quiet')))
+    not in rabble_asusctl_profile_pins.stdout
+  changed_when: true
+  failed_when: false
+  become: true
+  tags: [hardware, asus, power]

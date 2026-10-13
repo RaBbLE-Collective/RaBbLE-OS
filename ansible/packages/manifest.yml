@@ -969,9 +969,9 @@ packages:
 
   - name: tuned
     category: hardware.power
-    reason: Power profile manager — active stack is tuned_only per group_vars; balanced profile default
+    reason: Power profile manager for generic hardware (balanced profile default). NOT used on the ProArt P16, where asusctl/asusd is the sole power controller and tuned conflicts with it (S245)
     source: fedora
-    platform: asus_proart_p16
+    platform: generic_x64
     layer: hardware
     ks: false
 
@@ -979,7 +979,7 @@ packages:
     category: hardware.power
     reason: power-profiles-daemon-compatible D-Bus shim over tuned — exposes the PPD API asusctl/waybar consume WITHOUT installing power-profiles-daemon (which conflicts with tuned). Canonical power stack per AgentGuide.
     source: fedora
-    platform: asus_proart_p16
+    platform: generic_x64
     layer: hardware
     ks: false
 
@@ -987,7 +987,7 @@ packages:
     category: hardware.power
     reason: Tuned GUI — visual profile switcher for on-the-fly power management
     source: fedora
-    platform: asus_proart_p16
+    platform: generic_x64
     layer: hardware
     ks: false
 

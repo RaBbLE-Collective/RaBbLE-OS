@@ -17,9 +17,25 @@ npu:
 
 # ── Power Stack ───────────────────────────────────────────────
 # Change this line to switch power experiments.
-power_stack_profile: "tuned_only"
-tuned_active_profile: "balanced"
+power_stack_profile: "asusd_only"   # S245: asusctl/asusd is the sole power controller
+rabble_tuned_enabled: false         # tuned conflicts with asusd here; generic x64 still uses it
 asus_power_profile: "Balanced"      # Balanced | Performance | Quiet
+# Pins asusd re-applies at boot / on plug events. Without these asusd's own
+# default (AC=Performance) overrides asus_power_profile on every boot.
+asus_power_profile_ac: "Balanced"
+asus_power_profile_battery: "Quiet"
+
+# Sustained/burst package power limits applied by asusd whenever Balanced is
+# active (asusd.ron ac_profile_tunings / dc_profile_tunings). Stock Balanced is
+# PL1=80 W sustained, which let a near-idle desktop sit at ~22 W and heat-soak
+# the chassis (measured S245). Goal: minimal power on simple tasks and silent.
+# Firmware ranges (asus-armoury): PL1 15-80, PL2 35-80, PL3 35-80 -- PL2/PL3 have
+# a 35 W FLOOR, so 35 is the lowest legal burst value. Keys are asusd's
+# FirmwareAttribute names (verified in the installed asusd binary).
+# STARTING VALUES, judgment not measured: tune against idle watts + temperature.
+asus_balanced_ppt:
+  ac:      { PptPl1Spl: 18, PptPl2Sppt: 35, PptPl3Fppt: 35 }
+  battery: { PptPl1Spl: 15, PptPl2Sppt: 35, PptPl3Fppt: 35 }
 
 # ── GPU ───────────────────────────────────────────────────────
 # integrated = dGPU suspended. Current known-good state.

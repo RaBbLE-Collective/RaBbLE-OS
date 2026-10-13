@@ -8,9 +8,9 @@
 # by a udev rule (/etc/udev/rules.d/90-rabble-power-ac.rules) as root, with no
 # graphical session, whenever mains power is removed (power_supply online -> 0).
 #
-# Job: if "Unbounded" (tuned-ppd performance + asusd Performance platform-profile)
+# Job: if "Unbounded" (asusd Performance platform-profile)
 # is the currently active mode when AC drops, fall back to the AC-independent
-# safe mode — Quiet · Balanced (tuned-ppd balanced + asusd Balanced, which per
+# safe mode — Quiet · Balanced (asusd Balanced, which per
 # arbitration.yml carries the QUIET fan curve, not stock). Unbounded is AC-only
 # by policy (see power-profile.sh); this is the enforcement backstop for the
 # case where AC is pulled while it's already active, not the point of selection.
@@ -19,8 +19,8 @@
 # udev rule wraps this in `systemd-run --no-block` so udev's own timeout can't
 # kill it mid-flight.
 #
-# powerprofilesctl / asusctl profile talk to system-bus D-Bus services
-# (tuned-ppd, asusd) — both reachable from root with no session bus needed.
+# asusctl talks to the asusd system-bus D-Bus service — reachable from root
+# with no session bus needed.
 # notify-send is the one piece that needs a real user session, so we reach
 # into the active seat0 session's bus explicitly below.
 
@@ -30,7 +30,7 @@ LOG_TAG="rabble-power-ac-fallback"
 
 log() { logger -t "$LOG_TAG" -- "$*"; }
 
-current_profile="$(powerprofilesctl get 2>/dev/null || echo unknown)"
+current_profile="$(cat /sys/firmware/acpi/platform_profile 2>/dev/null || echo unknown)"
 
 if [[ "$current_profile" != "performance" ]]; then
     log "AC removed; active profile is '$current_profile' (not Unbounded) — no action."
@@ -39,11 +39,9 @@ fi
 
 log "AC removed while Unbounded (performance) was active — falling back to Quiet · Balanced."
 
-powerprofilesctl set balanced 2>&1 | logger -t "$LOG_TAG"
-
-# CONFIRM SYNTAX against installed asusctl version at apply time — flag name
-# has drifted across asusctl releases (-P/--profile-set vs -p/--profile).
-asusctl profile -P Balanced 2>&1 | logger -t "$LOG_TAG"
+# Syntax confirmed against asusctl 6.3.8: `profile set <Profile>`. (asusd's
+# battery pin normally handles this itself; this is the backstop.)
+asusctl profile set Balanced 2>&1 | logger -t "$LOG_TAG"
 
 # Best-effort desktop notification. This process has no XDG_RUNTIME_DIR/
 # DBUS_SESSION_BUS_ADDRESS of its own (root, launched by udev) — find the

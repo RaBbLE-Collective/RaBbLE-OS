@@ -1,5 +1,6 @@
 ---
 # hardware/x64/generic/tasks/main.yml
 - { ansible.builtin.include_tasks: packages.yml, tags: [hardware, generic_x64, packages] }
+- { ansible.builtin.include_tasks: tuned.yml,    tags: [hardware, generic_x64, power, tuned] }
 - { ansible.builtin.include_tasks: nvidia.yml,   tags: [hardware, generic_x64, nvidia, boot] }
 - { ansible.builtin.include_tasks: config.yml,   tags: [hardware, generic_x64, config]   }
