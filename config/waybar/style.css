@@ -62,6 +62,8 @@ window#waybar.empty {
 }
 
 #workspaces,
+#custom-ws1, #custom-ws2, #custom-ws3, #custom-ws4, #custom-ws5,
+#custom-ws6, #custom-ws7, #custom-ws8, #custom-ws9, #custom-ws10,
 #window,
 #network,
 #pulseaudio,
@@ -428,4 +430,24 @@ tooltip {
 tooltip label {
     color:          @text;
     font-size:      12px;
+}
+
+/* workspace buttons (custom/wsN) */
+#custom-ws1, #custom-ws2, #custom-ws3, #custom-ws4, #custom-ws5,
+#custom-ws6, #custom-ws7, #custom-ws8, #custom-ws9, #custom-ws10 {
+    padding: 2px 8px;
+    margin: 3px 0;
+    color: @overlay1;
+    background: transparent;
+}
+#custom-ws1:hover, #custom-ws2:hover, #custom-ws3:hover, #custom-ws4:hover, #custom-ws5:hover,
+#custom-ws6:hover, #custom-ws7:hover, #custom-ws8:hover, #custom-ws9:hover, #custom-ws10:hover {
+    background: rgba(191, 95, 255, 0.12);
+    color: @violet;
+}
+#custom-ws1.active, #custom-ws2.active, #custom-ws3.active, #custom-ws4.active, #custom-ws5.active,
+#custom-ws6.active, #custom-ws7.active, #custom-ws8.active, #custom-ws9.active, #custom-ws10.active {
+    background: rgba(191, 95, 255, 0.20);
+    color: @violet;
+    font-weight: 700;
 }

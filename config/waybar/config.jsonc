@@ -13,7 +13,16 @@
     "spacing": 4, // Gaps between modules (4px)
     // Choose the order of the modules
     "modules-left": [
-        "hyprland/workspaces",
+        "custom/ws1",
+        "custom/ws2",
+        "custom/ws3",
+        "custom/ws4",
+        "custom/ws5",
+        "custom/ws6",
+        "custom/ws7",
+        "custom/ws8",
+        "custom/ws9",
+        "custom/ws10",
         "hyprland/window"
     ],
     "modules-center": [],
@@ -108,10 +117,85 @@
         //   "TelegramDesktop": "$HOME/.local/share/icons/hicolor/16x16/apps/telegram.png"
         // }
     },
-    "hyprland/workspaces": {
-        "sort-by-number": true,
-        "on-scroll-up":   "hyprctl dispatch workspace +1",
-        "on-scroll-down": "hyprctl dispatch workspace -1"
+    "custom/ws1": {
+        "exec": "~/.config/waybar/scripts/workspace.sh 1",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=1})'",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+    },
+    "custom/ws2": {
+        "exec": "~/.config/waybar/scripts/workspace.sh 2",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=2})'",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+    },
+    "custom/ws3": {
+        "exec": "~/.config/waybar/scripts/workspace.sh 3",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=3})'",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+    },
+    "custom/ws4": {
+        "exec": "~/.config/waybar/scripts/workspace.sh 4",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=4})'",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+    },
+    "custom/ws5": {
+        "exec": "~/.config/waybar/scripts/workspace.sh 5",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=5})'",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+    },
+    "custom/ws6": {
+        "exec": "~/.config/waybar/scripts/workspace.sh 6",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=6})'",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+    },
+    "custom/ws7": {
+        "exec": "~/.config/waybar/scripts/workspace.sh 7",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=7})'",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+    },
+    "custom/ws8": {
+        "exec": "~/.config/waybar/scripts/workspace.sh 8",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=8})'",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+    },
+    "custom/ws9": {
+        "exec": "~/.config/waybar/scripts/workspace.sh 9",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=9})'",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+    },
+    "custom/ws10": {
+        "exec": "~/.config/waybar/scripts/workspace.sh 10",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=10})'",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
     },
 
     "hyprland/window": {
