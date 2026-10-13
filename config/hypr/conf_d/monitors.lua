@@ -32,9 +32,21 @@
 
 -- correct name — the hdmi-hotplug.sh script matches on "HDMI-*" prefix.
 
+-- Stacked layout (S246): external display sits ABOVE the laptop panel, centered.
+-- eDP-1 logical size is 1920x1200 (3840x2400 @ scale 2); the external is 2560x1440
+-- @ scale 4/3 (logical 1920x1080), so it sits at x = 0, y = -1080. rdisplay profiles re-assert
+-- this on hotplug; edit via `rdisplay place`/the editor, not by hand.
+
+hl.monitor({
+    output   = "eDP-1",
+    mode     = "preferred",
+    position = "0x0",
+    scale    = 2,
+})
+
 hl.monitor({
     output   = "HDMI-A-1",
-    mode     = "1920x1080@59.94",
-    position = "auto-right",
-    scale    = 1,
+    mode     = "2560x1440@75",
+    position = "0x-1080",
+    scale    = 1.33333333,
 })
