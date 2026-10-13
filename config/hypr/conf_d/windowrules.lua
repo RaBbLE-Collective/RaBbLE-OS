@@ -1000,3 +1000,31 @@ hl.layer_rule({
     },
     blur = true,
 })
+
+-- ── Float + center: rdisplay (display manager applet, S246) ──────────────────
+
+-- Opens as its own window centered on the screen it was launched from.
+
+hl.window_rule({
+    name  = "float_rdisplay",
+    match = {
+        class = "^(world.rabble.rdisplay)$",
+    },
+    float = true,
+})
+
+hl.window_rule({
+    name  = "size_rdisplay",
+    match = {
+        class = "^(world.rabble.rdisplay)$",
+    },
+    size = "1040 700",
+})
+
+hl.window_rule({
+    name  = "center_rdisplay",
+    match = {
+        class = "^(world.rabble.rdisplay)$",
+    },
+    center = true,
+})

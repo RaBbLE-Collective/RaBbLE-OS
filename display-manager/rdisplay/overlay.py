@@ -2,7 +2,6 @@
 Run via `rdisplay overlay` (toggles: a second call closes the open one). Esc closes.
 Needs LD_PRELOAD=libgtk4-layer-shell.so (cli re-execs itself with it)."""
 import os
-import re
 import signal
 import subprocess
 import sys
@@ -13,37 +12,10 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gtk4LayerShell", "1.0")
 from gi.repository import Gdk, GLib, Gtk, Gtk4LayerShell as LS  # noqa: E402
 
-from . import core, profiles  # noqa: E402
+from . import core, gtkstyle, profiles  # noqa: E402
 
-AETHER = os.path.expanduser("~/RaBbLE-Collective/RaBbLE-Aether/dist/aether.css")
 PIDFILE = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "rdisplay-overlay.pid")
 REVERT = 15
-TOKENS = ("bg", "surface", "border", "text", "cyan", "magenta", "dimmer")
-
-
-def _css():
-    """Aether tokens -> GTK @define-color, so the palette stays single-sourced in Aether."""
-    defs = ""
-    try:
-        src = open(AETHER).read()
-        for t in TOKENS:
-            m = re.search(r"--rabble-%s:\s*(#[0-9a-fA-F]{3,8})\s*;" % t, src)
-            if m:
-                defs += "@define-color r_%s %s;\n" % (t, m.group(1))
-    except OSError:
-        pass
-    if "r_bg" not in defs:
-        return ""
-    return defs + """
-    window.rd { background: @r_bg; color: @r_text; border: 1px solid @r_border; border-radius: 12px; }
-    .rd label.title { color: @r_cyan; font-weight: 600; font-size: 16px; }
-    .rd label.dim { color: @r_dimmer; font-size: 12px; }
-    .rd button { background: @r_surface; color: @r_text; border: 1px solid @r_border; border-radius: 8px; padding: 6px 14px; }
-    .rd button:hover { border-color: @r_cyan; }
-    .rd button.cur { border-color: @r_cyan; color: @r_cyan; }
-    .rd button.danger { border-color: @r_magenta; color: @r_magenta; }
-    .rd .warn { border: 1px solid @r_magenta; border-radius: 8px; padding: 8px; }
-    """
 
 
 class Overlay(Gtk.Window):
@@ -79,9 +51,9 @@ class Overlay(Gtk.Window):
             for m, lw, lh in rects:
                 x, y = ox + (m["x"] - x0) * k, oy + (m["y"] - y0) * k
                 cr.rectangle(x, y, lw * k - 2, lh * k - 2)
-                cr.set_source_rgba(0.07, 0.07, 0.16, 1); cr.fill_preserve()
-                cr.set_source_rgba(0, 0.96, 1, 1); cr.set_line_width(1.5); cr.stroke()
-                cr.set_source_rgba(0.91, 0.9, 0.94, 1); cr.set_font_size(12)
+                cr.set_source_rgb(*gtkstyle.rgb('surface')); cr.fill_preserve()
+                cr.set_source_rgb(*gtkstyle.rgb('cyan')); cr.set_line_width(1.5); cr.stroke()
+                cr.set_source_rgb(*gtkstyle.rgb('text')); cr.set_font_size(12)
                 cr.move_to(x + 8, y + 18); cr.show_text(m["name"])
                 cr.set_font_size(10); cr.move_to(x + 8, y + 33)
                 cr.show_text("%dx%d@%g  x%g" % (m["width"], m["height"], round(m["refresh"]), m["scale"]))
@@ -167,7 +139,7 @@ class Overlay(Gtk.Window):
         self.render()
 
     def editor(self):
-        subprocess.Popen([sys.executable, "-m", "rdisplay", "open"], stdout=subprocess.DEVNULL,
+        subprocess.Popen([sys.executable, "-m", "rdisplay", "app"], stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, start_new_session=True)
         self.close()
 
@@ -190,10 +162,7 @@ def run():
     app = Gtk.Application(application_id="world.rabble.rdisplay.overlay")
 
     def activate(a):
-        css = _css()
-        if css:
-            p = Gtk.CssProvider(); p.load_from_string(css)
-            Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), p, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        gtkstyle.install()
         Overlay(a).present()
 
     app.connect("activate", activate)

@@ -1,4 +1,4 @@
-"""rdisplay list | mode <mon> <WxH@R> | scale <mon> <factor> | place <mon> <above|below|left|right> <ref> | apply <profile> | save <name> | profiles | delete <name> | revert | gui | open | overlay | daemon"""
+"""rdisplay list | mode <mon> <WxH@R> | scale <mon> <factor> | place <mon> <above|below|left|right> <ref> | apply <profile> | save <name> | profiles | delete <name> | revert | app | gui | open | overlay | daemon"""
 import argparse
 import json
 import os
@@ -53,6 +53,7 @@ def main(argv=None):
     g.add_argument("--port", type=int, default=8765)
     sub.add_parser("daemon")
     sub.add_parser("overlay")
+    sub.add_parser("app", help="native GTK4 editor window")
     op = sub.add_parser("open", help="start the editor server if needed, then open it in the browser")
     op.add_argument("--port", type=int, default=8765)
     mo = sub.add_parser("mode")
@@ -150,6 +151,9 @@ def main(argv=None):
                 if up():
                     break
         subprocess.Popen(["xdg-open", "http://127.0.0.1:%d" % args.port])
+    elif args.cmd == "app":
+        from . import app
+        sys.exit(app.run())
     elif args.cmd == "overlay":
         # layer-shell must load before libwayland-client; re-exec once with LD_PRELOAD
         lib = "/usr/lib64/libgtk4-layer-shell.so.0"
