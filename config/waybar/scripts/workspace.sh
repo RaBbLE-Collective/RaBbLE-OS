@@ -11,4 +11,9 @@ windows=$(hyprctl workspaces -j | jq -r --argjson n "$id" '[.[]|select(.id==$n)|
 cls=empty
 [ "$windows" -gt 0 ] && cls=occupied
 [ "$active" = "$id" ] && cls=active
-printf '{"text":"%s","class":"%s"}\n' "$n" "$cls"
+# Empty, non-active workspaces render nothing, so waybar hides the button.
+if [ "$cls" = empty ]; then
+    printf '{"text":"","class":"empty"}\n'
+else
+    printf '{"text":"%s","class":"%s"}\n' "$n" "$cls"
+fi
