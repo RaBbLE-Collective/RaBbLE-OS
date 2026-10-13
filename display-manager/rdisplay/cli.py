@@ -119,8 +119,11 @@ def main(argv=None):
         _remember()
         m["scale"] = args.factor
         core.apply_layout(layout)
-        lw, lh = core.logical_size(next(x for x in core.list_monitors() if x["name"] == args.monitor))
-        print("logical size %.4g x %.4g" % (lw, lh))
+        time.sleep(0.3)
+        got = next(x for x in core.list_monitors() if x["name"] == args.monitor)
+        lw, lh = core.logical_size(got)
+        note = "" if abs(got["scale"] - args.factor) < 0.001 else "  (compositor adjusted from %g)" % args.factor
+        print("scale %g, logical size %.5g x %.5g%s" % (got["scale"], lw, lh, note))
     elif args.cmd == "place":
         layout = place(core.snapshot(), args.monitor, args.side, args.ref, args.align)
         _remember()

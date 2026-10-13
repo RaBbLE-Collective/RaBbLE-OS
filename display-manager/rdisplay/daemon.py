@@ -15,6 +15,7 @@ import time
 from . import core, profiles
 
 DEBOUNCE = 2.0
+POLL = 5.0  # drift check interval; a drift must persist across two polls
 HDMI_WS = 11
 
 
@@ -68,6 +69,31 @@ def reconcile():
     return mons
 
 
+def watch_drift(busy):
+    """Re-assert the last layout rdisplay applied when a monitor drifts without a hotplug event
+    (e.g. a KVM re-detect falling back to a stale boot-time rule). `busy` is set while a hotplug
+    reconcile is pending so the two never fight."""
+    strikes = {}
+    while True:
+        time.sleep(POLL)
+        try:
+            intent = core.load_intent()
+            if not intent or busy():
+                strikes.clear()
+                continue
+            bad = core.drifted(intent, core.list_monitors())
+            strikes = {n: strikes.get(n, 0) + 1 for n in bad}
+            if any(c >= 2 for c in strikes.values()):
+                log("drift on", sorted(strikes), "-> re-applying last layout")
+                live = {m["name"] for m in core.list_monitors()}
+                core.apply_layout([m for m in intent if m["name"] in live])
+                strikes.clear()
+                time.sleep(0.5)
+                ensure_bars(core.list_monitors())
+        except Exception as e:
+            log("drift check failed:", e)
+
+
 def run():
     sig = os.environ["HYPRLAND_INSTANCE_SIGNATURE"]
     path = os.path.join(os.environ["XDG_RUNTIME_DIR"], "hypr", sig, ".socket2.sock")
@@ -95,6 +121,7 @@ def run():
         timer["t"].start()
 
     log("daemon up; watching", path)
+    threading.Thread(target=watch_drift, args=(lambda: timer["t"] is not None and timer["t"].is_alive(),), daemon=True).start()
     poke()  # settle once at startup
     with socket.socket(socket.AF_UNIX) as s:
         s.connect(path)
