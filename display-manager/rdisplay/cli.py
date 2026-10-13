@@ -1,4 +1,4 @@
-"""rdisplay list | mode <mon> <WxH@R> | scale <mon> <factor> | place <mon> <above|below|left|right> <ref> | apply <profile> | save <name> | profiles | delete <name> | revert | gui | overlay | daemon"""
+"""rdisplay list | mode <mon> <WxH@R> | scale <mon> <factor> | place <mon> <above|below|left|right> <ref> | apply <profile> | save <name> | profiles | delete <name> | revert | gui | open | overlay | daemon"""
 import argparse
 import json
 import os
@@ -53,6 +53,8 @@ def main(argv=None):
     g.add_argument("--port", type=int, default=8765)
     sub.add_parser("daemon")
     sub.add_parser("overlay")
+    op = sub.add_parser("open", help="start the editor server if needed, then open it in the browser")
+    op.add_argument("--port", type=int, default=8765)
     mo = sub.add_parser("mode")
     mo.add_argument("monitor")
     mo.add_argument("mode", help="WxH@R from `rdisplay list`/modes, e.g. 2560x1440@75")
@@ -132,6 +134,22 @@ def main(argv=None):
         if args.revert_in and not _confirm(args.revert_in):
             print("\nreverting")
             core.apply_layout(json.load(open(STATE)))
+    elif args.cmd == "open":
+        import socket
+        import subprocess
+
+        def up():
+            with socket.socket() as c:
+                c.settimeout(0.3)
+                return c.connect_ex(("127.0.0.1", args.port)) == 0
+        if not up():
+            subprocess.Popen([sys.executable, "-m", "rdisplay", "gui", "--port", str(args.port)],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            for _ in range(20):
+                time.sleep(0.15)
+                if up():
+                    break
+        subprocess.Popen(["xdg-open", "http://127.0.0.1:%d" % args.port])
     elif args.cmd == "overlay":
         # layer-shell must load before libwayland-client; re-exec once with LD_PRELOAD
         lib = "/usr/lib64/libgtk4-layer-shell.so.0"

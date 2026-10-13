@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=RaBbLE Displays
+GenericName=Display Manager
+Comment=Arrange monitors, set resolution, refresh rate and scaling, manage display profiles
+Exec=rdisplay open
+Icon=video-display
+Categories=Settings;HardwareSettings;
+Keywords=monitor;screen;display;resolution;scale;scaling;refresh;rotate;layout;arrange;
+Terminal=false
+StartupNotify=false
+Actions=switcher;
+
+[Desktop Action switcher]
+Name=Quick switcher (overlay)
+Exec=rdisplay overlay

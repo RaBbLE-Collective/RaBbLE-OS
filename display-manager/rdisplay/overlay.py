@@ -167,9 +167,8 @@ class Overlay(Gtk.Window):
         self.render()
 
     def editor(self):
-        subprocess.Popen([sys.executable, "-m", "rdisplay", "gui"], stdout=subprocess.DEVNULL,
+        subprocess.Popen([sys.executable, "-m", "rdisplay", "open"], stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, start_new_session=True)
-        GLib.timeout_add(700, lambda: subprocess.Popen(["xdg-open", "http://127.0.0.1:8765"]) and False)
         self.close()
 
 

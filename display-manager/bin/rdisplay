@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# rdisplay launcher: resolves its own location (works via the ~/.local/bin symlink) so no PYTHONPATH is needed.
+here="$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")"
+PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m rdisplay "$@"
