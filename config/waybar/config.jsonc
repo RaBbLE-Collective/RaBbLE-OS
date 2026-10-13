@@ -119,83 +119,83 @@
     },
     "custom/ws1": {
         "exec": "~/.config/waybar/scripts/workspace.sh 1",
+        "on-click": "~/.config/hypr/scripts/wsctl.sh focus 1 $WAYBAR_OUTPUT_NAME",
         "return-type": "json",
         "interval": 1,
-        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=1})'",
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+        "on-scroll-up": "~/.config/hypr/scripts/wsctl.sh cycle -1",
+        "on-scroll-down": "~/.config/hypr/scripts/wsctl.sh cycle +1"
     },
     "custom/ws2": {
         "exec": "~/.config/waybar/scripts/workspace.sh 2",
+        "on-click": "~/.config/hypr/scripts/wsctl.sh focus 2 $WAYBAR_OUTPUT_NAME",
         "return-type": "json",
         "interval": 1,
-        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=2})'",
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+        "on-scroll-up": "~/.config/hypr/scripts/wsctl.sh cycle -1",
+        "on-scroll-down": "~/.config/hypr/scripts/wsctl.sh cycle +1"
     },
     "custom/ws3": {
         "exec": "~/.config/waybar/scripts/workspace.sh 3",
+        "on-click": "~/.config/hypr/scripts/wsctl.sh focus 3 $WAYBAR_OUTPUT_NAME",
         "return-type": "json",
         "interval": 1,
-        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=3})'",
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+        "on-scroll-up": "~/.config/hypr/scripts/wsctl.sh cycle -1",
+        "on-scroll-down": "~/.config/hypr/scripts/wsctl.sh cycle +1"
     },
     "custom/ws4": {
         "exec": "~/.config/waybar/scripts/workspace.sh 4",
+        "on-click": "~/.config/hypr/scripts/wsctl.sh focus 4 $WAYBAR_OUTPUT_NAME",
         "return-type": "json",
         "interval": 1,
-        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=4})'",
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+        "on-scroll-up": "~/.config/hypr/scripts/wsctl.sh cycle -1",
+        "on-scroll-down": "~/.config/hypr/scripts/wsctl.sh cycle +1"
     },
     "custom/ws5": {
         "exec": "~/.config/waybar/scripts/workspace.sh 5",
+        "on-click": "~/.config/hypr/scripts/wsctl.sh focus 5 $WAYBAR_OUTPUT_NAME",
         "return-type": "json",
         "interval": 1,
-        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=5})'",
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+        "on-scroll-up": "~/.config/hypr/scripts/wsctl.sh cycle -1",
+        "on-scroll-down": "~/.config/hypr/scripts/wsctl.sh cycle +1"
     },
     "custom/ws6": {
         "exec": "~/.config/waybar/scripts/workspace.sh 6",
+        "on-click": "~/.config/hypr/scripts/wsctl.sh focus 6 $WAYBAR_OUTPUT_NAME",
         "return-type": "json",
         "interval": 1,
-        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=6})'",
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+        "on-scroll-up": "~/.config/hypr/scripts/wsctl.sh cycle -1",
+        "on-scroll-down": "~/.config/hypr/scripts/wsctl.sh cycle +1"
     },
     "custom/ws7": {
         "exec": "~/.config/waybar/scripts/workspace.sh 7",
+        "on-click": "~/.config/hypr/scripts/wsctl.sh focus 7 $WAYBAR_OUTPUT_NAME",
         "return-type": "json",
         "interval": 1,
-        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=7})'",
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+        "on-scroll-up": "~/.config/hypr/scripts/wsctl.sh cycle -1",
+        "on-scroll-down": "~/.config/hypr/scripts/wsctl.sh cycle +1"
     },
     "custom/ws8": {
         "exec": "~/.config/waybar/scripts/workspace.sh 8",
+        "on-click": "~/.config/hypr/scripts/wsctl.sh focus 8 $WAYBAR_OUTPUT_NAME",
         "return-type": "json",
         "interval": 1,
-        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=8})'",
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+        "on-scroll-up": "~/.config/hypr/scripts/wsctl.sh cycle -1",
+        "on-scroll-down": "~/.config/hypr/scripts/wsctl.sh cycle +1"
     },
     "custom/ws9": {
         "exec": "~/.config/waybar/scripts/workspace.sh 9",
+        "on-click": "~/.config/hypr/scripts/wsctl.sh focus 9 $WAYBAR_OUTPUT_NAME",
         "return-type": "json",
         "interval": 1,
-        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=9})'",
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+        "on-scroll-up": "~/.config/hypr/scripts/wsctl.sh cycle -1",
+        "on-scroll-down": "~/.config/hypr/scripts/wsctl.sh cycle +1"
     },
     "custom/ws10": {
         "exec": "~/.config/waybar/scripts/workspace.sh 10",
+        "on-click": "~/.config/hypr/scripts/wsctl.sh focus 10 $WAYBAR_OUTPUT_NAME",
         "return-type": "json",
         "interval": 1,
-        "on-click": "hyprctl dispatch 'hl.dsp.focus({workspace=10})'",
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({workspace=\"-1\"})'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"+1\"})'"
+        "on-scroll-up": "~/.config/hypr/scripts/wsctl.sh cycle -1",
+        "on-scroll-down": "~/.config/hypr/scripts/wsctl.sh cycle +1"
     },
 
     "hyprland/window": {

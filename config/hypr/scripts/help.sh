@@ -24,7 +24,7 @@ cat << "EOF"
   SUPER + H/J/K/L    Focus direction (Vim-style)
   SUPER + SHIFT+HJKL Move window
   SUPER + R → HJKL   Resize mode (Esc to exit)
-  SUPER + 1–0        Switch workspace
+  SUPER + 1–0        Switch workspace (per-monitor: each screen has its own 1–10)
   SUPER + SHIFT+1–0  Move window to workspace
   SUPER + Tab        Previous workspace
   SUPER + [ / ]      Cycle workspaces

@@ -204,57 +204,57 @@ end)
 
 -- ── Workspaces 1–10 ───────────────────────────────────────────────────────────
 
-hl.bind(mod .. " + " .. 1, hl.dsp.focus({ workspace = 1 }))
+hl.bind(mod .. " + " .. 1, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh focus 1"))
 
-hl.bind(mod .. " + " .. 2, hl.dsp.focus({ workspace = 2 }))
+hl.bind(mod .. " + " .. 2, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh focus 2"))
 
-hl.bind(mod .. " + " .. 3, hl.dsp.focus({ workspace = 3 }))
+hl.bind(mod .. " + " .. 3, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh focus 3"))
 
-hl.bind(mod .. " + " .. 4, hl.dsp.focus({ workspace = 4 }))
+hl.bind(mod .. " + " .. 4, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh focus 4"))
 
-hl.bind(mod .. " + " .. 5, hl.dsp.focus({ workspace = 5 }))
+hl.bind(mod .. " + " .. 5, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh focus 5"))
 
-hl.bind(mod .. " + " .. 6, hl.dsp.focus({ workspace = 6 }))
+hl.bind(mod .. " + " .. 6, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh focus 6"))
 
-hl.bind(mod .. " + " .. 7, hl.dsp.focus({ workspace = 7 }))
+hl.bind(mod .. " + " .. 7, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh focus 7"))
 
-hl.bind(mod .. " + " .. 8, hl.dsp.focus({ workspace = 8 }))
+hl.bind(mod .. " + " .. 8, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh focus 8"))
 
-hl.bind(mod .. " + " .. 9, hl.dsp.focus({ workspace = 9 }))
+hl.bind(mod .. " + " .. 9, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh focus 9"))
 
-hl.bind(mod .. " + " .. 0, hl.dsp.focus({ workspace = 10 }))
+hl.bind(mod .. " + " .. 0, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh focus 10"))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 1, hl.dsp.window.move({ workspace = 1 }))
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 1, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh move 1"))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 2, hl.dsp.window.move({ workspace = 2 }))
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 2, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh move 2"))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 3, hl.dsp.window.move({ workspace = 3 }))
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 3, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh move 3"))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 4, hl.dsp.window.move({ workspace = 4 }))
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 4, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh move 4"))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 5, hl.dsp.window.move({ workspace = 5 }))
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 5, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh move 5"))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 6, hl.dsp.window.move({ workspace = 6 }))
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 6, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh move 6"))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 7, hl.dsp.window.move({ workspace = 7 }))
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 7, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh move 7"))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 8, hl.dsp.window.move({ workspace = 8 }))
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 8, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh move 8"))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 9, hl.dsp.window.move({ workspace = 9 }))
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 9, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh move 9"))
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 0, hl.dsp.window.move({ workspace = 10 }))
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. 0, hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh move 10"))
 
 -- Cycle workspaces
 
 hl.bind(mod .. " + " .. "Tab", hl.dsp.focus({ workspace = "previous" }))
 
-hl.bind(mod .. " + " .. "mouse_down", hl.dsp.focus({ workspace = "e+1" }))
+hl.bind(mod .. " + " .. "mouse_down", hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh cycle +1"))
 
-hl.bind(mod .. " + " .. "mouse_up", hl.dsp.focus({ workspace = "e-1" }))
+hl.bind(mod .. " + " .. "mouse_up", hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh cycle -1"))
 
-hl.bind(mod .. " + " .. "bracketright", hl.dsp.focus({ workspace = "e+1" }))
+hl.bind(mod .. " + " .. "bracketright", hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh cycle +1"))
 
-hl.bind(mod .. " + " .. "bracketleft", hl.dsp.focus({ workspace = "e-1" }))
+hl.bind(mod .. " + " .. "bracketleft", hl.dsp.exec_cmd("~/.config/hypr/scripts/wsctl.sh cycle -1"))
 
 -- ── Scratchpad ────────────────────────────────────────────────────────────────
 
