@@ -1,4 +1,4 @@
-"""rdisplay list | mode <mon> <WxH@R> | scale <mon> <factor> | place <mon> <above|below|left|right> <ref> | apply <profile> | save <name> | profiles | delete <name> | revert | gui | daemon"""
+"""rdisplay list | mode <mon> <WxH@R> | scale <mon> <factor> | place <mon> <above|below|left|right> <ref> | apply <profile> | save <name> | profiles | delete <name> | revert | gui | overlay | daemon"""
 import argparse
 import json
 import os
@@ -52,6 +52,7 @@ def main(argv=None):
     g = sub.add_parser("gui")
     g.add_argument("--port", type=int, default=8765)
     sub.add_parser("daemon")
+    sub.add_parser("overlay")
     mo = sub.add_parser("mode")
     mo.add_argument("monitor")
     mo.add_argument("mode", help="WxH@R from `rdisplay list`/modes, e.g. 2560x1440@75")
@@ -131,6 +132,14 @@ def main(argv=None):
         if args.revert_in and not _confirm(args.revert_in):
             print("\nreverting")
             core.apply_layout(json.load(open(STATE)))
+    elif args.cmd == "overlay":
+        # layer-shell must load before libwayland-client; re-exec once with LD_PRELOAD
+        lib = "/usr/lib64/libgtk4-layer-shell.so.0"
+        if lib not in os.environ.get("LD_PRELOAD", "") and os.path.exists(lib):
+            os.environ["LD_PRELOAD"] = (lib + ":" + os.environ.get("LD_PRELOAD", "")).rstrip(":")
+            os.execv(sys.executable, [sys.executable, "-m", "rdisplay", "overlay"])
+        from . import overlay
+        overlay.run()
     elif args.cmd == "daemon":
         from . import daemon
         daemon.run()

@@ -100,11 +100,10 @@ hl.bind("XF86KbdBrightnessDown", hl.dsp.exec_cmd("~/.config/hypr/scripts/kb-brig
 
 -- ── Display ───────────────────────────────────────────────────────────────────
 
--- Display mode switcher — cycle monitor layouts via kanshi
+-- Display switcher — rdisplay overlay (layout map + profiles + keep/revert); press again to close.
+-- Also on SUPER+SHIFT+P (keybinds.lua). Replaces the dead kanshictl binding (S246).
 
--- kanshictl switch cycles through profiles defined in ~/.config/kanshi/config
-
-hl.bind("XF86Display", hl.dsp.exec_cmd("kanshictl switch"))
+hl.bind("XF86Display", hl.dsp.exec_cmd("env PYTHONPATH=$HOME/RaBbLE-Collective/RaBbLE-OS/display-manager python3 -m rdisplay overlay"))
 
 -- ── Screen Capture ────────────────────────────────────────────────────────────
 

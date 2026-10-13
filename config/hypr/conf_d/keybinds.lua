@@ -71,6 +71,10 @@ hl.bind(mod .. " + " .. "V", hl.dsp.window.float())
 
 hl.bind(mod .. " + " .. "P", hl.dsp.window.pseudo())
 
+-- Display switcher overlay (rdisplay), same as the XF86Display key
+
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "P", hl.dsp.exec_cmd("env PYTHONPATH=$HOME/RaBbLE-Collective/RaBbLE-OS/display-manager python3 -m rdisplay overlay"))
+
 -- dwindle pseudo tile
 
 hl.bind(mod .. " + " .. "G", hl.dsp.group.toggle())
