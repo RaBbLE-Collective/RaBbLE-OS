@@ -1538,6 +1538,30 @@ packages:
     layer: layer/esp-idf
     ks: false
 
+  - name: libasan
+    category: layer.esp-idf
+    reason: AddressSanitizer runtime for host-side firmware tests (RaBbLE-Pocket firmware/test/cleanroom/ run.sh sanitizer passes skip without it, S256)
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: libubsan
+    category: layer.esp-idf
+    reason: UndefinedBehaviorSanitizer runtime for host-side firmware tests (RaBbLE-Pocket firmware/test/cleanroom/ run.sh sanitizer passes skip without it, S256)
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
+  - name: libtsan
+    category: layer.esp-idf
+    reason: ThreadSanitizer runtime for host-side firmware tests (RaBbLE-Pocket firmware/test/cleanroom/ run.sh sanitizer passes skip without it, S256)
+    source: fedora
+    platform: all
+    layer: layer/esp-idf
+    ks: false
+
   - name: eim-cli
     category: layer.esp-idf
     reason: "Espressif's official multi-version ESP-IDF installer/registry — now the actual mechanism this layer's tasks/main.yml uses to install ESP-IDF versions (`eim install`), not just a standalone extra. Chosen over eim-gui: full command parity confirmed via `eim --help` on the extracted binary, plus --non-interactive scriptability the GUI lacks. eim-cli and eim-gui both claim /usr/bin/eim (different binaries, confirmed by hash) so only one can be installed — CLI wins now that it's load-bearing."

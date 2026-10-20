@@ -39,8 +39,12 @@ esp_idf_prereq_packages:
 # useful for USB/serial work on this board. picocom: lightweight serial
 # terminal, handy without idf.py's environment active. usbutils: lsusb, for
 # diagnosing device enumeration. fzf: nicer picker in esp-idf-select.sh (that
-# script falls back to plain `select` if fzf isn't present).
+# script falls back to plain `select` if fzf isn't present). libasan/libubsan/
+# libtsan: sanitizer runtimes for Pocket's host-side firmware tests.
 esp_idf_extra_packages:
   - picocom
   - usbutils
   - fzf
+  - libasan
+  - libubsan
+  - libtsan
