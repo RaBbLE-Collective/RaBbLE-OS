@@ -375,6 +375,14 @@
     - role: layer/arduino-cli
       when: rabble_enable_arduino_cli | default(false) | bool
 
+- name: "Layer — ATLAS sentry (host dev tooling for the Pi 4 pan-tilt robot, opt-in)"
+  hosts: all
+  become: true
+  tags: [layer, atlas-sentry]
+  roles:
+    - role: layer/atlas-sentry
+      when: rabble_enable_atlas_sentry | default(false) | bool
+
 - name: "Layer — .NET SDK (dev tool, opt-in)"
   hosts: all
   become: true

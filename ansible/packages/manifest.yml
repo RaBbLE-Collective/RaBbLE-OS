@@ -1586,6 +1586,37 @@ packages:
     layer: layer/arduino-cli
     ks: false
 
+  # ── layer/atlas-sentry — host dev tooling for the ATLAS sentry robot ────────
+  # Opt-in (rabble_enable_atlas_sentry, default false) — never installed by
+  # `apply all` / `upgrade`. layerctl `apply atlas-sentry`. role:
+  # ansible/roles/layer/atlas-sentry/, play: site.yml. ATLAS (~/ATLAS-next) is a
+  # personal side project on a Pi 4; the laptop only needs enough to run its pure-logic
+  # code offline, read frames, and rebuild the Arduino firmware.
+
+  - name: python3-opencv
+    category: layer.atlas-sentry
+    reason: "cv2 for ATLAS frame handling, overlay and MJPEG encoding, so the sentry code imports and runs offline on the laptop."
+    source: fedora
+    platform: all
+    layer: layer/atlas-sentry
+    ks: false
+
+  - name: python3-numpy
+    category: layer.atlas-sentry
+    reason: "Image maths in the ATLAS routines (phase correlation, percentiles); usually already present."
+    source: fedora
+    platform: all
+    layer: layer/atlas-sentry
+    ks: false
+
+  - name: python3-pyserial
+    category: layer.atlas-sentry
+    reason: "Serial link to the pan-tilt Arduino (turret_controller.py); lets the laptop import and bench the controller."
+    source: fedora
+    platform: all
+    layer: layer/atlas-sentry
+    ks: false
+
   # ── layer/dotnet-sdk — .NET SDK ──────────────────────────────────────────
   # Opt-in (rabble_enable_dotnet_sdk, default false) — never installed by
   # `apply all` / `upgrade`. layerctl `apply dotnet-sdk`. role:
