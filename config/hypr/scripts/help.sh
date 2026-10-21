@@ -16,7 +16,7 @@ cat << "EOF"
   SUPER + F          Toggle fullscreen
   SUPER + SHIFT + F  Toggle maximize (keeps bar)
   SUPER + U          Raise window to top
-  SUPER + SHIFT + U  Pin window (floating: on top, all workspaces)
+  SUPER + SHIFT + U  Float on top (toggle; all workspaces)
   SUPER + V          Toggle floating
   SUPER + G          Toggle window group
   SUPER + Q  (SHIFT) Kill active window / Exit Hyprland

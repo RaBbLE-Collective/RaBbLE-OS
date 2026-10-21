@@ -64,8 +64,10 @@ hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "F", hl.dsp.window.fullscreen({ mode
 -- Raise the focused window above all others (mainly for floating windows)
 hl.bind(mod .. " + " .. "U", hl.dsp.window.bring_to_top())
 
--- Pin = keep on top and visible on every workspace (toggle)
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "U", hl.dsp.window.pin())
+-- Float on top (toggle): tiled -> floating, centered, pinned above everything,
+-- visible on every workspace; press again to return to tiling.
+-- (Bare pin does nothing on tiled windows, so this floats first.)
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "U", hl.dsp.exec_cmd("~/.config/hypr/scripts/float-top.sh"))
 
 hl.bind(mod .. " + " .. "V", hl.dsp.window.float())
 
