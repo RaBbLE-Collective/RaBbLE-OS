@@ -60,9 +60,9 @@ alias vim='nvim'
 alias v='nvim'
 
 # ── RaBbLE-OS ─────────────────────────────────────────────────────────────────
-alias rabble='cd ~/RaBbLE-OS'
-alias rabble-apply='cd ~/RaBbLE-OS && ./RaBbLE-OS-layerctl.sh apply all'
-alias rabble-dots='cd ~/RaBbLE-OS && ./RaBbLE-OS-dotctl.sh apply all'
+# `rabble` itself is the Crew launcher (~/.local/bin/rabble, RaBbLE-sCoRE crew/rabble.py), not an alias
+alias rabble-apply='cd ~/RaBbLE-Collective/RaBbLE-OS && ./RaBbLE-OS-layerctl.sh apply all'
+alias rabble-dots='cd ~/RaBbLE-Collective/RaBbLE-OS && ./RaBbLE-OS-dotctl.sh apply all'
 alias hypr-reload='hyprctl reload'
 alias hypr-kill='hyprctl kill'
 alias qs-restart='pkill quickshell; sleep 0.5; quickshell &'

@@ -34,3 +34,38 @@
 - name: Report Claude Code version
   ansible.builtin.debug:
     msg: "Claude Code: {{ _claude_version.stdout | default('not found — check PATH and NPM_CONFIG_PREFIX') }}"
+
+# rabble: Claude Code as RaBbLE with the Crew as agent-team organs (sCoRE crew/rabble.py,
+# S273). Linked only when the sCoRE member is cloned inside the Collective.
+- name: Check for the sCoRE rabble launcher
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-sCoRE/scripts/rabble"
+  register: _rabble_launcher
+
+- name: Check what ~/.local/bin/rabble is now
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.local/bin/rabble"
+    follow: false
+  register: _rabble_dest
+
+- name: Ensure ~/.local/bin exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.local/bin"
+    state: directory
+    mode: '0755'
+  when: _rabble_launcher.stat.exists
+
+# Replaces an existing symlink, never a real file (the future L-09 CLI shares the name;
+# per RaBbLE-sCoRE-Crew.md C2 it extends crew/rabble.py rather than installing its own binary).
+- name: Link rabble launcher into ~/.local/bin
+  ansible.builtin.file:
+    src: "{{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-sCoRE/scripts/rabble"
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/rabble"
+    state: link
+    force: true
+  when: _rabble_launcher.stat.exists and (not _rabble_dest.stat.exists or _rabble_dest.stat.islnk)
+
+- name: Report a non-link ~/.local/bin/rabble left in place
+  ansible.builtin.debug:
+    msg: "~/.local/bin/rabble is a real file, not replaced; remove it to install the Crew launcher"
+  when: _rabble_launcher.stat.exists and _rabble_dest.stat.exists and not _rabble_dest.stat.islnk
