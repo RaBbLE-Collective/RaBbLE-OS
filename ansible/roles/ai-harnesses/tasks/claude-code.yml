@@ -69,3 +69,35 @@
   ansible.builtin.debug:
     msg: "~/.local/bin/rabble is a real file, not replaced; remove it to install the Crew launcher"
   when: _rabble_launcher.stat.exists and _rabble_dest.stat.exists and not _rabble_dest.stat.islnk
+
+# RaBbLE-UI venv: `rabble`'s own Textual face over a headless Claude Code (sCoRE ui/ +
+# orchestra/, plan log/plans/sCoRE-RaBbLE-UI-Plan.md). Pins live in sCoRE ui/requirements.txt;
+# scripts/rabble runs this venv's python. Built only when sCoRE is cloned.
+- name: Check for the RaBbLE-UI requirements
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-sCoRE/ui/requirements.txt"
+  register: _rabble_ui_reqs
+
+- name: Ensure uv (Python package manager) is installed
+  ansible.builtin.shell: |
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.local/bin/uv"
+  when: _rabble_ui_reqs.stat.exists
+
+- name: Create the RaBbLE-UI venv
+  ansible.builtin.command: >
+    {{ lookup('env', 'HOME') }}/.local/bin/uv venv --python 3.14
+    {{ lookup('env', 'HOME') }}/.local/share/RaBbLE/rabble-ui
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.local/share/RaBbLE/rabble-ui/bin/python"
+  when: _rabble_ui_reqs.stat.exists
+
+- name: Install RaBbLE-UI dependencies into the venv
+  ansible.builtin.command: >
+    {{ lookup('env', 'HOME') }}/.local/bin/uv pip install
+    --python {{ lookup('env', 'HOME') }}/.local/share/RaBbLE/rabble-ui/bin/python
+    -r {{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-sCoRE/ui/requirements.txt
+  register: _rabble_ui_install
+  changed_when: "'Installed' in _rabble_ui_install.stderr or 'Uninstalled' in _rabble_ui_install.stderr"
+  when: _rabble_ui_reqs.stat.exists
