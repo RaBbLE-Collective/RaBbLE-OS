@@ -10,6 +10,8 @@
 #   source:   fedora | rpmfusion-free | rpmfusion-nonfree | copr:<name> | repo:<name> | flatpak
 #   platform: all | asus_proart_p16 | generic_x64
 #   layer:    installation tier (see LAYERS below)
+#   edition:  core | user | dev | creative — minimum edition that gets it; full gets all
+#             core in all; user in user/dev/creative/full; dev in dev/full; creative in creative/full
 #   ks:       true = include in Kickstart %packages block
 #
 # LAYERS — applied in order:
@@ -45,6 +47,7 @@ packages:
     source: fedora
     platform: all
     layer: ks-bootstrap
+    edition: core
     ks: true
 
   - name: ansible
@@ -53,6 +56,7 @@ packages:
     source: fedora
     platform: all
     layer: ks-bootstrap
+    edition: core
     ks: true
 
   - name: python3
@@ -61,6 +65,7 @@ packages:
     source: fedora
     platform: all
     layer: ks-bootstrap
+    edition: core
     ks: true
 
   - name: curl
@@ -69,6 +74,7 @@ packages:
     source: fedora
     platform: all
     layer: ks-bootstrap
+    edition: core
     ks: true
 
   # ═══════════════════════════════════════════════════════════════════════════
@@ -82,6 +88,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: true
 
   - name: NetworkManager-wifi
@@ -90,6 +97,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: true
 
   - name: wget
@@ -98,6 +106,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: rsync
@@ -106,6 +115,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: unzip
@@ -114,6 +124,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: p7zip
@@ -122,6 +133,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: jq
@@ -130,6 +142,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: yamllint
@@ -138,6 +151,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: ShellCheck
@@ -146,6 +160,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: polkit
@@ -154,6 +169,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: true
 
   - name: fwupd
@@ -162,6 +178,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: xdg-user-dirs
@@ -170,6 +187,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: xdg-utils
@@ -178,6 +196,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: neovim
@@ -186,6 +205,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: btop
@@ -194,6 +214,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: fastfetch
@@ -202,6 +223,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: bash-completion
@@ -210,6 +232,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   # ── Shell — ZSH ───────────────────────────────────────────────────────────
@@ -220,6 +243,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: zsh-syntax-highlighting
@@ -228,6 +252,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   - name: zsh-autosuggestions
@@ -236,6 +261,7 @@ packages:
     source: fedora
     platform: all
     layer: core
+    edition: core
     ks: false
 
   # powerlevel10k: installed via git clone — not a Fedora package
@@ -251,6 +277,7 @@ packages:
     source: fedora
     platform: all
     layer: boot
+    edition: core
     ks: false
 
   - name: plymouth
@@ -259,6 +286,7 @@ packages:
     source: fedora
     platform: all
     layer: boot
+    edition: core
     ks: false
 
   - name: plymouth-plugin-script
@@ -267,6 +295,7 @@ packages:
     source: fedora
     platform: all
     layer: boot
+    edition: core
     ks: false
 
   - name: plymouth-plugin-label
@@ -275,6 +304,7 @@ packages:
     source: fedora
     platform: all
     layer: boot
+    edition: core
     ks: false
 
   - name: terminus-fonts
@@ -283,6 +313,7 @@ packages:
     source: fedora
     platform: all
     layer: boot
+    edition: core
     ks: false
 
   - name: terminus-fonts-console
@@ -291,6 +322,7 @@ packages:
     source: fedora
     platform: all
     layer: boot
+    edition: core
     ks: false
 
   # ═══════════════════════════════════════════════════════════════════════════
@@ -304,6 +336,7 @@ packages:
     source: fedora
     platform: all
     layer: audio
+    edition: core
     ks: false
 
   - name: wireplumber
@@ -312,6 +345,7 @@ packages:
     source: fedora
     platform: all
     layer: audio
+    edition: core
     ks: false
 
   - name: pipewire-pulse
@@ -320,6 +354,7 @@ packages:
     source: fedora
     platform: all
     layer: audio
+    edition: core
     ks: false
 
   - name: pipewire-alsa
@@ -328,6 +363,7 @@ packages:
     source: fedora
     platform: all
     layer: audio
+    edition: core
     ks: false
 
   - name: pipewire-jack
@@ -336,6 +372,7 @@ packages:
     source: fedora
     platform: all
     layer: audio
+    edition: core
     ks: false
 
   # ═══════════════════════════════════════════════════════════════════════════
@@ -350,6 +387,7 @@ packages:
     source: fedora
     platform: all
     layer: fonts
+    edition: core
     ks: false
 
   - name: fontawesome-6-free-fonts
@@ -358,6 +396,7 @@ packages:
     source: fedora
     platform: all
     layer: fonts
+    edition: core
     ks: false
 
   - name: fontawesome-6-brands-fonts
@@ -366,6 +405,7 @@ packages:
     source: fedora
     platform: all
     layer: fonts
+    edition: core
     ks: false
 
   - name: google-noto-sans-fonts
@@ -374,6 +414,7 @@ packages:
     source: fedora
     platform: all
     layer: fonts
+    edition: core
     ks: false
 
   - name: google-noto-emoji-fonts
@@ -382,6 +423,7 @@ packages:
     source: fedora
     platform: all
     layer: fonts
+    edition: core
     ks: false
 
   - name: ndiscover-exo-2-fonts
@@ -390,6 +432,7 @@ packages:
     source: fedora
     platform: all
     layer: fonts
+    edition: core
     ks: false
 
   # Orbitron Variable: not in Fedora repos — bundled as TTF in boot/plymouth/files/rabble-aether/fonts/
@@ -413,6 +456,7 @@ packages:
     source: fedora
     platform: all
     layer: wayland
+    edition: core
     ks: false
 
   - name: cliphist
@@ -421,6 +465,7 @@ packages:
     source: fedora
     platform: all
     layer: wayland
+    edition: core
     ks: false
 
   - name: xdg-desktop-portal-gtk
@@ -429,6 +474,7 @@ packages:
     source: fedora
     platform: all
     layer: wayland
+    edition: core
     ks: false
 
   - name: kanshi
@@ -437,6 +483,7 @@ packages:
     source: fedora
     platform: all
     layer: wayland
+    edition: core
     ks: false
 
   - name: wlr-randr
@@ -445,6 +492,7 @@ packages:
     source: fedora
     platform: all
     layer: wayland
+    edition: core
     ks: false
 
   - name: socat
@@ -453,6 +501,7 @@ packages:
     source: fedora
     platform: all
     layer: wayland
+    edition: core
     ks: false
 
   - name: qt6-qtwayland
@@ -461,6 +510,7 @@ packages:
     source: fedora
     platform: all
     layer: wayland
+    edition: core
     ks: false
 
   - name: qt5-qtwayland
@@ -469,6 +519,7 @@ packages:
     source: fedora
     platform: all
     layer: wayland
+    edition: core
     ks: false
 
   # ═══════════════════════════════════════════════════════════════════════════
@@ -482,6 +533,7 @@ packages:
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor
+    edition: core
     ks: false
 
   - name: hyprland-devel
@@ -490,6 +542,7 @@ packages:
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor
+    edition: core
     ks: false
 
   - name: xdg-desktop-portal-hyprland
@@ -498,6 +551,7 @@ packages:
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor
+    edition: core
     ks: false
 
   - name: hyprland-guiutils
@@ -506,6 +560,7 @@ packages:
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor
+    edition: core
     ks: false
 
   - name: hyprpaper
@@ -514,6 +569,7 @@ packages:
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor
+    edition: core
     ks: false
 
   - name: hypridle
@@ -522,6 +578,7 @@ packages:
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor
+    edition: core
     ks: false
 
   - name: hyprlock
@@ -530,6 +587,7 @@ packages:
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor
+    edition: core
     ks: false
 
   - name: hyprcursor
@@ -538,6 +596,7 @@ packages:
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor
+    edition: core
     ks: false
 
   - name: hyprpicker
@@ -546,6 +605,7 @@ packages:
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor
+    edition: core
     ks: false
 
   - name: hyprpolkitagent
@@ -554,6 +614,7 @@ packages:
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor
+    edition: core
     ks: false
     # FIXME: autostart.conf currently calls polkit-gnome binary path which does not exist.
     # Update autostart.conf line to: exec-once = systemctl --user start hyprpolkitagent
@@ -569,6 +630,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: mako
@@ -577,6 +639,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: fuzzel
@@ -585,6 +648,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: rofimoji
@@ -593,6 +657,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: kitty
@@ -601,6 +666,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: grim
@@ -609,6 +675,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: slurp
@@ -617,6 +684,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: swappy
@@ -625,6 +693,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: swayosd
@@ -633,6 +702,7 @@ packages:
     source: "copr:erikreider/swayosd"
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: network-manager-applet
@@ -641,6 +711,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: playerctl
@@ -649,6 +720,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: brightnessctl
@@ -657,6 +729,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: v4l-utils
@@ -665,6 +738,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   - name: pavucontrol
@@ -673,6 +747,7 @@ packages:
     source: fedora
     platform: all
     layer: desktop
+    edition: core
     ks: false
 
   # ═══════════════════════════════════════════════════════════════════════════
@@ -686,6 +761,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: kf5-kio-gui
@@ -694,6 +770,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: kdegraphics-thumbnailers
@@ -702,6 +779,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: yazi
@@ -710,6 +788,7 @@ packages:
     source: "copr:lihaohong/yazi"
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: imv
@@ -718,6 +797,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: ffmpegthumbnailer
@@ -726,6 +806,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: poppler-utils
@@ -734,6 +815,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: fd-find
@@ -742,6 +824,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: fzf
@@ -750,6 +833,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: unar
@@ -758,6 +842,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: firefox
@@ -766,6 +851,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: mpv
@@ -774,6 +860,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: celluloid
@@ -782,6 +869,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: nm-connection-editor
@@ -790,6 +878,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: gnome-disk-utility
@@ -798,6 +887,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
     # NOTE: GParted has a known Wayland/bubblewrap segfault on Fedora 43 + Hyprland.
     # gnome-disk-utility works correctly once hyprpolkitagent is running.
@@ -814,6 +904,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   # papirus-folders: bash script from GitHub — not a dnf package.
@@ -826,6 +917,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: kvantum-qt5
@@ -834,6 +926,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: qt5ct
@@ -842,6 +935,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: qt6ct
@@ -850,6 +944,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: nwg-look
@@ -858,6 +953,7 @@ packages:
     source: copr:copr.fedorainfracloud.org:lionheartp:Hyprland
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   - name: papirus-icon-theme-dark
@@ -866,6 +962,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: user
     ks: false
 
   # Thunar removed — replaced by yazi (primary TUI FM)
@@ -888,6 +985,7 @@ packages:
     source: rpmfusion-nonfree
     platform: asus_proart_p16
     layer: hardware
+    edition: core
     ks: false
 
   - name: xorg-x11-drv-nvidia
@@ -896,6 +994,7 @@ packages:
     source: rpmfusion-nonfree
     platform: asus_proart_p16
     layer: hardware
+    edition: core
     ks: false
 
   - name: xorg-x11-drv-nvidia-power
@@ -904,6 +1003,7 @@ packages:
     source: rpmfusion-nonfree
     platform: asus_proart_p16
     layer: hardware
+    edition: core
     ks: false
 
   - name: xorg-x11-drv-nvidia-cuda
@@ -912,6 +1012,7 @@ packages:
     source: rpmfusion-nonfree
     platform: asus_proart_p16
     layer: hardware
+    edition: core
     ks: false
 
   - name: xorg-x11-drv-nvidia-cuda-libs
@@ -920,6 +1021,7 @@ packages:
     source: rpmfusion-nonfree
     platform: asus_proart_p16
     layer: hardware
+    edition: core
     ks: false
 
   - name: libva-nvidia-driver
@@ -928,6 +1030,7 @@ packages:
     source: rpmfusion-nonfree
     platform: asus_proart_p16
     layer: hardware
+    edition: core
     ks: false
 
   - name: libva-utils
@@ -936,6 +1039,7 @@ packages:
     source: rpmfusion-nonfree
     platform: asus_proart_p16
     layer: hardware
+    edition: core
     ks: false
 
   - name: supergfxctl
@@ -944,6 +1048,7 @@ packages:
     source: fedora
     platform: asus_proart_p16
     layer: hardware
+    edition: core
     ks: false
 
   - name: switcheroo-control
@@ -952,6 +1057,7 @@ packages:
     source: fedora
     platform: asus_proart_p16
     layer: hardware
+    edition: core
     ks: false
 
   - name: asusctl
@@ -960,6 +1066,7 @@ packages:
     source: "copr:lukenukem/asus-linux"
     platform: asus_proart_p16
     layer: hardware
+    edition: core
     ks: false
 
   # NOTE: there is no standalone `asusd` package. The asusd daemon binary
@@ -973,6 +1080,7 @@ packages:
     source: fedora
     platform: generic_x64
     layer: hardware
+    edition: core
     ks: false
 
   - name: tuned-ppd
@@ -981,6 +1089,7 @@ packages:
     source: fedora
     platform: generic_x64
     layer: hardware
+    edition: core
     ks: false
 
   - name: tuned-gtk
@@ -989,6 +1098,7 @@ packages:
     source: fedora
     platform: generic_x64
     layer: hardware
+    edition: core
     ks: false
 
   # ═══════════════════════════════════════════════════════════════════════════
@@ -1005,6 +1115,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/bluetooth
+    edition: user
     ks: false
 
   - name: bluez-tools
@@ -1013,6 +1124,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/bluetooth
+    edition: user
     ks: false
 
   - name: blueman
@@ -1021,6 +1133,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/bluetooth
+    edition: user
     ks: false
 
   # ── layer/nightmode ───────────────────────────────────────────────────────
@@ -1031,6 +1144,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/nightmode
+    edition: user
     ks: false
 
   # ── layer/flatpak ─────────────────────────────────────────────────────────
@@ -1041,6 +1155,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/flatpak
+    edition: user
     ks: false
 
   # Flathub remote: configured via Ansible task after flatpak install
@@ -1054,6 +1169,7 @@ packages:
     source: "repo:vscode"
     platform: all
     layer: layer/dev
+    edition: dev
     ks: false
     # VSCode repo: https://packages.microsoft.com/yumrepos/vscode
     # Added via RPM key + repo file task in layer/dev role before dnf install
@@ -1064,6 +1180,7 @@ packages:
     source: "repo:vscodium"
     platform: all
     layer: layer/dev
+    edition: dev
     ks: false
     # VSCodium RPM repo: https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/-/raw/repos/rpm/
     # Theme artifacts deployed from Aether by apps/tasks/vscode.yml; selector via dotctl apply vscodium
@@ -1074,6 +1191,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/dev
+    edition: dev
     ks: false
 
   # ── layer/containers ─────────────────────────────────────────────────────
@@ -1087,6 +1205,7 @@ packages:
     source: "repo:docker-ce"
     platform: all
     layer: layer/containers
+    edition: dev
     ks: false
 
   - name: docker-ce-cli
@@ -1095,6 +1214,7 @@ packages:
     source: "repo:docker-ce"
     platform: all
     layer: layer/containers
+    edition: dev
     ks: false
 
   - name: containerd.io
@@ -1103,6 +1223,7 @@ packages:
     source: "repo:docker-ce"
     platform: all
     layer: layer/containers
+    edition: dev
     ks: false
 
   - name: docker-buildx-plugin
@@ -1111,6 +1232,7 @@ packages:
     source: "repo:docker-ce"
     platform: all
     layer: layer/containers
+    edition: dev
     ks: false
 
   - name: docker-compose-plugin
@@ -1119,6 +1241,7 @@ packages:
     source: "repo:docker-ce"
     platform: all
     layer: layer/containers
+    edition: dev
     ks: false
 
   - name: podman
@@ -1127,6 +1250,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/containers
+    edition: dev
     ks: false
 
   - name: podman-compose
@@ -1135,6 +1259,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/containers
+    edition: dev
     ks: false
 
   # ── layer/gnome ───────────────────────────────────────────────────────────
@@ -1156,6 +1281,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/gnome
+    edition: user
     ks: false
 
   - name: gnome-session
@@ -1164,6 +1290,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/gnome
+    edition: user
     ks: false
 
   - name: gnome-session-wayland-session
@@ -1172,6 +1299,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/gnome
+    edition: user
     ks: false
 
   - name: gnome-control-center
@@ -1180,6 +1308,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/gnome
+    edition: user
     ks: false
 
   - name: nautilus
@@ -1188,6 +1317,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/gnome
+    edition: user
     ks: false
 
   - name: gnome-terminal
@@ -1196,6 +1326,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/gnome
+    edition: user
     ks: false
 
   - name: gnome-tweaks
@@ -1204,6 +1335,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/gnome
+    edition: user
     ks: false
 
   - name: papirus-icon-theme
@@ -1212,6 +1344,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/gnome
+    edition: user
     ks: false
 
   # ── layer/bottles ──────────────────────────────────────────────────────────
@@ -1229,6 +1362,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/bottles
+    edition: creative
     ks: false
 
   - name: com.usebottles.bottles
@@ -1237,6 +1371,7 @@ packages:
     source: flatpak
     platform: all
     layer: layer/bottles
+    edition: creative
     ks: false
 
   # ── layer/creator-apps ──────────────────────────────────────────────────
@@ -1257,6 +1392,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/creator-apps
+    edition: creative
     ks: false
 
   - name: org.freecad.FreeCAD
@@ -1265,6 +1401,7 @@ packages:
     source: flatpak
     platform: all
     layer: layer/creator-apps
+    edition: creative
     ks: false
 
   - name: org.librecad.librecad
@@ -1273,6 +1410,7 @@ packages:
     source: flatpak
     platform: all
     layer: layer/creator-apps
+    edition: creative
     ks: false
 
   # ── apps.collective — RaBbLE Collective development tooling ───────────────
@@ -1285,6 +1423,7 @@ packages:
     source: fedora
     platform: all
     layer: base
+    edition: core
     ks: false
 
   - name: nodejs-npm
@@ -1293,6 +1432,7 @@ packages:
     source: fedora
     platform: all
     layer: base
+    edition: core
     ks: false
 
   - name: nginx
@@ -1301,6 +1441,7 @@ packages:
     source: fedora
     platform: all
     layer: base
+    edition: core
     ks: false
 
   - name: gh
@@ -1309,6 +1450,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: dev
     ks: false
 
   - name: age
@@ -1317,6 +1459,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: dev
     ks: false
 
   # wrangler: installed via npm install -g (community.general.npm) — not a Fedora package
@@ -1361,6 +1504,7 @@ packages:
     source: fedora
     platform: all
     layer: apps
+    edition: dev
     ks: false
 
   # ── runtime.llama-cpp — llama.cpp CUDA source build prerequisites ─────────
@@ -1375,6 +1519,7 @@ packages:
     source: fedora
     platform: all
     layer: runtime
+    edition: dev
     ks: false
 
   - name: gcc-c++
@@ -1383,6 +1528,7 @@ packages:
     source: fedora
     platform: all
     layer: runtime
+    edition: dev
     ks: false
 
   - name: ninja-build
@@ -1391,6 +1537,7 @@ packages:
     source: fedora
     platform: all
     layer: runtime
+    edition: dev
     ks: false
 
   - name: cuda-devel
@@ -1399,6 +1546,7 @@ packages:
     source: nvidia
     platform: all
     layer: runtime
+    edition: dev
     ks: false
 
   # ── layer.esp-idf — Espressif ESP-IDF embedded toolchain ──────────────────
@@ -1416,6 +1564,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: wget
@@ -1424,6 +1573,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: flex
@@ -1432,6 +1582,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: bison
@@ -1440,6 +1591,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: gperf
@@ -1448,6 +1600,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: python3-pip
@@ -1456,6 +1609,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: cmake
@@ -1464,6 +1618,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: ninja-build
@@ -1472,6 +1627,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: ccache
@@ -1480,6 +1636,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: dfu-util
@@ -1488,6 +1645,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: libusbx
@@ -1496,6 +1654,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: openssl-devel
@@ -1504,6 +1663,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: libffi-devel
@@ -1512,6 +1672,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: picocom
@@ -1520,6 +1681,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: usbutils
@@ -1528,6 +1690,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: fzf
@@ -1536,6 +1699,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: libasan
@@ -1544,6 +1708,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: libubsan
@@ -1552,6 +1717,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: libtsan
@@ -1560,6 +1726,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   - name: eim-cli
@@ -1568,6 +1735,7 @@ packages:
     source: "repo:espressif/idf-im-ui (GitHub release .rpm, not a dnf repo)"
     platform: all
     layer: layer/esp-idf
+    edition: dev
     ks: false
 
   # ── layer/arduino-cli — arduino-cli + ESP32 core ────────────────────────────
@@ -1584,6 +1752,7 @@ packages:
     source: "repo:arduino/arduino-cli (GitHub release tarball, not a dnf repo)"
     platform: all
     layer: layer/arduino-cli
+    edition: dev
     ks: false
 
   # ── layer/atlas-sentry — host dev tooling for the ATLAS sentry robot ────────
@@ -1599,6 +1768,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/atlas-sentry
+    edition: dev
     ks: false
 
   - name: python3-numpy
@@ -1607,6 +1777,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/atlas-sentry
+    edition: dev
     ks: false
 
   - name: python3-pyserial
@@ -1615,6 +1786,7 @@ packages:
     source: fedora
     platform: all
     layer: layer/atlas-sentry
+    edition: dev
     ks: false
 
   # ── layer/dotnet-sdk — .NET SDK ──────────────────────────────────────────
@@ -1630,4 +1802,5 @@ packages:
     source: fedora
     platform: all
     layer: layer/dotnet-sdk
+    edition: dev
     ks: false
