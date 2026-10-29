@@ -101,3 +101,22 @@
   register: _rabble_ui_install
   changed_when: "'Installed' in _rabble_ui_install.stderr or 'Uninstalled' in _rabble_ui_install.stderr"
   when: _rabble_ui_reqs.stat.exists
+
+# Rust TUI (sCoRE tui/, plan log/plans/sCoRE-RaBbLE-UI-Rust-Plan.md): crate sources from Fedora's
+# rust-*-devel packages so cargo builds offline from /usr/share/cargo/registry (crates.io can be
+# filtered). Versions must match tui/Cargo.toml; the same names are in packages/manifest.yml.
+- name: Check for the RaBbLE-UI Rust workspace
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-sCoRE/tui/Cargo.toml"
+  register: _rabble_tui_ws
+
+- name: Install Rust crate sources for the RaBbLE-UI TUI
+  ansible.builtin.dnf:
+    name:
+      - cargo
+      - rust-ratatui0.29+crossterm-devel
+      - rust-serde+derive-devel
+      - rust-serde_json-devel
+    state: present
+  become: true
+  when: _rabble_tui_ws.stat.exists

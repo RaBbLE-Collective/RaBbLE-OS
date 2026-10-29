@@ -1507,6 +1507,39 @@ packages:
     edition: dev
     ks: false
 
+  # Rust crate sources for the RaBbLE-UI TUI (RaBbLE-sCoRE/tui/), installed by
+  # ai-harnesses/tasks/claude-code.yml when tui/Cargo.toml exists. Fedora packages crates as
+  # rust-*-devel under /usr/share/cargo/registry, so cargo builds offline (works behind a
+  # crates.io block). Each pulls its dependency closure. Versions must match tui/Cargo.toml:
+  # ratatui 0.29, crossterm 0.28. Check `dnf repoquery 'rust-<crate>*-devel'` before adding a dependency.
+
+  - name: rust-ratatui0.29+crossterm-devel
+    category: apps.ai-harnesses
+    reason: ratatui + its crossterm backend as crate sources for the Rust TUI (RaBbLE-sCoRE/tui), offline cargo builds
+    source: fedora
+    platform: all
+    layer: apps
+    edition: dev
+    ks: false
+
+  - name: rust-serde+derive-devel
+    category: apps.ai-harnesses
+    reason: serde derive crate sources for the Rust TUI event/command types (rabble-proto)
+    source: fedora
+    platform: all
+    layer: apps
+    edition: dev
+    ks: false
+
+  - name: rust-serde_json-devel
+    category: apps.ai-harnesses
+    reason: serde_json crate sources for the Rust TUI's NDJSON engine seam
+    source: fedora
+    platform: all
+    layer: apps
+    edition: dev
+    ks: false
+
   # ── runtime.llama-cpp — llama.cpp CUDA source build prerequisites ─────────
   # Build deps installed by: ansible-playbook site.yml -K --tags runtime,llama-cpp
   # Role: ansible/roles/runtime/tasks/llama-cpp.yml
