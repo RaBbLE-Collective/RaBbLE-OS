@@ -16,7 +16,7 @@
   changed_when: false
   failed_when: false
   environment:
-    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_facts['env'].PATH }}"
 
 - name: Install playwright globally via npm
   community.general.npm:
@@ -29,7 +29,7 @@
 
 - name: Check if playwright Chromium browser is already installed
   ansible.builtin.stat:
-    path: "{{ ansible_env.HOME }}/.cache/ms-playwright"
+    path: "{{ ansible_facts['env'].HOME }}/.cache/ms-playwright"
   register: _playwright_browsers_dir
 
 - name: Install playwright Chromium browser binary
@@ -37,8 +37,8 @@
   register: _playwright_install_chromium
   changed_when: not _playwright_browsers_dir.stat.exists
   environment:
-    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_env.PATH }}"
-    HOME: "{{ ansible_env.HOME }}"
+    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_facts['env'].PATH }}"
+    HOME: "{{ ansible_facts['env'].HOME }}"
 
 - name: Verify playwright can find Chromium
   ansible.builtin.command: playwright --version
@@ -46,7 +46,7 @@
   changed_when: false
   failed_when: false
   environment:
-    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_facts['env'].PATH }}"
 
 - name: Report playwright version
   ansible.builtin.debug:

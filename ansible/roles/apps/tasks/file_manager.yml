@@ -3,7 +3,7 @@
 
 - name: file_manager | create yazi config directory
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/.config/yazi"
+    path: "{{ ansible_facts['env'].HOME }}/.config/yazi"
     state: directory
     mode: '0755'
   tags: [apps, filemanager, yazi]
@@ -11,7 +11,7 @@
 - name: file_manager | deploy yazi dotfiles
   ansible.builtin.copy:
     src: "{{ dotfiles_repo_root }}/config/yazi/{{ item }}"
-    dest: "{{ ansible_env.HOME }}/.config/yazi/{{ item }}"
+    dest: "{{ ansible_facts['env'].HOME }}/.config/yazi/{{ item }}"
     mode: '0644'
   loop:
     - yazi.toml
@@ -51,6 +51,6 @@
 # - name: file_manager | deploy termfilechooser config
 #   ansible.builtin.template:
 #     src: termfilechooser.conf.j2
-#     dest: "{{ ansible_env.HOME }}/.config/xdg-desktop-portal/termfilechooser.conf"
+#     dest: "{{ ansible_facts['env'].HOME }}/.config/xdg-desktop-portal/termfilechooser.conf"
 #     mode: '0644'
 #   tags: [apps, filemanager, portal]

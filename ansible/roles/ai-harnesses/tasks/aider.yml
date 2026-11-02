@@ -20,7 +20,7 @@
   changed_when: false
   failed_when: false
   environment:
-    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ ansible_facts['env'].HOME }}/.local/bin:{{ ansible_facts['env'].PATH }}"
 
 - name: Write scipy override file
   ansible.builtin.copy:
@@ -38,7 +38,7 @@
   changed_when: _aider_install.rc == 0
   when: _aider_precheck.rc != 0
   environment:
-    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ ansible_facts['env'].HOME }}/.local/bin:{{ ansible_facts['env'].PATH }}"
 
 - name: Remove scipy override file
   ansible.builtin.file:
@@ -53,7 +53,7 @@
   failed_when: false
   when: _aider_precheck.rc == 0
   environment:
-    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ ansible_facts['env'].HOME }}/.local/bin:{{ ansible_facts['env'].PATH }}"
 
 - name: Verify aider binary is reachable
   ansible.builtin.command: aider --version
@@ -61,7 +61,7 @@
   changed_when: false
   failed_when: false
   environment:
-    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ ansible_facts['env'].HOME }}/.local/bin:{{ ansible_facts['env'].PATH }}"
 
 - name: Report aider version
   ansible.builtin.debug:

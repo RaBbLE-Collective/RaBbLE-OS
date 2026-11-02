@@ -12,7 +12,7 @@
   changed_when: false
   failed_when: false
   environment:
-    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_facts['env'].PATH }}"
 
 - name: Install Claude Code CLI globally via npm
   community.general.npm:
@@ -29,7 +29,7 @@
   changed_when: false
   failed_when: false
   environment:
-    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_facts['env'].PATH }}"
 
 - name: Report Claude Code version
   ansible.builtin.debug:

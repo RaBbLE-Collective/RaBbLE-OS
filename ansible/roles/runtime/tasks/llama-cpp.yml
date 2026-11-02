@@ -231,20 +231,20 @@
     - _llama_rebuild_needed
   environment:
     CUDA_PATH: /usr/local/cuda
-    PATH: "{{ ansible_env.PATH }}:/usr/local/cuda/bin"
+    PATH: "{{ ansible_facts['env'].PATH }}:/usr/local/cuda/bin"
   tags: [runtime, llama-cpp]
 
 # ── Build + install ────────────────────────────────────────────────────────────
 
 - name: Build llama.cpp (~5-15 minutes)
   ansible.builtin.command: >
-    cmake --build {{ llama_cpp.build_dir }} --config Release -j{{ ansible_processor_vcpus }}
+    cmake --build {{ llama_cpp.build_dir }} --config Release -j{{ ansible_facts['processor_vcpus'] }}
   when:
     - llama_cpp.install_method | default('source') == "source"
     - _llama_rebuild_needed
   environment:
     CUDA_PATH: "{{ '/usr/local/cuda' if llama_cpp.backend | default('vulkan') == 'cuda' else '' }}"
-    PATH: "{{ ansible_env.PATH + ':/usr/local/cuda/bin' if llama_cpp.backend | default('vulkan') == 'cuda' else ansible_env.PATH }}"
+    PATH: "{{ ansible_facts['env'].PATH + ':/usr/local/cuda/bin' if llama_cpp.backend | default('vulkan') == 'cuda' else ansible_facts['env'].PATH }}"
   async: 1200
   poll: 30
   tags: [runtime, llama-cpp]

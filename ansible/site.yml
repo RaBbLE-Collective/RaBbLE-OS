@@ -58,15 +58,15 @@
         key: >-
           {{ rabble_hardware
              | default('asus_proart_p16'
-                       if (ansible_product_name | default('')) is match('ProArt P16')
+                       if (ansible_facts['product_name'] | default('')) is match('ProArt P16')
                        else 'generic_x64') }}
       changed_when: false
 
     - name: Report detected hardware
       ansible.builtin.debug:
         msg: >-
-          product_name="{{ ansible_product_name | default('unknown') }}"
-          → {{ rabble_hardware | default('asus_proart_p16' if (ansible_product_name | default('')) is match('ProArt P16') else 'generic_x64') }}
+          product_name="{{ ansible_facts['product_name'] | default('unknown') }}"
+          → {{ rabble_hardware | default('asus_proart_p16' if (ansible_facts['product_name'] | default('')) is match('ProArt P16') else 'generic_x64') }}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Layer 0 — Base System

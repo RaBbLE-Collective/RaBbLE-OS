@@ -24,4 +24,4 @@ plans_pnpm_version: "latest"
 plans_mcp_server_name: rabble-plans
 
 # User who owns the plan app process (runs as user, not root)
-plans_user: "{{ ansible_user_id }}"
+plans_user: "{{ ansible_facts['user_id'] }}"

@@ -211,7 +211,7 @@
   become: false
   changed_when: false
   environment:
-    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_user_uid }}/bus"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_facts['user_uid'] }}/bus"
   tags: [apps, theming, gtk]
 
 - name: qt-gtk-theme | apply icon theme via gsettings
@@ -220,7 +220,7 @@
   become: false
   changed_when: false
   environment:
-    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_user_uid }}/bus"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_facts['user_uid'] }}/bus"
   tags: [apps, theming, gtk]
 
 - name: qt-gtk-theme | apply cursor theme via gsettings
@@ -229,7 +229,7 @@
   become: false
   changed_when: false
   environment:
-    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_user_uid }}/bus"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_facts['user_uid'] }}/bus"
   tags: [apps, theming, gtk]
 
 - name: qt-gtk-theme | apply font via gsettings
@@ -238,7 +238,7 @@
   become: false
   changed_when: false
   environment:
-    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_user_uid }}/bus"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_facts['user_uid'] }}/bus"
   tags: [apps, theming, gtk]
 
 - name: qt-gtk-theme | prefer dark theme via gsettings
@@ -247,5 +247,5 @@
   become: false
   changed_when: false
   environment:
-    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_user_uid }}/bus"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ ansible_facts['user_uid'] }}/bus"
   tags: [apps, theming, gtk]

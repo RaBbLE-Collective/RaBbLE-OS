@@ -130,7 +130,7 @@
 
 - name: Build FastFlowLM
   ansible.builtin.command:
-    cmd: "cmake --build --preset linux-default -j{{ ansible_processor_vcpus }}"
+    cmd: "cmake --build --preset linux-default -j{{ ansible_facts['processor_vcpus'] }}"
     chdir: "{{ fastflowlm.src_dir }}/src"
   environment:
     LD_LIBRARY_PATH: "/opt/src/xrt_shim:/usr/xrt/lib64:/opt/xilinx/xrt/lib64"

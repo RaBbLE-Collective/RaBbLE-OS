@@ -23,7 +23,7 @@ ai_harnesses_fcc_enabled: true
 ai_harnesses_playwright_enabled: true
 
 # Node-based CLIs install globally via npm. Requires Node.js in PATH.
-ai_harnesses_node_prefix: "{{ ansible_env.HOME }}/.local"
+ai_harnesses_node_prefix: "{{ ansible_facts['env'].HOME }}/.local"
 
 # Aider uses pipx so it doesn't pollute the system Python env.
 ai_harnesses_aider_model: ""          # blank = aider uses its own default

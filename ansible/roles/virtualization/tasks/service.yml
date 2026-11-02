@@ -17,14 +17,14 @@
 
 - name: virtualization | add user to libvirt group
   ansible.builtin.user:
-    name: "{{ ansible_user_id }}"
+    name: "{{ ansible_facts['user_id'] }}"
     groups: libvirt
     append: true
   tags: [virtualization, service]
 
 - name: virtualization | add user to kvm group
   ansible.builtin.user:
-    name: "{{ ansible_user_id }}"
+    name: "{{ ansible_facts['user_id'] }}"
     groups: kvm
     append: true
   tags: [virtualization, service]
