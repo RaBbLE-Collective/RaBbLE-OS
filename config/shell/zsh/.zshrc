@@ -119,5 +119,19 @@ precmd_functions+=(_rabble_zsh_prompt)
 # ── Startup splash ────────────────────────────────────────────────────────────
 # Show RaBbLE-OS identity on new interactive shell sessions (not SSH, not tmux panes)
 if [[ -o interactive && -z "$TMUX" && -z "$SSH_TTY" && "$TERM_PROGRAM" != "vscode" ]]; then
-    command -v fastfetch &>/dev/null && fastfetch
+    if command -v rabble-fetch &>/dev/null; then rabble-fetch; elif command -v fastfetch &>/dev/null; then fastfetch; fi
+    # fastfetch prints once and the terminal re-wraps it on resize (a split leaves the info column cut). While the
+    # splash is still the only thing on screen, redraw it at the new size; the first command freezes it.
+    if command -v rabble-fetch &>/dev/null; then
+        _rabble_splash_fresh=1
+        preexec_functions+=(_rabble_splash_freeze)
+        _rabble_splash_freeze() { unset _rabble_splash_fresh }
+        TRAPWINCH() {
+            [[ -n $_rabble_splash_fresh ]] || return 0
+            print -n '\e[H\e[2J'
+            rabble-fetch
+            zle && zle reset-prompt
+            return 0
+        }
+    fi
 fi

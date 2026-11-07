@@ -78,3 +78,14 @@ PROMPT_COMMAND='history -a; history -n; _rabble_prompt'
 bind 'set completion-ignore-case on'
 bind 'set show-all-if-ambiguous on'
 bind 'TAB:menu-complete'
+
+
+# Added by Antigravity CLI installer
+export PATH="/home/rabble/.local/bin:$PATH"
+
+# ── Startup splash ────────────────────────────────────────────────────────────
+# Same as zsh: RaBbLE-OS identity on new interactive shells (not SSH, tmux or VSCodium), sized to the window.
+# No resize redraw in bash; the terminal re-wraps the old output, so open a new window or run rabble-fetch again.
+if [[ $- == *i* && -z "$TMUX" && -z "$SSH_TTY" && "$TERM_PROGRAM" != "vscode" ]]; then
+    if command -v rabble-fetch &>/dev/null; then rabble-fetch; elif command -v fastfetch &>/dev/null; then fastfetch; fi
+fi
