@@ -31,3 +31,21 @@
     owner: "{{ rabble_user }}"
   become: true
   tags: [desktop, fastfetch, config]
+
+- name: Deploy compact fastfetch config + logo (small windows)
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/fastfetch/{{ item }}"
+    dest: "{{ rabble_config_home }}/fastfetch/{{ item }}"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  loop: [config.compact.jsonc, rabble-portals.compact.txt, config.micro.jsonc, rabble-portals.micro.txt]
+  tags: [desktop, fastfetch, config]
+
+- name: Deploy rabble-fetch (size-aware fastfetch launcher)
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/spells/rabble-fetch"
+    dest: "/usr/local/bin/rabble-fetch"
+    mode: '0755'
+  become: true
+  tags: [desktop, fastfetch, config]

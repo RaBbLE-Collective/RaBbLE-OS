@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# rabble-fetch — fastfetch sized to the window.
+# Tries each tier in turn, renders it, and keeps the first whose real output fits the terminal
+# (width includes the info column, so a narrow pane drops a tier instead of wrapping):
+#   full     the rabble-face mark at distro-logo size + "RaBbLE OS", all modules
+#   compact  the TUI header face (24x6), eight modules
+#   micro    the 10x3 micro mark, eight modules
+#   mini     no logo, same eight modules
+# Override: RABBLE_FETCH=full|compact|micro|mini. Extra args pass through to fastfetch.
+cols=$(tput cols 2>/dev/null || echo 80); rows=$(tput lines 2>/dev/null || echo 24)
+d=${XDG_CONFIG_HOME:-$HOME/.config}/fastfetch
+
+run() {
+  case $1 in
+    full)    fastfetch "${@:2}" ;;
+    compact) fastfetch -c "$d/config.compact.jsonc" "${@:2}" ;;
+    micro)   fastfetch -c "$d/config.micro.jsonc" "${@:2}" ;;
+    *)       fastfetch -c "$d/config.compact.jsonc" --logo none "${@:2}" ;;
+  esac
+}
+
+# The final render is exec'd (not printed from a captured string) so fastfetch's parent is the caller's
+# shell, not this script: otherwise its Shell line reports bash.
+if [[ -n ${RABBLE_FETCH:-} ]]; then exec_mode=$RABBLE_FETCH; else
+  exec_mode=mini
+  for mode in full compact micro; do
+    out=$(run $mode --pipe false "$@" 2>/dev/null) || continue
+    plain=$(sed 's/\x1b\[[0-9;?]*[A-Za-z]//g' <<<"$out")
+    w=$(awk '{ if (length($0) > m) m = length($0) } END { print m + 0 }' <<<"$plain")
+    h=$(wc -l <<<"$plain")
+    if (( w <= cols && h < rows )); then exec_mode=$mode; break; fi
+  done
+fi
+case $exec_mode in
+  full)    exec fastfetch "$@" ;;
+  compact) exec fastfetch -c "$d/config.compact.jsonc" "$@" ;;
+  micro)   exec fastfetch -c "$d/config.micro.jsonc" "$@" ;;
+  *)       exec fastfetch -c "$d/config.compact.jsonc" --logo none "$@" ;;
+esac
