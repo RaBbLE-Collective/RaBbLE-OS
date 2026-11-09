@@ -22,6 +22,7 @@
       - ShellCheck
       # security
       - polkit
+      - gitleaks       # secret scan across git history + tags (pre-publication)
       # firmware
       - fwupd
       # xdg

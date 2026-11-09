@@ -163,6 +163,15 @@ packages:
     edition: core
     ks: false
 
+  - name: gitleaks
+    category: core.security
+    reason: Secret scanning across full git history and tags — required before any repo goes public (Pocket release, S295+); regex passes missed a token before (S250)
+    source: fedora
+    platform: all
+    layer: core
+    edition: dev
+    ks: false
+
   - name: polkit
     category: core.security
     reason: Privilege escalation framework — required for any pkexec/GUI elevation workflow
