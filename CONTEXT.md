@@ -1,7 +1,7 @@
 # CONTEXT.md — RaBbLE-OS
 
 ```
-episode: 1 (in progress) | version: v0.0.0.0
+version: v0.0.0.0 (Developer Preview)
 date: 2026-07-04 | status: active
 ```
 

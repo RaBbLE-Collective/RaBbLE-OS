@@ -31,7 +31,7 @@ Start with: `../RaBbLE-Grimoire/RaBbLE-OS/RaBbLE-OS-AgentGuide.md` (directory ma
 
 **ON:** Ansible roles, dotfile configs, bash scripts, Kickstart, VM tooling, hardware profiles.
 
-**FOR:** OS is the substrate. Everything else runs here. Pre-Episode-1, you're building the reproducible bootstrap — a fresh machine should become a fully running RaBbLE desktop from a single KS command. Post-Episode-1, OS becomes the execution layer for sCoRE's task delegation: local inference, agent hosting, native integrations.
+**FOR:** OS is the substrate. Everything else runs here. Now: the reproducible bootstrap — a fresh machine should become a fully running RaBbLE desktop from a single KS command. Next, OS becomes the execution layer for sCoRE's task delegation: local inference, agent hosting, native integrations.
 
 **WITH:** You are part of the RaBbLE-Collective — the physical body of the organism, working for its ability to exist and run. You provide the execution environment that World, NeBuLA, and sCoRE depend on. Aether's palette drives your theming. Changes to the package manifest or config templates affect everything running on the machine.
 

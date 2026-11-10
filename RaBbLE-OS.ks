@@ -148,10 +148,10 @@ chmod 440 /etc/sudoers.d/10-rabble-setup
 # ── Firstboot script: clone Collective/Grimoire/OS, then run Bootstrap ───────
 # Runs twice at most: once right below (inside the installer), and again from
 # rabble-os-setup.service on first boot only if that first run didn't finish.
-# Canonical structure once it runs: ~/RaBbLE/ (Collective root)
-#   ~/RaBbLE/RaBbLE-Grimoire/   (knowledge layer)
-#   ~/RaBbLE/RaBbLE-OS/         (this member)
-#   ~/RaBbLE/RaBbLE-Aether/     (theme source Ansible deploys from)
+# Canonical structure once it runs: ~/RaBbLE-Collective/ (Collective root)
+#   ~/RaBbLE-Collective/RaBbLE-Grimoire/   (knowledge layer)
+#   ~/RaBbLE-Collective/RaBbLE-OS/         (this member)
+#   ~/RaBbLE-Collective/RaBbLE-Aether/     (theme source Ansible deploys from)
 mkdir -p /usr/local/sbin
 cat > /usr/local/sbin/rabble-os-firstboot.sh << 'FIRSTBOOTEOF'
 #!/usr/bin/env bash
@@ -160,7 +160,7 @@ cat > /usr/local/sbin/rabble-os-firstboot.sh << 'FIRSTBOOTEOF'
 # as a fallback, from rabble-os-setup.service (network-online.target).
 set -uo pipefail
 
-RABBLE_ROOT="${HOME}/RaBbLE"
+RABBLE_ROOT="${HOME}/RaBbLE-Collective"
 GH_BASE="https://github.com/RaBbLE-Collective"
 # Branch placeholders replaced at render time (vmctl --branch / build-iso.sh).
 # All members track the same branch in lockstep.
@@ -346,6 +346,6 @@ echo "[RaBbLE-OS KS] Post-install complete."
 echo "  Collective root: ${RABBLE_HOME}/RaBbLE"
 echo "  Install log:     ${INSTALL_LOG}"
 echo "  To install apps post-login:"
-echo "    cd ~/RaBbLE/RaBbLE-OS && ./RaBbLE-OS-layerctl.sh apply apps"
+echo "    cd ~/RaBbLE-Collective/RaBbLE-OS && ./RaBbLE-OS-layerctl.sh apply apps"
 
 %end
