@@ -1,0 +1,15 @@
+# swayOSD — RaBbLE-OS config
+# Mirrors /etc/xdg/swayosd defaults; enables the percentage label so the
+# Aether cyan→magenta flowing text (style.css) is visible on volume/brightness.
+
+[server]
+## Show the percentage label to the right of the OSD (carries the Aether text flow)
+show_percentage = true
+
+## Minimum brightness reachable, in %
+min_brightness = 5
+
+## Show the OSD when keyboard backlight changes
+keyboard_backlight = true
+
+[client]

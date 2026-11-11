@@ -1,0 +1,60 @@
+# mako.conf — RaBbLE-OS notification daemon configuration
+# Palette: RaBbLE synthwave outrun (grimoire/RaBbLE-Palette.md)
+#
+# Border urgency tiers mirror the Hyprland active border gradient:
+#   low      → cyan  (#00f5ff)  — quiet, informational
+#   normal   → magenta (#ff2d78) — primary identity color
+#   critical → red   (#e05c6f)  — urgent, destructive
+
+# ── Layout ────────────────────────────────────────────────────────────────────
+width=360
+height=120
+margin=12
+padding=14,16
+anchor=top-right
+layer=overlay
+border-size=2
+border-radius=10
+
+# ── Font ──────────────────────────────────────────────────────────────────────
+font=JetBrainsMono Nerd Font Mono 11
+
+# ── Default (normal urgency) — magenta border ─────────────────────────────────
+background-color=#12132af0
+text-color=#e8e6f0ff
+border-color=#ff2d78ff
+progress-color=over #ff2d7840
+
+# ── Timeouts ──────────────────────────────────────────────────────────────────
+default-timeout=5000
+ignore-timeout=0
+
+# ── Icons ─────────────────────────────────────────────────────────────────────
+icon-theme=Papirus-Dark
+icon-location=left
+max-icon-size=48
+
+# ── Actions ───────────────────────────────────────────────────────────────────
+max-history=50
+
+# ── Urgency: low — cyan border (quiet, informational) ─────────────────────────
+[urgency=low]
+background-color=#0a0010f0
+text-color=#6b6880ff
+border-color=#00f5ffff
+default-timeout=3000
+
+# ── Urgency: normal — magenta border (default) ────────────────────────────────
+[urgency=normal]
+background-color=#12132af0
+text-color=#e8e6f0ff
+border-color=#ff2d78ff
+default-timeout=5000
+
+# ── Urgency: critical — red border, no timeout ────────────────────────────────
+[urgency=critical]
+background-color=#0a0010f0
+text-color=#e8e6f0ff
+border-color=#e05c6fff
+border-size=3
+default-timeout=0

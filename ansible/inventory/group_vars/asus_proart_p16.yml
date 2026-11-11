@@ -1,0 +1,148 @@
+# ansible/inventory/group_vars/asus_proart_p16.yml
+# =============================================================================
+# ASUS ProArt P16 — Hardware & Power Stack
+# All vars here override all.yml defaults for this host group only.
+# =============================================================================
+
+# ── Hardware Identity ─────────────────────────────────────────
+hardware_vendor: "asus"
+form_factor: "laptop"
+
+# ── NPU ───────────────────────────────────────────────────────────────────────
+npu:
+  enabled: true
+  vendor: "amd"
+  family: "xdna2"       # xdna2 = Ryzen AI 300 series (Strix Point / Krackan)
+  driver: "amdxdna"     # kernel module name
+
+# ── Power Stack ───────────────────────────────────────────────
+# Change this line to switch power experiments.
+power_stack_profile: "asusd_only"   # S245: asusctl/asusd is the sole power controller
+rabble_tuned_enabled: false         # tuned conflicts with asusd here; generic x64 still uses it
+asus_power_profile: "Balanced"      # Balanced | Performance | Quiet
+# Pins asusd re-applies at boot / on plug events. Without these asusd's own
+# default (AC=Performance) overrides asus_power_profile on every boot.
+asus_power_profile_ac: "Balanced"
+asus_power_profile_battery: "Quiet"
+
+# Sustained/burst package power limits applied by asusd whenever Balanced is
+# active (asusd.ron ac_profile_tunings / dc_profile_tunings). Stock Balanced is
+# PL1=80 W sustained, which let a near-idle desktop sit at ~22 W and heat-soak
+# the chassis (measured S245). Goal: minimal power on simple tasks and silent.
+# Firmware ranges (asus-armoury): PL1 15-80, PL2 35-80, PL3 35-80 -- PL2/PL3 have
+# a 35 W FLOOR, so 35 is the lowest legal burst value. Keys are asusd's
+# FirmwareAttribute names (verified in the installed asusd binary).
+# STARTING VALUES, judgment not measured: tune against idle watts + temperature.
+asus_balanced_ppt:
+  ac:      { PptPl1Spl: 18, PptPl2Sppt: 35, PptPl3Fppt: 35 }
+  battery: { PptPl1Spl: 15, PptPl2Sppt: 35, PptPl3Fppt: 35 }
+
+# ── GPU ───────────────────────────────────────────────────────
+# integrated = dGPU suspended. Current known-good state.
+# Only change if power_stack_profile: full_asus
+gpu_mode: "integrated"
+
+# ── Lemonade Server ───────────────────────────────────────────
+# Enabled after flm validate confirmed NPU is live (2026-06-20).
+lemonade:
+  enabled: true
+  port: 8000
+
+# ── llama.cpp ─────────────────────────────────────────────────
+# Defaults (vulkan, enabled) are correct for this machine — no override needed.
+# To switch to CUDA: set gpu_mode: nvidia, configure NVIDIA CUDA repo, then add:
+#   llama_cpp: { enabled: true, backend: "cuda", repo: ..., version: ...,
+#                src_dir: ..., build_dir: ..., install_prefix: ..., cuda_architectures: "86" }
+# NOTE: must repeat ALL keys — Ansible dict vars replace, not merge.
+
+# ── Console / TTY ─────────────────────────────────────────────
+# ProArt P16 is 3840x2400 — default Terminus 16px is unreadably tiny.
+# ter-v32b = 32pt bold, the right size for 4K @ 16".
+rabble_console_font: "ter-v32b"
+
+# GRUB *menu* at native 4K so gfxmode matches GFXPAYLOAD — no mode-switch black flash.
+# HiDPI fonts (rabble_grub_theme_*) are doubled below to keep physical text size the same.
+# Fallback list: if GOP doesn't expose 3840x2400 the 1920x1200 mode still works.
+rabble_gfx_mode: "3840x2400x32,1920x1200x32,auto"
+rabble_grub_font_base_size: 32
+rabble_grub_theme_hint:  24
+rabble_grub_theme_body:  32
+rabble_grub_theme_sub:   36
+rabble_grub_theme_title: 72
+
+# S224: seamless theatrical boot, Mark's call — no visible menu on the normal path
+# (the §3.1 "black box after selection" only happens when a menu is actually drawn/
+# torn down; skipping that path sidesteps it for every normal boot). grub2-mkconfig's
+# stock hidden-timeout wrapper (any keypress during the brief `sleep --interruptible`
+# window reveals the real menu — hold a key, not specifically Shift, through POST) is
+# what provides recovery access; confirm the exact reveal key on the verify reboot.
+rabble_grub_timeout_style: "hidden"
+
+# GFXPAYLOAD = the framebuffer handed to the kernel / simpledrm / Plymouth. It does
+# NOT have to match the GRUB menu mode above. It MUST be the panel's NATIVE 3840x2400.
+#
+# Root cause of the GRUB→Plymouth "black pane over 75% of the screen" (S153, confirmed
+# via dmesg): with GFXPAYLOAD=keep the kernel inherited the 1920x1200 menu mode, so
+# simpledrm came up at 1920x1200 and was painted 1:1 in the top-LEFT QUARTER of the 4K
+# panel (1920x1200 is exactly 1/4 the area of 3840x2400) — leaving 75% black with the
+# liminal bg visible in the quarter — until amdgpu KMS switched to native ~3s later.
+# A native payload makes simpledrm fill the panel AND removes the mid-boot resolution
+# switch (simpledrm 4K → amdgpu 4K, no change). ⚠ UNVERIFIED — reboot-test this.
+# NOTE: Plymouth then renders at 4K; entity/wordmark PNGs look small until their
+# capture resolution is bumped in build-assets.sh (separate visual-polish follow-up).
+rabble_grub_gfxpayload: "3840x2400x32"
+
+# ── Boot / Plymouth ───────────────────────────────────────────
+# fbcon=font:TER16x32: loads Terminus 16x32 kernel font for TTYs early,
+#   before vconsole setup — fixes tiny TTY font until fbcon reset.
+# vt.global_cursor_default=0: hides the blinking text cursor between GRUB and Plymouth.
+# rd.driver.blacklist=nvidia: defers NVIDIA dGPU from initramfs so it doesn't
+#   trigger a DRM reset mid-boot. AMD 890M drives eDP all the way into Hyprland;
+#   NVIDIA is PRIME-offload/compute only, loaded by nvidia-load.service after SDDM.
+#   See roles/hardware/x64/asus_proart_p16/tasks/nvidia.yml.
+# rd.udev.log_level=3: suppresses initrd udev noise before Plymouth takes over.
+# initcall_blacklist=simpledrm_platform_driver_init: the REAL fix for the mid-Plymouth
+#   black flash + "accelerated" catch-up. Disproven first; here is the evidence chain.
+#
+#   ⚠ amdgpu.seamless=1 — REMOVED (S172). It does NOTHING on this silicon. Direct disproof
+#   from a clean boot (RaBbLE-BaBbLE/tmp/boot-grub-probe.txt, dmesg monotonic):
+#     [1.705] simpledrm up @ native 4K (console 480x150 = 3840x2400 @ 8x16)
+#     [4.174] amdgpu begins KMS modeset
+#     [4.233] Console: switching to colour DUMMY device 80x25   ← THE BLACK (CRTC dropped)
+#     [4.583] Console: switching to amdgpudrmfb 480x150         ← amdgpu fb up
+#   With seamless=1 loaded (/sys/module/amdgpu/parameters/seamless == 1) amdgpu logs NO
+#   seamless decision and STILL drops to the dummy device. The S167 "confirmed working"
+#   note was a false positive. Seamless boot is unimplemented/ineffective for DCN 3.5
+#   (Ryzen AI 9 HX 370 / Radeon 890M) on kernel 7.0.x. Do NOT re-add it.
+#
+#   Root cause: TWO DRM devices come up in sequence — simpledrm (EFI fb, instant, T+1.7)
+#   then amdgpu (T+4.2, after ~2.5s of DMUB/PSP/VBIOS firmware load). Plymouth draws on
+#   simpledrm, then must MIGRATE to amdgpu when it appears; the CRTC blanks during amdgpu's
+#   modeset (the dummy switch) → ~1-2s visible black, and the tick-based splash animation
+#   snaps forward on recovery because boot kept progressing during the freeze.
+#
+#   Fix attempted (S172): initcall_blacklist=simpledrm_platform_driver_init — prevents
+#   simpledrm from coming up entirely, so amdgpu is the only DRM device: no migration, no
+#   dummy switch. The GOP framebuffer holds from GRUB hand-off until amdgpu+Plymouth start.
+#   REVERTED (S173): suppressing simpledrm caused SDDM to fail to load and introduced
+#   additional boot hiccups. The Plymouth handoff black frames are accepted for EP1.
+#   CURRENT STATE (S197): amdgpu.seamless=1 REMOVED (proven no-op, see above). The
+#   Plymouth->SDDM handoff black is now addressed via `plymouth quit --retain-splash`
+#   (Phase 1A). The mid-Plymouth simpledrm->amdgpu handoff black remains, deferred to
+#   Phase 2 (initcall_blacklist on real HW). See log/plans/OS-Boot-Chain-Seamless-Plan.md.
+#   Deferred: GRUB black box (pre-kernel) is a separate unresolved issue for post-EP1.
+#
+# ⚠ plymouth.use-simpledrm=1 — also REMOVED (S165). The OPPOSITE pin (lock Plymouth TO
+#   simpledrm) caused a permanent black because amdgpu's modeset kills the simpledrm scanout
+#   while Plymouth keeps drawing to it. amdgpu is force-loaded into the initramfs (dracut: add_drivers+=amdgpu).
+rabble_grub_extra_cmdline: >-
+  fbcon=font:TER16x32
+  vt.global_cursor_default=0
+  rd.driver.blacklist=nvidia
+  rd.udev.log_level=3
+# NOTE: initcall_blacklist=simpledrm_platform_driver_init was tried (S172) and REVERTED (S173).
+#   Suppressing simpledrm caused SDDM to fail to load and introduced more boot hiccups than
+#   the original Plymouth handoff black. amdgpu.seamless=1 REMOVED here (proven no-op, ledger
+#   §4.3). The simpledrm→amdgpu handoff black is addressed separately by suppressing simpledrm
+#   — a real-HW Phase-2 step done deliberately with recovery media, NOT yet added to this
+#   cmdline. GRUB black box (pre-kernel) is a separate deferred issue.

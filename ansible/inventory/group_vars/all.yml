@@ -1,0 +1,77 @@
+---
+# ansible/inventory/group_vars/all.yml
+# =============================================================================
+# RaBbLE — Global defaults (all targets)
+# Override per hardware target in group_vars/<target>.yml
+# =============================================================================
+
+# ── Identity ──────────────────────────────────────────────────────────────────
+# ansible_user is set in hosts.yml via lookup('env', 'USER') at inventory
+# parse time — before become: true elevates to root — so these resolve
+# correctly to the invoking user regardless of privilege escalation.
+rabble_user: "{{ ansible_user }}"
+rabble_home: "/home/{{ ansible_user }}"
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+rabble_config_home:  "{{ rabble_home }}/.config"
+dotfiles_repo_root:  "{{ rabble_repo_root }}"
+aether_repo_root:    "{{ rabble_repo_root | dirname }}/RaBbLE-Aether"
+
+# ── Theme palette — synthwave ─────────────────────────────────────────────────
+rabble_color_bg:      "#0a0010"   # Deep void
+rabble_color_primary: "#ff2d78"   # Hot magenta — borders, highlights, prompt
+rabble_color_accent:  "#00f5ff"   # Electric cyan — git, status, secondary accents
+rabble_color_violet:  "#bf5fff"   # Soft violet — decorative, tertiary accents
+rabble_color_pink:    "#f7a8d4"   # Soft pink — untracked files, magenta-adjacent
+rabble_color_text:    "#e8d5ff"   # Off-white with purple tint — primary text
+rabble_color_muted:   "#8860aa"   # Muted purple — secondary/dim text
+rabble_color_surface: "#120025"   # Elevated surface — input fields, cards
+
+# ── OS Identity ───────────────────────────────────────────────────────────────
+# Controls /etc/os-release — what GRUB entries, fastfetch, hostnamectl show.
+# Nothing user-visible mentions the Fedora base. ID/VERSION_ID/PLATFORM_ID keep
+# Fedora's real values for DNF/RPM/repo compatibility ($releasever comes from
+# VERSION_ID) and are derived from the running system, never hardcoded.
+# rabble_os_version is semver and is the one source of the OS version (Grimoire
+# RaBbLE-Versioning.md section 2). The two entry scripts carry a copy because they
+# run before the repo is cloned; keep them in step.
+# Override rabble_epoch_name in host_vars/ to distinguish installs in GRUB.
+rabble_epoch_name:     "Genesis"
+rabble_os_name:        "RaBbLE-OS"
+rabble_os_pretty_name: "RaBbLE-OS - {{ rabble_epoch_name }}"
+rabble_os_version:     "0.1.0"
+rabble_hostname:       "rabble-os"   # static hostname, set only if none exists; override per machine in host_vars/
+rabble_os_variant:     "RaBbLE Desktop"
+rabble_os_home_url:    "https://github.com/RaBbLE-Collective/RaBbLE-OS"
+rabble_fedora_version: "{{ ansible_facts['distribution_major_version'] }}"   # internal only (os-release ID fields)
+
+# ── Desktop ───────────────────────────────────────────────────────────────────
+rabble_default_shell: zsh    # zsh | bash
+
+# ── Optional layers (opt-in, off by default) ──────────────────────────────────
+# Each var's real default lives in its own role's defaults/main.yml; listed
+# here only so they're discoverable without hunting the role tree.
+# rabble_enable_wine_bottles   → layer/bottles (default false; layerctl flips
+#                                 it for `apply bottles` — see LAYER_EXTRA_VARS
+#                                 in RaBbLE-OS-layerctl.sh)
+# rabble_enable_gnome_desktop  → layer/gnome (default false; layerctl flips
+#                                 it for `apply gnome` / `remove gnome` — see
+#                                 LAYER_EXTRA_VARS in RaBbLE-OS-layerctl.sh).
+#                                 Opt-in for `apply all`/upgrade on an
+#                                 already-installed system — RaBbLE-OS.ks's
+#                                 firstboot service flips it on by default for
+#                                 fresh installs (RABBLE_EXTRA_VARS), shipping
+#                                 GNOME as a first-class fallback DE alongside
+#                                 Hyprland. SDDM stays the only display manager
+#                                 either way (no gdm installed/enabled).
+
+# ── GRUB boot display ─────────────────────────────────────────────────────────
+# Font size used for GRUB's own console/gfxterm UI. Theme font sizes derive from
+# this to keep text proportional across resolutions. Override in group_vars per host.
+# Standard: 16 (≈1080p). HiDPI (4K native): 32 (doubles physical size).
+rabble_grub_font_base_size: 16
+# Theme font sizes for theme.j2 — sized for the GRUB gfxmode resolution.
+rabble_grub_theme_hint:  12   # key hints, muted separator
+rabble_grub_theme_body:  16   # boot menu items, timer bar
+rabble_grub_theme_sub:   18   # subtitle / episode label
+rabble_grub_theme_title: 36   # "RaBbLE-OS" header

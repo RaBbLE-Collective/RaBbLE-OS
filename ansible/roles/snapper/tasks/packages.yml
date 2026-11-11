@@ -1,0 +1,6 @@
+---
+# snapper/tasks/packages.yml — STUB
+- name: snapper packages — stub
+  ansible.builtin.debug:
+    msg: "spark ~ snapper >> packages stub, no-op // %DORMANT%"
+  tags: [snapper, packages]

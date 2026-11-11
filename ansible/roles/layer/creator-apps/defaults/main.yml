@@ -1,0 +1,11 @@
+---
+# ansible/roles/layer/creator-apps/defaults/main.yml
+# Opt-in gate — never runs under `apply all` / `upgrade` unless flipped.
+# layerctl flips it automatically for `apply creator-apps` and `app <id>`
+# via LAYER_EXTRA_VARS / cmd_app (see RaBbLE-OS-layerctl.sh).
+rabble_enable_creator_apps: false
+
+# Which registered app(s) to install when this layer runs. "all" (default)
+# installs every entry in vars/main.yml's rabble_optional_apps; layerctl's
+# `app <id>` subcommand overrides this to a single app id.
+rabble_creator_app_target: "all"

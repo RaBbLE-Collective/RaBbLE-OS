@@ -1,0 +1,5 @@
+---
+# desktop/hyprland/tasks/main.yml
+- { ansible.builtin.include_tasks: packages.yml, tags: [desktop, hyprland, packages] }
+- { ansible.builtin.include_tasks: config.yml,   tags: [desktop, hyprland, config]   }
+- { ansible.builtin.include_tasks: dotfiles.yml, tags: [desktop, hyprland, dotfiles] }

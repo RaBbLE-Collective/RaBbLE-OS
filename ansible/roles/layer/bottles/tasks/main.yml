@@ -1,0 +1,50 @@
+---
+# ansible/roles/layer/bottles/tasks/main.yml
+# spark ~ layer/bottles >> Wine app compatibility via Bottles // %LAYER_BOTTLES%
+#
+# Opt-in layer (rabble_enable_wine_bottles, default false — see defaults/main.yml).
+# First tenant: TierTime UP Studio, the slicer/host client for the Cetus3D MK2
+# (no native Linux build — see Grimoire hardware/RaBbLE-OS-Hardware-Cetus3D-MK2.md).
+# Designed to also host Affinity Suite (Photo/Designer/Publisher) later — each
+# app gets its own isolated Wine prefix ("bottle"), so per-app runner/dependency
+# choices don't leak between them.
+
+- name: bottles | ensure flatpak runtime installed
+  ansible.builtin.dnf:
+    name: flatpak
+    state: present
+  become: true
+  tags: [layer, bottles, packages]
+
+- name: bottles | ensure Flathub remote is registered (system-wide)
+  community.general.flatpak_remote:
+    name: flathub
+    state: present
+    flatpakrepo_url: https://dl.flathub.org/repo/flathub.flatpakrepo
+    method: system
+  become: true
+  tags: [layer, bottles, packages]
+
+- name: bottles | install Bottles
+  community.general.flatpak:
+    name: com.usebottles.bottles
+    state: present
+    method: system
+  become: true
+  tags: [layer, bottles, packages]
+
+- name: bottles | add user to dialout group (USB/serial passthrough — printers, MCUs)
+  ansible.builtin.user:
+    name: "{{ rabble_user }}"
+    groups: dialout
+    append: true
+  become: true
+  tags: [layer, bottles, usb-serial]
+  # Flatpak's sandbox device access (Bottles ships --device=all) does not
+  # bypass host udev group permissions — the invoking user still needs
+  # dialout (or the vendor's udev rule group) to open /dev/ttyUSB*.
+  # Group membership requires a new login session to take effect.
+
+- name: bottles | set up UP Studio bottle (Cetus3D MK2)
+  ansible.builtin.include_tasks: upstudio.yml
+  tags: [layer, bottles, upstudio]

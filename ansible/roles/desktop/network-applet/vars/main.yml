@@ -1,0 +1,4 @@
+# ansible/roles/desktop/network-applet/vars/main.yml
+
+network_applet_packages:
+  - network-manager-applet         # NetworkManager systray applet

@@ -1,0 +1,174 @@
+---
+# Claude Code CLI — Anthropic's official agentic coding assistant
+# Auth: `claude` picks up existing browser/OAuth session or ANTHROPIC_API_KEY.
+# sCoRE provider: claude_code (subprocess, --print mode)
+#
+# Idempotency: if `claude` is already reachable in PATH (any install method),
+# skip the npm install to avoid EEXIST conflicts with pre-existing binaries.
+
+- name: Check if Claude Code is already installed
+  ansible.builtin.command: claude --version
+  register: _claude_precheck
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_facts['env'].PATH }}"
+
+- name: Install Claude Code CLI globally via npm
+  community.general.npm:
+    name: "@anthropic-ai/claude-code"
+    global: true
+    state: present
+  environment:
+    NPM_CONFIG_PREFIX: "{{ ai_harnesses_node_prefix }}"
+  when: _claude_precheck.rc != 0
+
+- name: Verify claude binary is reachable
+  ansible.builtin.command: claude --version
+  register: _claude_version
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ ai_harnesses_node_prefix }}/bin:{{ ansible_facts['env'].PATH }}"
+
+- name: Report Claude Code version
+  ansible.builtin.debug:
+    msg: "Claude Code: {{ _claude_version.stdout | default('not found — check PATH and NPM_CONFIG_PREFIX') }}"
+
+# rabble: Claude Code as RaBbLE with the Crew as agent-team organs (sCoRE crew/rabble.py,
+# S273). Linked only when the sCoRE member is cloned inside the Collective.
+- name: Check for the sCoRE rabble launcher
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-sCoRE/scripts/rabble"
+  register: _rabble_launcher
+
+- name: Check what ~/.local/bin/rabble is now
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.local/bin/rabble"
+    follow: false
+  register: _rabble_dest
+
+- name: Ensure ~/.local/bin exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.local/bin"
+    state: directory
+    mode: '0755'
+  when: _rabble_launcher.stat.exists
+
+# Replaces an existing symlink, never a real file (the future L-09 CLI shares the name;
+# per RaBbLE-sCoRE-Crew.md C2 it extends crew/rabble.py rather than installing its own binary).
+- name: Link rabble launcher into ~/.local/bin
+  ansible.builtin.file:
+    src: "{{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-sCoRE/scripts/rabble"
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/rabble"
+    state: link
+    force: true
+  when: _rabble_launcher.stat.exists and (not _rabble_dest.stat.exists or _rabble_dest.stat.islnk)
+
+- name: Report a non-link ~/.local/bin/rabble left in place
+  ansible.builtin.debug:
+    msg: "~/.local/bin/rabble is a real file, not replaced; remove it to install the Crew launcher"
+  when: _rabble_launcher.stat.exists and _rabble_dest.stat.exists and not _rabble_dest.stat.islnk
+
+# RaBbLE-UI venv: `rabble`'s own Textual face over a headless Claude Code (sCoRE ui/ +
+# orchestra/, plan log/plans/sCoRE-RaBbLE-UI-Plan.md). Pins live in sCoRE ui/requirements.txt;
+# scripts/rabble runs this venv's python. Built only when sCoRE is cloned.
+- name: Check for the RaBbLE-UI requirements
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-sCoRE/ui/requirements.txt"
+  register: _rabble_ui_reqs
+
+- name: Ensure uv (Python package manager) is installed
+  ansible.builtin.shell: |
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.local/bin/uv"
+  when: _rabble_ui_reqs.stat.exists
+
+- name: Create the RaBbLE-UI venv
+  ansible.builtin.command: >
+    {{ lookup('env', 'HOME') }}/.local/bin/uv venv --python 3.14
+    {{ lookup('env', 'HOME') }}/.local/share/RaBbLE/rabble-ui
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.local/share/RaBbLE/rabble-ui/bin/python"
+  when: _rabble_ui_reqs.stat.exists
+
+- name: Install RaBbLE-UI dependencies into the venv
+  ansible.builtin.command: >
+    {{ lookup('env', 'HOME') }}/.local/bin/uv pip install
+    --python {{ lookup('env', 'HOME') }}/.local/share/RaBbLE/rabble-ui/bin/python
+    -r {{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-sCoRE/ui/requirements.txt
+  register: _rabble_ui_install
+  changed_when: "'Installed' in _rabble_ui_install.stderr or 'Uninstalled' in _rabble_ui_install.stderr"
+  when: _rabble_ui_reqs.stat.exists
+
+# Rust TUI (sCoRE tui/, plan log/plans/sCoRE-RaBbLE-UI-Rust-Plan.md): crate sources from Fedora's
+# rust-*-devel packages so cargo builds offline from /usr/share/cargo/registry (crates.io can be
+# filtered). Versions must match tui/Cargo.toml; the same names are in packages/manifest.yml.
+- name: Check for the RaBbLE-UI Rust workspace
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-sCoRE/tui/Cargo.toml"
+  register: _rabble_tui_ws
+
+- name: Install Rust crate sources for the RaBbLE-UI TUI
+  ansible.builtin.dnf:
+    name:
+      - cargo
+      - rust-ratatui0.29+crossterm-devel
+      - rust-serde+derive-devel
+      - rust-serde_json-devel
+    state: present
+  become: true
+  when: _rabble_tui_ws.stat.exists
+
+# The RaBbLE engine (sCoRE orchestra/serve.py) as a systemd user service, so it starts at login,
+# restarts on a crash, and `rabble --restart` swaps in new code. `rabble` still falls back to
+# starting an engine by hand where this unit is absent. Sessions are child processes of the unit:
+# stopping or restarting it closes them (KillMode=control-group); they resume from their SDK ids.
+- name: Ensure systemd user directory exists (RaBbLE engine)
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.config/systemd/user"
+    state: directory
+    mode: '0755'
+  when: _rabble_ui_reqs.stat.exists
+
+- name: Deploy the RaBbLE engine systemd user service
+  register: _rabble_engine_unit
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.config/systemd/user/rabble-engine.service"
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=RaBbLE engine: sessions behind the RaBbLE shell (sCoRE orchestra)
+      After=default.target
+
+      [Service]
+      Type=simple
+      WorkingDirectory=%h/RaBbLE-Collective/RaBbLE-sCoRE
+      Environment=PYTHONPATH=%h/RaBbLE-Collective/RaBbLE-sCoRE
+      # A user unit has no login shell: give sessions the PATH a terminal would (claude, node, uv, cargo).
+      Environment=PATH=%h/.local/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin
+      # Provider keys and other overrides (RABBLE_SESSION_IDLE_TTL, ANTHROPIC_*): the file wins over the above.
+      EnvironmentFile=-%h/.config/RaBbLE/engine.env
+      ExecStart=%h/.local/share/RaBbLE/rabble-ui/bin/python -P -m orchestra.serve --socket %t/rabble/engine.sock
+      Restart=on-failure
+      RestartSec=3
+      # SIGTERM makes the engine close every session; give the claude children time, then take the group.
+      KillMode=control-group
+      TimeoutStopSec=20
+
+      [Install]
+      WantedBy=default.target
+  when: _rabble_ui_reqs.stat.exists
+
+# `started`, not `restarted`, on a plain re-run: re-applying the layer must not close live sessions.
+# A changed unit file is the one case that restarts.
+- name: Enable and start the RaBbLE engine service
+  ansible.builtin.systemd:
+    name: rabble-engine
+    enabled: true
+    state: "{{ 'restarted' if _rabble_engine_unit is changed else 'started' }}"
+    scope: user
+    daemon_reload: true
+  when: _rabble_ui_reqs.stat.exists
+  ignore_errors: true   # an engine started by hand holds the socket lock until it is stopped

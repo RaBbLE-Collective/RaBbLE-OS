@@ -1,0 +1,4 @@
+# ansible/roles/desktop/v4l2/vars/main.yml
+
+v4l2_packages:
+  - v4l-utils                      # v4l2-ctl for webcam toggle scripts

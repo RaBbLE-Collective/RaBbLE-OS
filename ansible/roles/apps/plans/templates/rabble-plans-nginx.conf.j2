@@ -1,0 +1,54 @@
+# /etc/nginx/conf.d/rabble-plans.conf
+# RaBbLE Plans local reverse proxy — Ansible managed
+#
+# Architecture:
+#   Plan app (Node.js)  →  localhost:{{ plans_app_port }}  (internal, /_agent-native/ routes)
+#   nginx (this file)   →  localhost:{{ plans_nginx_port }} (public face, /_rabble/ alias)
+#
+# Claude Code MCP config uses: http://localhost:{{ plans_nginx_port }}/_rabble/mcp
+# No _agent-native ever appears in agent config or URLs Mark sees.
+
+server {
+    listen 127.0.0.1:{{ plans_nginx_port }};
+    server_name localhost;
+
+    access_log /var/log/nginx/rabble-plans.access.log;
+    error_log  /var/log/nginx/rabble-plans.error.log;
+
+    # ── RaBbLE-branded MCP + internal API path ─────────────────────────────
+    # /_rabble/ is the public alias for /_agent-native/ on the upstream app.
+    # This is the only path Claude Code agents and MCP clients ever see.
+    location /_rabble/ {
+        proxy_pass         http://127.0.0.1:{{ plans_app_port }}/_agent-native/;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_read_timeout 86400;
+    }
+
+    # ── Internal app routes (browser requests from the Plan UI) ───────────
+    # The Plan UI makes its own XHR calls to /_agent-native/; these pass
+    # through transparently so the browser-side app works without modification.
+    location /_agent-native/ {
+        proxy_pass         http://127.0.0.1:{{ plans_app_port }}/_agent-native/;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_read_timeout 86400;
+    }
+
+    # ── Plan UI and all other routes ──────────────────────────────────────
+    location / {
+        proxy_pass         http://127.0.0.1:{{ plans_app_port }}/;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_read_timeout 86400;
+    }
+}

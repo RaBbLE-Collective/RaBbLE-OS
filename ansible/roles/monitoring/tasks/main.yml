@@ -1,0 +1,17 @@
+---
+# =============================================================================
+# Monitoring Role — Sensors, Metrics, System Visibility
+# =============================================================================
+# Passive data producers. Nothing here actively manages hardware state.
+# Feeds structured system data for:
+#   - Human dashboards (btop, nvtop, psensor)
+#   - Agent telemetry subscriptions (future node_exporter / custom bus)
+# =============================================================================
+
+- name: Configure hardware sensors
+  ansible.builtin.import_tasks: sensors.yml
+  tags: [monitoring, sensors]
+
+- name: Configure power monitoring
+  ansible.builtin.import_tasks: powertop.yml
+  tags: [monitoring, powertop, power]

@@ -1,0 +1,17 @@
+---
+# virtualization/tasks/fstab-safety.yml — Ensure VM partition never blocks boot
+
+- name: virtualization | fix fstab if RaBbLE-VM entry lacks nofail
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^(/dev/disk/by-label/RaBbLE-VM\s+/mnt/vms\s+\S+\s+)(?!.*nofail)(.*)'
+    replace: '\1nofail,x-systemd.device-timeout=5s,\2'
+  become: true
+  notify: reload systemd daemon
+
+- name: virtualization | ensure /mnt/vms mount dir exists
+  ansible.builtin.file:
+    path: /mnt/vms
+    state: directory
+    mode: "0755"
+  become: true

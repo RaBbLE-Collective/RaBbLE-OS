@@ -3,12 +3,12 @@
 ```
 transcribe ~ grimoire >> substrate initialized // %ENTITY_ONLINE%
 ```
-![RaBbLE](grimoire/components/RaBbLE.svg)
+![RaBbLE](assets/RaBbLE.svg)
 > The system is RaBbLE. RaBbLE is the system.
 
 # Now Entering the Domain of RaBbLE 
 ```
-OS: RaBbLE-OS (Fedora 43 Base)
+OS: RaBbLE-OS
 Host: RaBbLE Substrate
 Kernel: 6.x.x-rabble-core
 Uptime: Eternal / Persistent

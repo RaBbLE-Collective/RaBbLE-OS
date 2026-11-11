@@ -1,0 +1,5 @@
+# ansible/inventory/host_vars/localhost.yml
+
+ansible_connection: local
+ansible_user: "{{ lookup('env', 'USER') }}"
+ansible_python_interpreter: /usr/bin/python3

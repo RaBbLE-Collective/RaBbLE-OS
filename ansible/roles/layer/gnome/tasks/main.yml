@@ -1,0 +1,15 @@
+---
+# ansible/roles/layer/gnome/tasks/main.yml — STUB (GNOME Shell, opt-in)
+#
+# NOTE: the enclosing play in site.yml is tagged [layer, gnome], and Ansible
+# applies play-level tags to every task in the play regardless of that task's
+# own tags — tag filtering alone CANNOT keep remove.yml from also matching a
+# plain `--tags gnome` apply run (verified empirically). remove.yml is
+# therefore gated by `ansible_run_tags` (the literal --tags CLI value) so it
+# only fires when 'remove' was actually requested, not merely present as one
+# of this play's inherited tags.
+- { ansible.builtin.include_tasks: packages.yml, tags: [layer, gnome, packages] }
+- { ansible.builtin.include_tasks: theme.yml,    tags: [layer, gnome, theme]    }
+- ansible.builtin.include_tasks: remove.yml
+  tags: [layer, gnome, remove]
+  when: "'remove' in ansible_run_tags"

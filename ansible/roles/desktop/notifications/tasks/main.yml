@@ -1,0 +1,5 @@
+---
+# desktop/notifications/tasks/main.yml
+- { ansible.builtin.include_tasks: packages.yml, tags: [desktop, notifications, packages] }
+- { ansible.builtin.include_tasks: config.yml,   tags: [desktop, notifications, config]   }
+- { ansible.builtin.include_tasks: dotfiles.yml, tags: [desktop, notifications, dotfiles] }

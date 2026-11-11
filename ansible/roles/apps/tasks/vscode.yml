@@ -1,0 +1,160 @@
+---
+# apps/tasks/vscode.yml — VSCodium install + RaBbLE Aether theme deployment
+#
+# spark ~ apps/vscode >> RaBbLE Aether theme wired into VSCodium // %VSCODE_AETHER%
+#
+# Theme artifacts (manifest, color theme, custom.css) live in Aether at
+# {{ aether_repo_root }}/themes/vscodium/ — Aether is the canonical theme source.
+# OS keeps only config/vscodium/User/settings.json (the selector that activates it).
+#
+# CSS injection: Ansible inlines custom.css content directly into workbench.desktop.main.css.
+# @import url('file://...') is blocked by Electron's cross-scheme security policy.
+# Must be re-run after VSCodium updates (the system CSS file gets replaced on upgrade).
+
+- name: vscode | create VSCodium user config directory
+  ansible.builtin.file:
+    path: "{{ rabble_config_home }}/VSCodium/User"
+    state: directory
+    mode: '0755'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [apps, vscode]
+
+- name: vscode | create VSCodium extension directory structure
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ rabble_user }}"
+  become: true
+  loop:
+    - assets
+    - themes
+  tags: [apps, vscode]
+
+- name: vscode | deploy user settings (activates RaBbLE Aether theme)
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/vscodium/User/settings.json"
+    dest: "{{ rabble_config_home }}/VSCodium/User/settings.json"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [apps, vscode]
+
+- name: vscode | deploy RaBbLE Aether extension manifest
+  ansible.builtin.copy:
+    src: "{{ aether_repo_root }}/themes/vscodium/package.json"
+    dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/package.json"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [apps, vscode]
+
+- name: vscode | deploy RaBbLE Aether theme assets
+  ansible.builtin.copy:
+    src: "{{ aether_repo_root }}/themes/vscodium/assets/"
+    dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/assets/"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [apps, vscode]
+
+- name: vscode | deploy RaBbLE Aether color theme
+  ansible.builtin.copy:
+    src: "{{ aether_repo_root }}/themes/vscodium/themes/"
+    dest: "{{ rabble_home }}/.vscode-oss/extensions/RaBbLE-Collective.rabble-aether-theme-0.0.1/themes/"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [apps, vscode]
+
+- name: vscode | find workbench CSS path
+  ansible.builtin.find:
+    paths: /usr/share/codium/resources/app/out/vs/workbench
+    patterns: "workbench.desktop.main.css"
+  register: workbench_css
+  tags: [apps, vscode]
+
+- name: vscode | remove legacy @import injection if present
+  ansible.builtin.lineinfile:
+    path: "{{ workbench_css.files[0].path }}"
+    regexp: "^@import url\\("
+    state: absent
+  become: true
+  when: workbench_css.matched > 0
+  tags: [apps, vscode]
+
+# Inline the CSS directly — @import url('file://...') is blocked by Electron's
+# cross-scheme security model (vscode-file:// cannot import file:// resources).
+- name: vscode | inject Aether CSS inline into workbench stylesheet
+  ansible.builtin.blockinfile:
+    path: "{{ workbench_css.files[0].path }}"
+    marker: "/* {mark} RABBLE-AETHER-INJECTION */"
+    insertbefore: BOF
+    block: "{{ lookup('file', aether_repo_root + '/themes/vscodium/assets/custom.css') }}"
+  become: true
+  when: workbench_css.matched > 0
+  tags: [apps, vscode]
+
+# product.json is an RPM %config file. On upgrade, if our checksum patch had
+# locally modified it, RPM refuses to overwrite it and drops the package's
+# real product.json next to it as product.json.rpmnew instead — leaving every
+# OTHER checksummed file (workbench.desktop.main.js, extensionHostProcess.js,
+# sessions.*, etc.) upgraded while product.json still lists the old version's
+# checksums for them. That mismatch alone triggers the corrupt banner, even
+# before the CSS is touched. Always adopt .rpmnew first so product.json tracks
+# the version RPM actually installed.
+- name: vscode | resolve VSCodium app root
+  ansible.builtin.set_fact:
+    codium_app_root: "{{ workbench_css.files[0].path.split('/out/')[0] }}"
+  when: workbench_css.matched > 0
+  tags: [apps, vscode]
+
+- name: vscode | check for a pending product.json.rpmnew
+  ansible.builtin.stat:
+    path: "{{ codium_app_root }}/product.json.rpmnew"
+  register: codium_product_rpmnew
+  when: workbench_css.matched > 0
+  tags: [apps, vscode]
+
+- name: vscode | adopt product.json.rpmnew if an upgrade left one behind
+  ansible.builtin.command:
+    argv:
+      - mv
+      - "{{ codium_app_root }}/product.json.rpmnew"
+      - "{{ codium_app_root }}/product.json"
+  become: true
+  when:
+    - workbench_css.matched > 0
+    - codium_product_rpmnew.stat.exists
+  tags: [apps, vscode]
+
+# Injecting @import edits workbench.desktop.main.css, which is integrity-checked
+# in product.json ("checksums"). A stale checksum triggers VSCodium's
+# "Your installation appears to be corrupt" banner. Recompute it to match.
+# Idempotent: rewrites product.json only when the stored checksum differs.
+- name: vscode | repair product.json integrity checksum for patched workbench CSS
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "-c"
+      - |
+        import json, hashlib, base64, os, sys
+        css = sys.argv[1]
+        # app root is the dir containing "out/"; product.json sits beside it
+        app = css.split('/out/')[0]
+        prod = os.path.join(app, 'product.json')
+        key = css.split('/out/')[1]
+        d = json.load(open(prod))
+        new = base64.b64encode(hashlib.sha256(open(css, 'rb').read()).digest()).decode().rstrip('=')
+        if d.get('checksums', {}).get(key) == new:
+            print('unchanged'); sys.exit(0)
+        d.setdefault('checksums', {})[key] = new
+        json.dump(d, open(prod, 'w'), indent='\t')
+        print('patched')
+      - "{{ workbench_css.files[0].path }}"
+  become: true
+  when: workbench_css.matched > 0
+  register: codium_checksum
+  changed_when: "'patched' in codium_checksum.stdout"
+  tags: [apps, vscode]

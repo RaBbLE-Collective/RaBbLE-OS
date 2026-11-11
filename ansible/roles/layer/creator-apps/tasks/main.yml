@@ -1,0 +1,78 @@
+---
+# ansible/roles/layer/creator-apps/tasks/main.yml
+# spark ~ layer/creator-apps >> data-driven single-Flatpak creator app registry // %LAYER_CREATOR_APPS%
+#
+# Opt-in layer (rabble_enable_creator_apps, default false — see defaults/main.yml).
+# Registers small, single-Flatpak creator tools (FreeCAD to start) from ONE
+# list in vars/main.yml — adding a new app is a 3-line vars entry, not a new
+# role/site.yml play/layerctl.sh edit. rabble_creator_app_target selects one
+# app by id, or "all" (default) for every registered app; layerctl's
+# `app <id>` subcommand drives single-app installs, `apply creator-apps`
+# installs everything in the list.
+
+- name: creator-apps | ensure flatpak runtime installed
+  ansible.builtin.dnf:
+    name: flatpak
+    state: present
+  become: true
+  tags: [layer, creator-apps, packages]
+
+- name: creator-apps | ensure Flathub remote is registered (system-wide)
+  community.general.flatpak_remote:
+    name: flathub
+    state: present
+    flatpakrepo_url: https://dl.flathub.org/repo/flathub.flatpakrepo
+    method: system
+  become: true
+  tags: [layer, creator-apps, packages]
+
+- name: "creator-apps | install {{ item.id }}"
+  community.general.flatpak:
+    name: "{{ item.flatpak }}"
+    state: present
+    method: system
+  loop: "{{ rabble_optional_apps }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: rabble_creator_app_target == 'all' or rabble_creator_app_target == item.id
+  become: true
+  tags: [layer, creator-apps, packages]
+
+# User-scope (no become) — applies regardless of whether the app itself was
+# installed system- or user-wide, and needs no elevated permission. See the
+# QT_SCALE_FACTOR comment in vars/main.yml for why freecad/librecad carry one:
+# their Flathub packaging forces XWayland, which doesn't reliably pick up
+# Hyprland's HiDPI scale on its own.
+- name: "creator-apps | apply flatpak overrides for {{ item.0.id }}"
+  ansible.builtin.command:
+    cmd: "flatpak override --user --env={{ item.1 }} {{ item.0.flatpak }}"
+  loop: "{{ rabble_optional_apps | subelements('env', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.id }} {{ item.1 }}"
+  when: rabble_creator_app_target == 'all' or rabble_creator_app_target == item.0.id
+  changed_when: true
+  become: false
+  tags: [layer, creator-apps, packages]
+
+- name: creator-apps | ensure state dir exists
+  ansible.builtin.file:
+    path: "{{ rabble_home }}/.local/state/rabble"
+    state: directory
+    mode: "0755"
+  become: false
+  tags: [layer, creator-apps, config]
+
+- name: creator-apps | generate CLI aliases for the full registry
+  ansible.builtin.template:
+    src: creator-apps-aliases.zsh.j2
+    dest: "{{ rabble_home }}/.local/state/rabble/creator-apps-aliases.zsh"
+    mode: "0644"
+  become: false
+  tags: [layer, creator-apps, config]
+  # Always regenerated from the FULL rabble_optional_apps list, regardless of
+  # rabble_creator_app_target — a single-app `app <id>` install still keeps
+  # every other app's alias intact rather than clobbering the file down to
+  # just the one being installed. config/shell/zsh/.zshrc and
+  # config/shell/bash/.bashrc both source this path unconditionally, so a
+  # fresh machine that's never applied this layer just skips the `[[ -f ]]`
+  # guard — no per-app edit to either dotfile is ever required.

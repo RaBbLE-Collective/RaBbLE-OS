@@ -1,0 +1,4 @@
+---
+# snapper/tasks/main.yml — STUB
+- { ansible.builtin.include_tasks: packages.yml, tags: [snapper, packages] }
+- { ansible.builtin.include_tasks: config.yml,   tags: [snapper, config]   }

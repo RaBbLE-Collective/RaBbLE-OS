@@ -1,0 +1,65 @@
+---
+# ansible/roles/hardware/x64/asus_proart_p16/tasks/asusctl.yml
+# asusctl — the CLI client for asusd: fan profiles, keyboard backlight,
+# charge limit, AuraSync. Source is copr:lukenukem/asus-linux, already
+# declared in ansible/packages/manifest.yml — this task installs the client
+# and sets the default platform-profile. The daemon service (asusd.service)
+# is installed/enabled by asusd.yml; per-profile fan curves live in
+# arbitration.yml (Balanced there gets the quiet curve override, not stock).
+
+- name: asusctl | install asusctl client
+  ansible.builtin.dnf:
+    name: asusctl
+    state: present
+  become: true
+  tags: [hardware, asus, power]
+
+# Syntax CONFIRMED against asusctl 6.3.8-2.fc43 (2026-07-06, live machine):
+# subcommand is `profile set <Profile>` (valid profiles: Quiet, Balanced,
+# Performance from `asusctl profile list`). The old `-P` flag does not exist on
+# this version. `set` also takes -a/--ac and -b/--battery to pin a profile to a
+# power source; we set the active default only. failed_when: false is kept as a
+# guard in case the daemon is briefly unavailable on first boot.
+- name: "asusctl | set default platform-profile ({{ asus_power_profile | default('Balanced') }})"
+  ansible.builtin.command: "asusctl profile set {{ asus_power_profile | default('Balanced') }}"
+  register: rabble_asusctl_profile_set
+  changed_when: rabble_asusctl_profile_set.rc == 0
+  failed_when: false
+  become: true
+  tags: [hardware, asus, power]
+
+# The AC/battery pins are what asusd re-applies on every boot and plug event
+# (asusd.ron: platform_profile_on_ac / platform_profile_on_battery, both with
+# change_platform_profile_on_* true). asusd ships AC=Performance, which silently
+# overrides the one-shot `profile set` above on the next boot or AC event and
+# leaves the machine at governor=performance, EPP=performance, ~27 W package
+# power at idle (measured S245, 2026-10-11). Pin them explicitly through the CLI
+# so the daemon rewrites its own config (no hand-editing /etc/asusd/asusd.ron).
+# Read the current pins first so a converged host reports "ok", not "changed".
+- name: asusctl | read current AC/battery profile pins
+  ansible.builtin.command: asusctl profile get
+  register: rabble_asusctl_profile_pins
+  changed_when: false
+  failed_when: false
+  become: true
+  tags: [hardware, asus, power]
+
+- name: "asusctl | pin AC profile ({{ asus_power_profile_ac | default('Balanced') }})"
+  ansible.builtin.command: "asusctl profile set --ac {{ asus_power_profile_ac | default('Balanced') }}"
+  when: >-
+    ('AC profile ' ~ (asus_power_profile_ac | default('Balanced')))
+    not in rabble_asusctl_profile_pins.stdout
+  changed_when: true
+  failed_when: false
+  become: true
+  tags: [hardware, asus, power]
+
+- name: "asusctl | pin battery profile ({{ asus_power_profile_battery | default('Quiet') }})"
+  ansible.builtin.command: "asusctl profile set --battery {{ asus_power_profile_battery | default('Quiet') }}"
+  when: >-
+    ('Battery profile ' ~ (asus_power_profile_battery | default('Quiet')))
+    not in rabble_asusctl_profile_pins.stdout
+  changed_when: true
+  failed_when: false
+  become: true
+  tags: [hardware, asus, power]

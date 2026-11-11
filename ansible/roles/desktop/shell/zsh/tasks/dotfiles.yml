@@ -1,0 +1,6 @@
+---
+# desktop/shell/zsh/tasks/dotfiles.yml — STUB
+- name: zsh dotfiles — stub
+  ansible.builtin.debug:
+    msg: "spark ~ desktop/shell/zsh >> dotfiles stub, no-op // %DORMANT%"
+  tags: [desktop, shell, zsh, dotfiles]

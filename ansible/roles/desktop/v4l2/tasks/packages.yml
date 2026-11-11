@@ -1,0 +1,8 @@
+---
+# desktop/v4l2/tasks/packages.yml
+- name: Install V4L2 utilities
+  ansible.builtin.dnf:
+    name: "{{ v4l2_packages }}"
+    state: present
+  become: true
+  tags: [desktop, v4l2, packages]

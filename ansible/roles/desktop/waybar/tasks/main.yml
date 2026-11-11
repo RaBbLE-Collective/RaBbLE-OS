@@ -1,0 +1,5 @@
+---
+# desktop/waybar/tasks/main.yml
+- { ansible.builtin.include_tasks: packages.yml, tags: [desktop, waybar, packages] }
+- { ansible.builtin.include_tasks: config.yml,   tags: [desktop, waybar, config]   }
+- { ansible.builtin.include_tasks: dotfiles.yml, tags: [desktop, waybar, dotfiles] }

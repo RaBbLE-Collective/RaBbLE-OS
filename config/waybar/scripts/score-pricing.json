@@ -1,0 +1,16 @@
+{
+  "_comment": "Published Claude API list prices, USD per million tokens (MTok). Single source of truth for sCoRE-tracker dollar estimates. cache_read = cache_read_mult x input; cache_write (5-min TTL, what Claude Code uses) = cache_write_mult x input. Source: claude-api skill pricing table, cached 2026-06-04. Update when Anthropic changes list prices. Model keys are the short names produced by _short_model() (claude- prefix and -YYYYMMDD date suffix stripped).",
+  "updated": "2026-06-30",
+  "unit": "USD per 1M tokens",
+  "cache_read_mult": 0.1,
+  "cache_write_mult": 1.25,
+  "models": {
+    "fable-5":    {"input": 10.0, "output": 50.0},
+    "opus-4-8":   {"input": 5.0,  "output": 25.0},
+    "opus-4-7":   {"input": 5.0,  "output": 25.0},
+    "opus-4-6":   {"input": 5.0,  "output": 25.0},
+    "sonnet-4-6": {"input": 3.0,  "output": 15.0},
+    "haiku-4-5":  {"input": 1.0,  "output": 5.0}
+  },
+  "default": {"input": 3.0, "output": 15.0}
+}

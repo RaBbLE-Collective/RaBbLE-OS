@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RaBbLE Displays</title>
+<link rel="stylesheet" href="/aether.css">
+<style>
+  /* Aether tokens only: no hex, no font stacks of our own */
+  body { margin: 0; background: var(--rabble-bg); color: var(--rabble-text); font-family: var(--rabble-font-ui); }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--rabble-border); }
+  h1 { font-size: var(--rabble-fs-h3); margin: 0; color: var(--rabble-cyan); font-weight: 600; }
+  .sub { color: var(--rabble-dimmer); font-size: var(--rabble-fs-small); }
+  main { display: grid; grid-template-columns: 1fr 320px; gap: 16px; padding: 16px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--rabble-surface); border: 1px solid var(--rabble-border); border-radius: var(--rabble-radius-lg); padding: 14px; }
+  #stage { position: relative; height: 420px; overflow: hidden; background: var(--rabble-bg); border: 1px solid var(--rabble-border); border-radius: var(--rabble-radius-lg); touch-action: none; }
+  .mon { position: absolute; box-sizing: border-box; border: 2px solid var(--rabble-border); background: var(--rabble-surface); border-radius: var(--rabble-radius-sm);
+         display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: grab; user-select: none; text-align: center; padding: 4px; overflow: hidden; }
+  .mon.sel { border-color: var(--rabble-cyan); box-shadow: var(--rabble-glow-cyan-sm); }
+  .mon.off { opacity: .45; border-style: dashed; }
+  .mon b { font-size: var(--rabble-fs-body); }
+  .mon span { font-size: var(--rabble-fs-micro); color: var(--rabble-dimmer); }
+  label { display: block; font-size: var(--rabble-fs-small); color: var(--rabble-dimmer); margin: 10px 0 4px; }
+  select, input[type=number], input[type=text] { width: 100%; box-sizing: border-box; background: var(--rabble-bg); color: var(--rabble-text); border: 1px solid var(--rabble-border); border-radius: var(--rabble-radius-sm); padding: 6px 8px; font-family: inherit; }
+  .row { display: flex; gap: 8px; }
+  button { background: var(--rabble-surface); color: var(--rabble-text); border: 1px solid var(--rabble-border); border-radius: var(--rabble-radius-md); padding: 7px 14px; cursor: pointer; font-family: inherit; }
+  button:hover { border-color: var(--rabble-cyan); }
+  button.primary { border-color: var(--rabble-cyan); color: var(--rabble-cyan); }
+  button.danger { border-color: var(--rabble-magenta); color: var(--rabble-magenta); }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+  #banner { display: none; margin: 12px 16px 0; padding: 10px 14px; border: 1px solid var(--rabble-magenta); border-radius: var(--rabble-radius-md); background: var(--rabble-magenta-10); }
+  #banner.on { display: flex; align-items: center; gap: 12px; }
+  #err { color: var(--rabble-magenta); font-size: var(--rabble-fs-small); margin-top: 8px; min-height: 1em; }
+  .note { font-size: var(--rabble-fs-micro); color: var(--rabble-dimmer); margin-top: 10px; line-height: 1.4; }
+  h2 { font-size: var(--rabble-fs-h4); margin: 0 0 6px; }
+</style>
+</head>
+<body>
+<header><h1>RaBbLE Displays</h1><span class="sub" id="matched"></span></header>
+<div id="banner"><span id="bmsg"></span><button class="primary" id="keep">Keep</button><button class="danger" id="undo">Revert</button></div>
+<main>
+  <section>
+    <div id="stage"></div>
+    <div class="bar">
+      <button class="primary" id="apply">Apply</button>
+      <button id="reset">Reset to live</button>
+      <span class="sub">Drag monitors to arrange. Edges snap. Apply reverts itself after 15s unless you keep it.</span>
+    </div>
+    <div id="err"></div>
+  </section>
+  <aside>
+    <div class="panel" id="props"><h2>Monitor</h2><div class="sub">Select a monitor</div></div>
+    <div class="panel" style="margin-top:16px">
+      <h2>Profiles</h2>
+      <select id="plist"></select>
+      <div class="bar"><button id="papply">Apply</button><button id="pdel" class="danger">Delete</button></div>
+      <label>Save current arrangement as</label>
+      <div class="row"><input type="text" id="pname" placeholder="desk-2screen"><button id="psave">Save</button></div>
+      <div class="note">Profiles match monitors by make/model/serial, not port name.</div>
+    </div>
+  </aside>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let state = null, mons = [], sel = null, SCALE = 0.1, OFF = {x: 0, y: 0}, countdown = null;
+const rotated = t => [1, 3, 5, 7].includes(t);
+const logical = m => { const w = m.width / m.scale, h = m.height / m.scale; return rotated(m.transform) ? [h, w] : [w, h]; };
+const modeStr = m => `${m.width}x${m.height}@${+m.refresh}`;
+const parseMode = s => { const [r, hz] = s.split('@'); const [w, h] = r.split('x'); return {width: +w, height: +h, refresh: +hz}; };
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+function showErr(e) { $('err').textContent = e ? String(e.message || e) : ''; }
+
+function load(s) {
+  state = s;
+  mons = JSON.parse(JSON.stringify(s.monitors));
+  if (!mons.find(m => m.name === sel)) sel = mons[0] && mons[0].name;
+  $('matched').textContent = s.matched ? 'profile: ' + s.matched : 'no matching profile';
+  const pl = $('plist'); pl.replaceChildren();
+  s.profiles.forEach(n => { const o = document.createElement('option'); o.textContent = n; pl.append(o); });
+  if (s.matched) pl.value = s.matched;
+  banner(s.pending);
+  draw(); props();
+}
+
+function fit() {
+  const live = mons.filter(m => m.enabled);
+  if (!live.length) return;
+  const rects = live.map(m => ({x: m.x, y: m.y, w: logical(m)[0], h: logical(m)[1]}));
+  const minX = Math.min(...rects.map(r => r.x)), minY = Math.min(...rects.map(r => r.y));
+  const maxX = Math.max(...rects.map(r => r.x + r.w)), maxY = Math.max(...rects.map(r => r.y + r.h));
+  const st = $('stage');
+  SCALE = Math.min((st.clientWidth - 80) / (maxX - minX + 1000), (st.clientHeight - 80) / (maxY - minY + 600), 0.25);
+  OFF = {x: 40 + 500 * SCALE - minX * SCALE, y: 40 + 300 * SCALE - minY * SCALE};
+}
+
+function draw() {
+  const st = $('stage'); st.replaceChildren();
+  fit();
+  mons.forEach(m => {
+    const [w, h] = logical(m);
+    const d = document.createElement('div');
+    d.className = 'mon' + (m.name === sel ? ' sel' : '') + (m.enabled ? '' : ' off');
+    d.style.left = (m.x * SCALE + OFF.x) + 'px'; d.style.top = (m.y * SCALE + OFF.y) + 'px';
+    d.style.width = (w * SCALE) + 'px'; d.style.height = (h * SCALE) + 'px';
+    const b = document.createElement('b'); b.textContent = m.name;
+    const s1 = document.createElement('span'); s1.textContent = m.enabled ? `${m.width}x${m.height} @${+m.refresh}Hz` : 'disabled';
+    const s2 = document.createElement('span'); s2.textContent = `scale ${m.scale}`;
+    d.append(b, s1, s2);
+    d.onpointerdown = e => startDrag(e, m, d);
+    st.append(d);
+  });
+}
+
+function startDrag(e, m, el) {
+  sel = m.name; props();
+  document.querySelectorAll('.mon').forEach(n => n.classList.toggle('sel', n === el));
+  const sx = e.clientX, sy = e.clientY, ox = m.x, oy = m.y;
+  el.setPointerCapture(e.pointerId);
+  el.onpointermove = ev => {
+    let nx = ox + (ev.clientX - sx) / SCALE, ny = oy + (ev.clientY - sy) / SCALE;
+    const [w, h] = logical(m), T = 20 / SCALE;  // ~20 screen px, in logical units
+    mons.filter(o => o !== m && o.enabled).forEach(o => {
+      const [ow, oh] = logical(o);
+      [[o.x + ow, nx], [o.x - w, nx], [o.x, nx], [o.x + ow - w, nx]].forEach(([t]) => { if (Math.abs(nx - t) < T) nx = t; });
+      [[o.y + oh], [o.y - h], [o.y], [o.y + oh - h]].forEach(([t]) => { if (Math.abs(ny - t) < T) ny = t; });
+    });
+    m.x = Math.round(nx); m.y = Math.round(ny);
+    el.style.left = (m.x * SCALE + OFF.x) + 'px'; el.style.top = (m.y * SCALE + OFF.y) + 'px';
+    syncXY();
+  };
+  el.onpointerup = () => { el.onpointermove = null; draw(); props(); };
+}
+
+function field(label, node) { const l = document.createElement('label'); l.textContent = label; return [l, node]; }
+function props() {
+  const p = $('props'); p.replaceChildren();
+  const m = mons.find(x => x.name === sel);
+  const h = document.createElement('h2'); h.textContent = m ? m.name : 'Monitor'; p.append(h);
+  if (!m) return;
+  const desc = document.createElement('div'); desc.className = 'sub'; desc.textContent = m.description; p.append(desc);
+
+  const en = document.createElement('input'); en.type = 'checkbox'; en.checked = m.enabled;
+  en.onchange = () => { m.enabled = en.checked; draw(); };
+  const el = document.createElement('label'); el.append(en, ' Enabled'); p.append(el);
+
+  const ms = document.createElement('select');
+  const seen = new Set();
+  m.modes.forEach(s => { if (seen.has(s)) return; seen.add(s); const o = document.createElement('option'); o.value = s; o.textContent = s.replace('@', ' @ ') + ' Hz'; ms.append(o); });
+  if (!seen.has(modeStr(m))) { const o = document.createElement('option'); o.value = modeStr(m); o.textContent = modeStr(m); ms.prepend(o); }
+  ms.value = modeStr(m);
+  ms.onchange = () => { Object.assign(m, parseMode(ms.value)); draw(); };
+  p.append(...field('Resolution @ refresh', ms));
+
+  const sc = document.createElement('input'); sc.type = 'number'; sc.min = 0.5; sc.max = 4; sc.step = 0.25; sc.value = m.scale;
+  sc.onchange = () => { if (+sc.value > 0) { m.scale = +sc.value; draw(); } };
+  p.append(...field('Scale', sc));
+
+  const rt = document.createElement('select');
+  [['0', 'Normal'], ['1', '90°'], ['2', '180°'], ['3', '270°']].forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; rt.append(o); });
+  rt.value = String(m.transform < 4 ? m.transform : m.transform - 4);
+  rt.onchange = () => { m.transform = +rt.value; draw(); };
+  p.append(...field('Rotation', rt));
+
+  const xy = document.createElement('div'); xy.className = 'row';
+  ['x', 'y'].forEach(k => { const i = document.createElement('input'); i.type = 'number'; i.id = 'xy' + k; i.value = m[k]; i.onchange = () => { m[k] = +i.value; draw(); }; xy.append(i); });
+  p.append(...field('Position (x, y)', xy));
+
+  const n = document.createElement('div'); n.className = 'note';
+  n.textContent = 'Only modes the monitor advertises appear here. If a refresh rate is missing, the monitor input, cable, adapter or KVM is not offering it.';
+  p.append(n);
+}
+function syncXY() { const m = mons.find(x => x.name === sel); if (!m) return; ['x', 'y'].forEach(k => { const i = $('xy' + k); if (i) i.value = m[k]; }); }
+
+function banner(on) {
+  clearInterval(countdown);
+  $('banner').classList.toggle('on', on);
+  if (!on) return;
+  let t = state.revert_seconds;
+  $('bmsg').textContent = `Keep these display settings? Reverting in ${t}s`;
+  countdown = setInterval(async () => {
+    t--; $('bmsg').textContent = `Keep these display settings? Reverting in ${t}s`;
+    if (t <= 0) { clearInterval(countdown); setTimeout(refresh, 800); }
+  }, 1000);
+}
+
+async function refresh() { try { load(await api('/api/state')); showErr(); } catch (e) { showErr(e); } }
+$('apply').onclick = async () => { try { load(await api('/api/apply', {monitors: mons})); showErr(); } catch (e) { showErr(e); } };
+$('reset').onclick = refresh;
+$('keep').onclick = async () => { try { load(await api('/api/confirm', {})); } catch (e) { showErr(e); } };
+$('undo').onclick = async () => { try { load(await api('/api/revert', {})); } catch (e) { showErr(e); } };
+$('papply').onclick = async () => { try { load(await api('/api/profile/apply', {name: $('plist').value})); showErr(); } catch (e) { showErr(e); } };
+$('pdel').onclick = async () => { try { load(await api('/api/profile/delete', {name: $('plist').value})); showErr(); } catch (e) { showErr(e); } };
+$('psave').onclick = async () => { try { load(await api('/api/profile/save', {name: $('pname').value, monitors: mons})); showErr(); } catch (e) { showErr(e); } };
+addEventListener('resize', draw);
+refresh();
+</script>
+</body>
+</html>

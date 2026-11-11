@@ -1,0 +1,6 @@
+---
+# desktop/quickshell/tasks/dotfiles.yml — STUB
+- name: quickshell dotfiles — stub
+  ansible.builtin.debug:
+    msg: "spark ~ desktop/quickshell >> dotfiles stub, no-op // %DORMANT%"
+  tags: [desktop, quickshell, dotfiles]

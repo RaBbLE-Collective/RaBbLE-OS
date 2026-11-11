@@ -1,0 +1,60 @@
+---
+# hardware/x64/generic/tasks/tuned.yml
+# tuned + tuned-ppd — the power stack for generic x86_64 hardware.
+#
+# Generic machines have no vendor daemon, so tuned is the right tool here:
+# tuned-ppd exposes the power-profiles-daemon D-Bus API (so desktop widgets and
+# `powerprofilesctl`-style clients work) on top of tuned, and
+# power-profiles-daemon itself must NOT be installed alongside it (both claim
+# org.freedesktop.UPower.PowerProfiles).
+#
+# The ProArt P16 deliberately does NOT use this: asusd owns the platform
+# profile, CPU EPP and fan curves there and tuned fights it (tuned-ppd never
+# followed asusd's profile changes and left the CPU on throughput-performance;
+# measured S245). See roles/hardware/x64/asus_proart_p16/tasks/tuned.yml.
+
+- name: tuned | install tuned + tuned-ppd
+  ansible.builtin.dnf:
+    name:
+      - tuned
+      - tuned-ppd
+    state: present
+  become: true
+  tags: [hardware, generic_x64, power, tuned]
+
+- name: tuned | guard — power-profiles-daemon conflicts with tuned-ppd
+  ansible.builtin.dnf:
+    name: power-profiles-daemon
+    state: absent
+  become: true
+  tags: [hardware, generic_x64, power, tuned]
+
+- name: tuned | enable and start tuned.service
+  ansible.builtin.systemd:
+    name: tuned.service
+    enabled: true
+    state: started
+  become: true
+  tags: [hardware, generic_x64, power, tuned]
+
+- name: tuned | enable and start tuned-ppd.service
+  ansible.builtin.systemd:
+    name: tuned-ppd.service
+    enabled: true
+    state: started
+  become: true
+  tags: [hardware, generic_x64, power, tuned]
+
+# Idempotent: read what's active first so a converged host reports "ok".
+- name: tuned | read currently active tuned profile
+  ansible.builtin.command: tuned-adm active
+  register: rabble_tuned_active
+  changed_when: false
+  become: true
+  tags: [hardware, generic_x64, power, tuned]
+
+- name: "tuned | set default active profile ({{ tuned_active_profile | default('balanced') }})"
+  ansible.builtin.command: "tuned-adm profile {{ tuned_active_profile | default('balanced') }}"
+  become: true
+  when: "('Current active profile: ' ~ (tuned_active_profile | default('balanced'))) not in rabble_tuned_active.stdout"
+  tags: [hardware, generic_x64, power, tuned]

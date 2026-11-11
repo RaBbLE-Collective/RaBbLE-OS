@@ -1,0 +1,16 @@
+---
+# ansible/roles/layer/atlas-sentry/vars/main.yml
+
+# Host-side dev tools for the ATLAS sentry (Pi 4 + Coral + pan-tilt, repo ~/ATLAS-next).
+# The robot itself runs on the Pi; this laptop only needs enough to run the pure-logic code
+# offline (idle, motion, control, routines), read frames, and rebuild the Arduino firmware.
+# The Edge TPU runtime stays Pi-only on purpose.
+atlas_sentry_packages:
+  - python3-opencv
+  - python3-numpy
+  - python3-pyserial
+
+# Arduino Nano Every (ATMega4809) core for ATLAS-next/arduino/ArduinoControl.ino. Needs the
+# layer/arduino-cli binary (apply arduino-cli first); skipped with a note if it is missing.
+atlas_sentry_arduino_core: "arduino:megaavr"
+atlas_sentry_arduino_cli: "{{ rabble_home }}/.local/bin/arduino-cli"

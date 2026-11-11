@@ -1,0 +1,50 @@
+# RaBbLE-Aether GTK3 gtkrc — void theme via theme engine
+
+gtk-theme-name = "Adwaita-dark"
+gtk-icon-theme-name = "Papirus-Dark"
+gtk-font-name = "Exo 2 10"
+gtk-application-prefer-dark-theme = true
+
+# Deep void everywhere
+style "rabble-void-base" {
+  bg[NORMAL] = "#0a0010"
+  bg[ACTIVE] = "#12132a"
+  bg[PRELIGHT] = "#12132a"
+  bg[SELECTED] = "#00f5ff"
+  bg[INSENSITIVE] = "#0a0010"
+
+  base[NORMAL] = "#0a0010"
+  base[ACTIVE] = "#00f5ff"
+  base[PRELIGHT] = "#1a1b2e"
+  base[SELECTED] = "#00f5ff"
+  base[INSENSITIVE] = "#0a0010"
+
+  fg[NORMAL] = "#e8e6f0"
+  fg[ACTIVE] = "#e8e6f0"
+  fg[PRELIGHT] = "#e8e6f0"
+  fg[SELECTED] = "#0a0010"
+  fg[INSENSITIVE] = "#9e9ab8"
+
+  text[NORMAL] = "#e8e6f0"
+  text[ACTIVE] = "#e8e6f0"
+  text[PRELIGHT] = "#e8e6f0"
+  text[SELECTED] = "#0a0010"
+  text[INSENSITIVE] = "#9e9ab8"
+}
+
+# Apply to all widgets
+class "*" style "rabble-void-base"
+
+# Specific overrides for common widgets
+class "GtkWidget" style "rabble-void-base"
+class "GtkContainer" style "rabble-void-base"
+class "GtkBox" style "rabble-void-base"
+class "GtkPaned" style "rabble-void-base"
+class "GtkFrame" style "rabble-void-base"
+class "GtkTreeView" style "rabble-void-base"
+class "GtkTextView" style "rabble-void-base"
+class "GtkEntry" style "rabble-void-base"
+class "GtkButton" style "rabble-void-base"
+class "GtkMenu" style "rabble-void-base"
+class "GtkMenuItem" style "rabble-void-base"
+class "GtkStatusbar" style "rabble-void-base"

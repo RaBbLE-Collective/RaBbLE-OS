@@ -1,0 +1,40 @@
+# {{ ansible_managed }}
+# /etc/default/grub — RaBbLE Grub2 configuration
+# Managed by ansible — edit ansible/inventory/group_vars/all.yml to change values
+
+GRUB_TIMEOUT={{ rabble_grub_timeout | default(3) }}
+GRUB_DEFAULT={{ rabble_grub_default | default(0) }}
+# EP1: 'menu' — Recovery Mode accessible without Shift.
+# Post-EP1: set rabble_grub_timeout_style: hidden in group_vars for seamless GRUB→Plymouth.
+GRUB_TIMEOUT_STYLE={{ rabble_grub_timeout_style | default('menu') }}
+
+# HiDPI graphics mode — explicit fallback list prevents GOP auto-negotiation to a
+# mismatched resolution, which causes flicker during the GRUB→Plymouth handoff.
+GRUB_GFXMODE={{ rabble_gfx_mode | default('1920x1080,1920x1200,1280x720,auto') }}
+GRUB_GFXPAYLOAD_LINUX={{ rabble_grub_gfxpayload | default('keep') }}
+
+# gfxterm color — both fg and bg black: terminal output invisible against the void
+# background, eliminating the black box that occludes grub-bg.png during boot.
+GRUB_COLOR_NORMAL="black/black"
+GRUB_COLOR_HIGHLIGHT="light-magenta/black"
+
+# Theme — theme.txt owns the background via desktop-color; no separate PNG needed.
+GRUB_THEME=/boot/grub2/themes/rabble/theme.txt
+GRUB_FONT=/boot/grub2/themes/rabble/noto{{ rabble_grub_font_base_size | default(16) }}.pf2
+
+# Kernel command line
+GRUB_CMDLINE_LINUX="rhgb quiet \
+  rd.plymouth=1 \
+  plymouth.enable=1 \
+  loglevel=3 \
+  udev.log_level=3 \
+  systemd.show_status=auto \
+  fbcon=nodefer \
+  {{ rabble_grub_extra_cmdline | default('') }}"
+
+GRUB_CMDLINE_LINUX_DEFAULT=""
+
+# Misc
+GRUB_DISABLE_RECOVERY=false
+GRUB_DISABLE_SUBMENU=false
+GRUB_ENABLE_BLSCFG=true

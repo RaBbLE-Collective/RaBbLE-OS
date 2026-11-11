@@ -1,0 +1,6 @@
+---
+# apps/tasks/config.yml — STUB
+- name: apps config — stub
+  ansible.builtin.debug:
+    msg: "spark ~ apps >> config stub, no-op // %DORMANT%"
+  tags: [apps, config]

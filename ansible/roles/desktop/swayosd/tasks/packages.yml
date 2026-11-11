@@ -1,0 +1,15 @@
+---
+# desktop/swayosd/tasks/packages.yml
+- name: Enable swayOSD COPR
+  community.general.copr:
+    name: "{{ swayosd_copr }}"
+    state: enabled
+  become: true
+  tags: [desktop, swayosd, packages, copr]
+
+- name: Install swayOSD
+  ansible.builtin.dnf:
+    name: "{{ swayosd_packages }}"
+    state: present
+  become: true
+  tags: [desktop, swayosd, packages]

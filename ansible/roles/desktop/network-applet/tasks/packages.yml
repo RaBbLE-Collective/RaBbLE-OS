@@ -1,0 +1,8 @@
+---
+# desktop/network-applet/tasks/packages.yml
+- name: Install NetworkManager systray applet
+  ansible.builtin.dnf:
+    name: "{{ network_applet_packages }}"
+    state: present
+  become: true
+  tags: [desktop, network-applet, packages]

@@ -1,0 +1,4 @@
+---
+# boot/grub2/tasks/main.yml — STUB
+- { ansible.builtin.include_tasks: packages.yml, tags: [boot, grub, packages] }
+- { ansible.builtin.include_tasks: config.yml,   tags: [boot, grub, config]   }

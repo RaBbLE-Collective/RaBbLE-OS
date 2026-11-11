@@ -1,0 +1,43 @@
+---
+# ansible/roles/layer/atlas-sentry/tasks/main.yml
+# spark ~ layer/atlas-sentry >> host dev tooling for the ATLAS sentry robot // %LAYER_ATLAS_SENTRY%
+#
+# Opt-in layer (rabble_enable_atlas_sentry, default false — see defaults/main.yml).
+# ATLAS is a personal side project, not part of the Collective: this layer installs only what
+# the laptop needs to develop and test it. Provisioning the Pi itself is ATLAS-next/ansible/.
+
+- name: atlas-sentry | install host dev packages
+  ansible.builtin.dnf:
+    name: "{{ atlas_sentry_packages }}"
+    state: present
+  become: true
+  tags: [layer, atlas-sentry, packages]
+
+- name: atlas-sentry | add user to dialout group (USB-serial access to the Arduino)
+  ansible.builtin.user:
+    name: "{{ rabble_user }}"
+    groups: dialout
+    append: true
+  become: true
+  tags: [layer, atlas-sentry, usb-serial]
+
+- name: atlas-sentry | check for arduino-cli
+  ansible.builtin.stat:
+    path: "{{ atlas_sentry_arduino_cli }}"
+  register: atlas_sentry_arduino_cli_stat
+  become: false
+  tags: [layer, atlas-sentry, packages]
+
+- name: atlas-sentry | install the Arduino Nano Every core
+  ansible.builtin.command: "{{ atlas_sentry_arduino_cli }} core install {{ atlas_sentry_arduino_core }}"
+  become: false
+  changed_when: true
+  when: atlas_sentry_arduino_cli_stat.stat.exists
+  tags: [layer, atlas-sentry, packages]
+  # `core install` is idempotent; always-changed is a simplification, not a reinstall.
+
+- name: atlas-sentry | note a missing arduino-cli
+  ansible.builtin.debug:
+    msg: "arduino-cli not found: run `layerctl apply arduino-cli` first, then re-apply atlas-sentry to get the Nano Every core."
+  when: not atlas_sentry_arduino_cli_stat.stat.exists
+  tags: [layer, atlas-sentry, packages]

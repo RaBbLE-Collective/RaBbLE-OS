@@ -1,0 +1,8 @@
+---
+# desktop/notifications/tasks/packages.yml
+- name: Install notification daemon
+  ansible.builtin.dnf:
+    name: "{{ notifications_packages }}"
+    state: present
+  become: true
+  tags: [desktop, notifications, packages]

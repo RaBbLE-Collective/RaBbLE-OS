@@ -1,0 +1,183 @@
+---
+# ansible/roles/hardware/x64/asus_proart_p16/tasks/arbitration.yml
+#
+# CORRECTED FAN-CURVE MODEL (Opus review, 2026-07-04 — see
+# RaBbLE-Grimoire/log/plans/OS-ProArt-Power-Stack-Plan.md Phase 4):
+# asusctl fan curves are defined PER platform-profile — Quiet, Balanced, and
+# Performance each own their own curve inside asusd's config, coupled to
+# tuned-ppd only via the kernel `platform_profile` sysfs interface. There is
+# no generic "asusd auto-follow toggle" to disable, and no way to decouple
+# "CPU headroom" from "fan curve" as two independent knobs — they are the same
+# knob (which platform-profile is active) wearing two hats.
+#
+# To get "Balanced's CPU headroom, but fans held quiet" the actual mechanism
+# is: give the BALANCED profile its own low-duty curve (rabble_fan_curve_balanced)
+# rather than the stock one, and cap its PL1/PL2/PL3 (asusd.yml). The fan curve
+# alone cannot keep Balanced cool: stock PL1 is 80 W. NOTE: the MID fan is not
+# controllable here (pwm3 enable fails ENODEV); only cpu/gpu curves are written.
+# tuned is masked on this machine (tuned.yml) — asusd is the sole power writer.
+#
+# This file's job (per the Phase 4 plan):
+#   1. Guard: power-profiles-daemon must never be installed (mask if pulled in).
+#   2. Author + assign the three fan-curve definitions.
+#   3. Deploy the AC-plug gate as a udev rule + its fallback script.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Guard — power-profiles-daemon would write CPU EPP and fight asusd.
+# See tuned.yml's header and RaBbLE-Grimoire/RaBbLE-OS/RaBbLE-OS-AgentGuide.md:64-66.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: arbitration | check installed packages (for the power-profiles-daemon guard)
+  ansible.builtin.package_facts:
+    manager: rpm
+  tags: [hardware, power, arbitration]
+
+- name: "arbitration | GUARD — power-profiles-daemon must never be installed (found present, removing)"
+  ansible.builtin.dnf:
+    name: power-profiles-daemon
+    state: absent
+  become: true
+  when: "'power-profiles-daemon' in ansible_facts.packages"
+  tags: [hardware, power, arbitration]
+
+- name: "arbitration | GUARD — mask power-profiles-daemon.service in case a dependency re-pulls it"
+  ansible.builtin.systemd:
+    name: power-profiles-daemon.service
+    masked: true
+    enabled: false
+    state: stopped
+  become: true
+  when: "'power-profiles-daemon' in ansible_facts.packages"
+  tags: [hardware, power, arbitration]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Fan-curve definitions and per-profile assignment.
+#
+# Format is asusctl's 8-point temp:pwm curve string (degrees C : percent duty).
+# Syntax CONFIRMED against asusctl 6.3.8-2.fc43 (2026-07-06, live `fan-curve
+# --help`): flags are `--mod-profile <Profile> --fan <cpu/gpu/mid> --data
+# <30c:0%,...>`. The data-string form ("Tc:P%,...") this file already used is
+# exactly what the help documents. We use `asusctl fan-curve` rather than
+# hand-editing /etc/asusd/*.ron because the CLI validates against the running
+# daemon's schema (it errors instead of corrupting the config). Setting --data
+# writes a curve but does not enable it, so a second pass flips
+# --enable-fan-curves true per profile. failed_when: false keeps a transient
+# daemon-unavailable error from failing the whole hardware role.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: arbitration | define fan curves
+  ansible.builtin.set_fact:
+    rabble_fan_curve_quiet: "30c:0%,49c:0%,59c:10%,69c:20%,79c:30%,89c:45%,99c:60%,109c:70%"
+    # Balanced gets its own curve (S245): the quiet curve above keeps CPU/GPU
+    # fans at 0% until 49C and only 10% at 59C. At Balanced's ~20 W package power
+    # that let the chassis heat-soak (45C -> 59C in under a minute, fans at 0 RPM)
+    # until the stock MID fan ramped, which was the audible part. This starts the
+    # fans earlier at a very low duty so heat is shed before the MID fan reacts.
+    # Still well below the stock/standard curve at every point.
+    rabble_fan_curve_balanced: "30c:0%,44c:8%,54c:18%,64c:30%,74c:45%,84c:60%,94c:75%,104c:90%"
+    # Authored for completeness/documentation of what asusd ships Balanced with
+    # stock — deliberately NOT assigned to any profile below. Per the corrected
+    # fan-curve model above, Balanced is overridden to rabble_fan_curve_quiet
+    # instead of this one, so Mark gets Balanced's CPU headroom without the
+    # stock curve's fan noise. Kept here as the documented "what we overrode".
+    rabble_fan_curve_standard: "30c:0%,49c:20%,59c:35%,69c:48%,79c:62%,89c:78%,99c:90%,109c:100%"
+    rabble_fan_curve_unrestricted: "30c:20%,49c:40%,59c:55%,69c:68%,79c:80%,89c:90%,99c:100%,109c:100%"
+  tags: [hardware, power, arbitration]
+
+- name: arbitration | assign fan curves to platform-profiles (Balanced overridden to quiet)
+  ansible.builtin.command: "asusctl fan-curve --mod-profile {{ item.profile }} --fan {{ item.fan }} --data \"{{ item.curve }}\""
+  register: rabble_fan_curve_apply
+  changed_when: rabble_fan_curve_apply.rc == 0
+  failed_when: false
+  become: true
+  loop:
+    - { profile: "Quiet",       fan: "cpu", curve: "{{ rabble_fan_curve_quiet }}" }
+    - { profile: "Quiet",       fan: "gpu", curve: "{{ rabble_fan_curve_quiet }}" }
+    - { profile: "Balanced",    fan: "cpu", curve: "{{ rabble_fan_curve_balanced }}" }     # override: gentle, not standard
+    - { profile: "Balanced",    fan: "gpu", curve: "{{ rabble_fan_curve_balanced }}" }     # override: gentle, not standard
+    - { profile: "Performance", fan: "cpu", curve: "{{ rabble_fan_curve_unrestricted }}" }
+    - { profile: "Performance", fan: "gpu", curve: "{{ rabble_fan_curve_unrestricted }}" }
+  loop_control:
+    label: "{{ item.profile }}/{{ item.fan }}"
+  tags: [hardware, power, arbitration]
+
+# Writing --data does not enable the curve; the daemon only follows a profile's
+# custom curve once fan-curves are enabled for that profile. --enable-fan-curves
+# takes a true/false value and requires --mod-profile (per live `fan-curve
+# --help`, 6.3.8). Enable all three so the curves set above actually take.
+- name: arbitration | enable fan curves per platform-profile
+  ansible.builtin.command: "asusctl fan-curve --mod-profile {{ item }} --enable-fan-curves true"
+  register: rabble_fan_curve_enable
+  changed_when: rabble_fan_curve_enable.rc == 0
+  failed_when: false
+  become: true
+  loop:
+    - "Quiet"
+    - "Balanced"
+    - "Performance"
+  loop_control:
+    label: "{{ item }}"
+  tags: [hardware, power, arbitration]
+
+- name: arbitration | warn if any fan-curve CLI call failed
+  ansible.builtin.debug:
+    msg: >-
+      One or more `asusctl fan-curve` calls returned non-zero (tolerated via
+      failed_when: false). Re-run this task's commands by hand and check
+      `asusctl fan-curve --mod-profile Balanced` to inspect the stored curve.
+  when: >-
+    (rabble_fan_curve_apply.results | selectattr('rc', 'ne', 0) | list | length > 0)
+    or (rabble_fan_curve_enable.results | selectattr('rc', 'ne', 0) | list | length > 0)
+  tags: [hardware, power, arbitration]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. AC-plug gate — udev rule + fallback script.
+#
+# A udev rule, not a systemd path-unit: path units watch inotify events on a
+# path, which can't reliably observe a SYSFS ATTRIBUTE VALUE change (online
+# 1->0) the way udev's own ATTR{} match against the power_supply subsystem can.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: arbitration | deploy AC-unplug fallback script
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/waybar/scripts/power-ac-fallback.sh"
+    dest: /usr/local/bin/rabble-power-ac-fallback.sh
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [hardware, power, arbitration]
+
+- name: arbitration | deploy AC-unplug udev rule
+  ansible.builtin.copy:
+    dest: /etc/udev/rules.d/90-rabble-power-ac.rules
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # RaBbLE-OS: AC-unplug gate for the "Unbounded" power mode.
+      # Deployed by ansible/roles/hardware/x64/asus_proart_p16/tasks/arbitration.yml
+      # (source of truth is this ansible task, not this file directly).
+      #
+      # When mains power is removed (power_supply online -> 0), run the
+      # fallback script; it checks whether Unbounded was active and, if so,
+      # drops back to the AC-independent safe mode (Quiet · Balanced).
+      #
+      # ACTION=="change" is added beyond the bare SUBSYSTEM/ATTR match so this
+      # only fires on the actual online->0 transition, not on udev coldplug/
+      # "add" events already-plugged hardware generates at boot.
+      #
+      # systemd-run --no-block detaches the script from udev's own process
+      # lifecycle/timeout — udev RUN+= entries are expected to return quickly,
+      # and this script talks to two D-Bus services plus (best-effort) a user
+      # session bus, which can be slower than udev's default patience.
+      #
+      # KERNEL match: only the mains adapter. This machine also has two USB-C
+      # ucsi-source-psy-* power_supply nodes that read online=0 and change on
+      # any dock/charger event; without this match they trigger the fallback.
+      SUBSYSTEM=="power_supply", KERNEL=="AC*|ADP*", ACTION=="change", ATTR{online}=="0", RUN+="/usr/bin/systemd-run --no-block --quiet /usr/local/bin/rabble-power-ac-fallback.sh"
+  become: true
+  notify:
+    - reload udev
+    - trigger udev
+  tags: [hardware, power, arbitration]

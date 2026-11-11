@@ -1,0 +1,51 @@
+---
+# desktop/fastfetch/tasks/config.yml
+# Deploys fastfetch config + RaBbLE portals logo to ~/.config/fastfetch/
+# rabble-portals.txt is GENERATED — edit rabble-portals.base.txt and run
+# spells/fastfetch-fx.py, never edit the composed file by hand.
+# Guide: RaBbLE-Grimoire/RaBbLE-OS/desktop/RaBbLE-OS-Desktop-Fastfetch.md
+
+- name: Create fastfetch config directory
+  ansible.builtin.file:
+    path: "{{ rabble_config_home }}/fastfetch"
+    state: directory
+    mode: '0755'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [desktop, fastfetch, config]
+
+- name: Deploy fastfetch config
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/fastfetch/config.jsonc"
+    dest: "{{ rabble_config_home }}/fastfetch/config.jsonc"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [desktop, fastfetch, config]
+
+- name: Deploy RaBbLE portals logo
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/fastfetch/rabble-portals.txt"
+    dest: "{{ rabble_config_home }}/fastfetch/rabble-portals.txt"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  tags: [desktop, fastfetch, config]
+
+- name: Deploy compact fastfetch config + logo (small windows)
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/fastfetch/{{ item }}"
+    dest: "{{ rabble_config_home }}/fastfetch/{{ item }}"
+    mode: '0644'
+    owner: "{{ rabble_user }}"
+  become: true
+  loop: [config.compact.jsonc, rabble-portals.compact.txt, config.micro.jsonc, rabble-portals.micro.txt]
+  tags: [desktop, fastfetch, config]
+
+- name: Deploy rabble-fetch (size-aware fastfetch launcher)
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/spells/rabble-fetch"
+    dest: "/usr/local/bin/rabble-fetch"
+    mode: '0755'
+  become: true
+  tags: [desktop, fastfetch, config]

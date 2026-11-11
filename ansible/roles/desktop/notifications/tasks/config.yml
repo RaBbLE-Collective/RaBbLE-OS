@@ -1,0 +1,6 @@
+---
+# desktop/notifications/tasks/config.yml — STUB
+- name: notifications config — stub
+  ansible.builtin.debug:
+    msg: "spark ~ desktop/notifications >> config stub, no-op // %DORMANT%"
+  tags: [desktop, notifications, config]

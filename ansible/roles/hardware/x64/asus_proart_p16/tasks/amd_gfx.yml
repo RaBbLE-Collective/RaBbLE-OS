@@ -1,0 +1,6 @@
+---
+# hardware/x64/asus_proart_p16/tasks/amd_gfx.yml — STUB
+- name: "asus_proart_p16/amd_gfx — stub"
+  ansible.builtin.debug:
+    msg: "spark ~ hardware/asus_proart_p16/amd_gfx >> stub, no-op // %DORMANT%"
+  tags: [hardware]

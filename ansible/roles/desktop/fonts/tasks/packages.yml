@@ -1,0 +1,8 @@
+---
+# desktop/fonts/tasks/packages.yml
+- name: Install typography stack
+  ansible.builtin.dnf:
+    name: "{{ fonts_packages }}"
+    state: present
+  become: true
+  tags: [desktop, fonts, packages]

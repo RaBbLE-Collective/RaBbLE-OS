@@ -1,0 +1,6 @@
+---
+# desktop/shell/zsh/vars/main.yml
+zsh_packages:
+  - zsh
+  - zsh-syntax-highlighting
+  - zsh-autosuggestions

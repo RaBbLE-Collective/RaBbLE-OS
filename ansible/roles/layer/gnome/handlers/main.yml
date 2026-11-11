@@ -1,0 +1,7 @@
+---
+# ansible/roles/layer/gnome/handlers/main.yml
+
+- name: dconf update
+  ansible.builtin.command: dconf update
+  become: true
+  changed_when: true

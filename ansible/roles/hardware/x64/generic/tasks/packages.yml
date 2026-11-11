@@ -1,0 +1,6 @@
+---
+# hardware/x64/generic/tasks/packages.yml — STUB
+- name: generic hardware packages — stub
+  ansible.builtin.debug:
+    msg: "spark ~ hardware/generic >> packages stub, no-op // %DORMANT%"
+  tags: [hardware, generic_x64, packages]

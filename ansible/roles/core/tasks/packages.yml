@@ -1,0 +1,49 @@
+---
+# core/tasks/packages.yml
+- name: Install core system packages
+  ansible.builtin.dnf:
+    name:
+      # ks-bootstrap (idempotent if already installed via KS)
+      - git
+      - ansible
+      - python3
+      - python3-dnf    # DNF4 Python bindings — required by ansible.builtin.dnf + community.general.copr
+      - curl
+      # network
+      - NetworkManager
+      - NetworkManager-wifi
+      # utils
+      - wget
+      - rsync
+      - unzip
+      - p7zip
+      - jq
+      - yamllint
+      - ShellCheck
+      # security
+      - polkit
+      - gitleaks       # secret scan across git history + tags (pre-publication)
+      # firmware
+      - fwupd
+      # xdg
+      - xdg-user-dirs
+      - xdg-utils
+      # editor
+      - neovim
+      # monitoring
+      - btop
+      # identity
+      - fastfetch
+      # shell
+      - bash-completion
+      - zsh
+      - zsh-syntax-highlighting
+      - zsh-autosuggestions
+      # runtime — Node.js as a system-wide runtime (AI harnesses, plans service, collective tooling)
+      - nodejs
+      - nodejs-npm
+      # proxy — nginx for local service path-rewriting (plans, future local services)
+      - nginx
+    state: present
+  become: true
+  tags: [base, packages]

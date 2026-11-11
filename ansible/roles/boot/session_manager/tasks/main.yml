@@ -1,0 +1,4 @@
+---
+# boot/session_manager/tasks/main.yml — STUB (SDDM)
+- { ansible.builtin.include_tasks: packages.yml, tags: [boot, sddm, packages] }
+- { ansible.builtin.include_tasks: config.yml,   tags: [boot, sddm, config]   }

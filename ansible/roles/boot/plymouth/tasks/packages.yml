@@ -1,0 +1,11 @@
+---
+# boot/plymouth/tasks/packages.yml
+- name: Install Plymouth boot animation packages
+  ansible.builtin.dnf:
+    name:
+      - plymouth
+      - plymouth-plugin-script
+      - plymouth-plugin-label
+    state: present
+  become: true
+  tags: [boot, plymouth, packages]

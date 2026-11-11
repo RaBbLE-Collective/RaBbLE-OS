@@ -1,0 +1,9 @@
+---
+# desktop/terminal/tasks/packages.yml
+- name: Install terminal packages
+  ansible.builtin.dnf:
+    name:
+      - kitty
+    state: present
+  become: true
+  tags: [desktop, terminal, packages]

@@ -1,0 +1,6 @@
+---
+# desktop/shell/bash/tasks/config.yml — STUB
+- name: bash config — stub
+  ansible.builtin.debug:
+    msg: "spark ~ desktop/shell/bash >> config stub, no-op // %DORMANT%"
+  tags: [desktop, shell, bash, config]

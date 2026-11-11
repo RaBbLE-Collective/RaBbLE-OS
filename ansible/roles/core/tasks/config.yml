@@ -1,0 +1,58 @@
+---
+# core/tasks/config.yml — System identity and base configuration
+
+- name: Deploy /etc/os-release (RaBbLE-OS identity)
+  ansible.builtin.template:
+    src: os-release.j2
+    dest: /etc/os-release
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: rebuild grub config
+  tags: [base, config, identity]
+
+# ── Hostname — replace the DHCP/reverse-DNS transient name ──────────────────
+# With no static hostname, systemd adopts whatever DHCP/rDNS hands out (e.g.
+# syn-2603-6013-....res6.spectrum.com). Set a static one — but ONLY when none is
+# set, so a hostname the user chose is never overwritten. Per-machine names:
+# override rabble_hostname in host_vars/.
+- name: Read static hostname
+  ansible.builtin.command: hostnamectl --static
+  register: _static_hostname
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags: [base, config, identity]
+
+- name: Set static hostname (none configured)
+  ansible.builtin.hostname:
+    name: "{{ rabble_hostname }}"
+    use: systemd
+  become: true
+  when: (_static_hostname.stdout | default('') | trim) in ['', 'localhost', 'localhost.localdomain']
+  tags: [base, config, identity]
+
+# ── Boot speed — remove unnecessary wait gates ──────────────────────────────
+# NetworkManager-wait-online delays remote-fs.target ~4s via the iscsi.service
+# After=network-online.target chain (even though iscsi is conditioned out, systemd
+# waits for the full chain before scheduling). Hyprland desktop does not need
+# network-online.target before login; NetworkManager reconnects after session.
+- name: Disable NetworkManager-wait-online.service (not needed for desktop boot)
+  ansible.builtin.systemd:
+    name: NetworkManager-wait-online.service
+    enabled: false
+    masked: true
+  become: true
+  tags: [base, config, boot-speed]
+
+# var-lib-machines.mount is for systemd-nspawn container images, not in use.
+# It is WantedBy=remote-fs.target and when not masked it attempts a mount that
+# may add startup latency. Mask it so remote-fs.target doesn't spin up even a
+# Wants= activation attempt.
+- name: Mask var-lib-machines.mount (container images not in use)
+  ansible.builtin.systemd:
+    name: var-lib-machines.mount
+    masked: true
+  become: true
+  tags: [base, config, boot-speed]

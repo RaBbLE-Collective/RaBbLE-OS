@@ -1,0 +1,50 @@
+---
+# core/tasks/recovery.yml — Boot-failure recovery (EP1 Preview Bar · F2)
+#
+# Fedora locks the root account by default — good security posture (no default
+# credential, no remote root). The side effect: emergency/rescue mode runs
+# `sulogin`, which REFUSES to start a shell when root is locked. So any fstab
+# failure or boot fault drops to a dead-end prompt with no way in.
+#
+# Fix (decided S109): do NOT set a root password (rejected as legacy — keeps the
+# locked-root posture). Instead tell systemd's sulogin to spawn a root shell even
+# with root locked, via SYSTEMD_SULOGIN_FORCE=1 drop-ins on the recovery targets.
+#
+# Trade-off (documented in the "Known Rough Edges" sheet): console access to
+# emergency mode === root with no password. Acceptable for a single-user
+# "enter at your own risk" Developer Preview; LUKS full-disk encryption is the
+# real mitigation for the physical-access threat (deferred to Episode 2).
+#
+# Canon: RaBbLE-Grimoire/RaBbLE-OS/fix/RaBbLE-OS-KnownIssues.md (System Recovery)
+
+- name: Ensure systemd drop-in dirs exist for recovery targets
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  loop:
+    - emergency
+    - rescue
+  tags: [base, config, recovery]
+
+- name: Force sulogin to open a root shell in recovery even with root locked (F2)
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item }}.service.d/rabble-sulogin-force.conf"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # RaBbLE-OS — EP1 Preview Bar F2 (boot-failure recovery)
+      # Spawn a root shell in {{ item }} mode even though root is locked.
+      # See RaBbLE-Grimoire/RaBbLE-OS/fix/RaBbLE-OS-KnownIssues.md (System Recovery).
+      [Service]
+      Environment=SYSTEMD_SULOGIN_FORCE=1
+  become: true
+  loop:
+    - emergency
+    - rescue
+  notify: reload systemd daemon
+  tags: [base, config, recovery]

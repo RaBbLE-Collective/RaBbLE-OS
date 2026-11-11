@@ -1,0 +1,453 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   RaBbLE-OS :: Waybar Stylesheet
+   Theme   : Synthwave void
+   Palette : RaBbLE-OS core — grimoire/RaBbLE.md
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Palette ─────────────────────────────────────────────────────────────── */
+@define-color void      #0a0010;
+@define-color surface   #12132a;
+@define-color surface1  #1a1b2e;
+@define-color surface2  #2a2840;
+@define-color overlay0  #2a2840;
+@define-color overlay1  #6b6880;
+@define-color muted     #6b6880;
+@define-color text      #e8e6f0;
+@define-color subtext   #6b6880;
+@define-color magenta   #ff2d78;
+@define-color cyan      #00f5ff;
+@define-color violet    #bf5fff;
+@define-color green     #50fa7b;
+@define-color yellow    #f1fa8c;
+@define-color orange    #f1fa8c;
+@define-color red       #e05c6f;
+@define-color pink      #ff79c6;
+@define-color cyan-dim  #00f5ff;
+
+
+/* ── Global reset ────────────────────────────────────────────────────────── */
+* {
+    font-family: "JetBrains Mono", "Font Awesome 6 Free", "Font Awesome 6 Brands", "Noto Sans Symbols 2", monospace;
+    font-size:      13px;
+    font-weight:    500;
+    min-height:     0;
+    border:         none;
+    border-radius:  0;
+    padding:        0;
+    margin:         0;
+    box-shadow:     none;
+    text-shadow:    none;
+    transition:     all 150ms ease;
+}
+
+
+/* ── Bar root ────────────────────────────────────────────────────────────── */
+window#waybar {
+    background:     rgba(10, 0, 16, 0.85);
+    border-bottom:  1px solid rgba(191, 95, 255, 0.18);
+    color:          @text;
+    /* blur handled by Hyprland layerrule */
+}
+
+window#waybar.empty {
+    background:     transparent;
+}
+
+
+/* ── Generic module pill ─────────────────────────────────────────────────── */
+.modules-left,
+.modules-center,
+.modules-right {
+    padding: 0 4px;
+}
+
+#workspaces,
+#custom-ws1, #custom-ws2, #custom-ws3, #custom-ws4, #custom-ws5,
+#custom-ws6, #custom-ws7, #custom-ws8, #custom-ws9, #custom-ws10,
+#window,
+#network,
+#pulseaudio,
+#pulseaudio.microphone,
+#cpu,
+#temperature,
+#battery,
+#clock,
+#tray {
+    padding:        2px 10px;
+    margin:         3px 1px;
+    border-radius:  8px;
+    background:     rgba(18, 19, 42, 0.6);
+    color:          @text;
+}
+
+
+
+/* ── Workspaces ──────────────────────────────────────────────────────────── */
+#workspaces {
+    background:     transparent;
+    padding:        2px 4px;
+}
+
+#workspaces button {
+    padding:        2px 8px;
+    margin:         0 1px;
+    border-radius:  6px;
+    color:          @overlay1;
+    background:     transparent;
+    font-size:      14px;
+    transition:     all 150ms ease;
+}
+
+#workspaces button:hover {
+    background:     rgba(191, 95, 255, 0.12);
+    color:          @violet;
+}
+
+#workspaces button.active {
+    background:     rgba(191, 95, 255, 0.20);
+    color:          @violet;
+    font-weight:    700;
+}
+
+#workspaces button.urgent {
+    background:     rgba(224, 92, 111, 0.20);
+    color:          @red;
+    animation:      blink 0.8s step-start infinite;
+}
+
+#workspaces button.special {
+    color:          @yellow;
+}
+
+@keyframes blink {
+    50% { opacity: 0.5; }
+}
+
+
+/* ── Window title ────────────────────────────────────────────────────────── */
+#window {
+    color:          @subtext;
+    font-weight:    400;
+}
+
+#window.empty {
+    background:     transparent;
+    color:          transparent;
+}
+
+
+
+/* ── Network ─────────────────────────────────────────────────────────────── */
+#network {
+    color:          @cyan;
+}
+
+#network.disconnected {
+    color:          @red;
+}
+
+#network:hover {
+    background:     rgba(0, 245, 255, 0.12);
+}
+
+
+
+/* ── Audio ───────────────────────────────────────────────────────────────── */
+#pulseaudio {
+    color:          @cyan-dim;
+}
+
+#pulseaudio.muted {
+    color:          @overlay0;
+}
+
+#pulseaudio.microphone {
+    color:          @pink;
+}
+
+#pulseaudio.microphone.source-muted {
+    color:          @overlay0;
+}
+
+#pulseaudio:hover,
+#pulseaudio.microphone:hover {
+    background:     rgba(0, 245, 255, 0.10);
+}
+
+
+/* ── CPU ─────────────────────────────────────────────────────────────────── */
+#cpu {
+    color:          @orange;
+}
+
+#cpu.warning {
+    color:          @yellow;
+}
+
+#cpu.critical {
+    color:          @red;
+    animation:      blink 1s step-start infinite;
+}
+
+
+
+/* ── Temperature ─────────────────────────────────────────────────────────── */
+#temperature {
+    color:          @cyan-dim;
+}
+
+#temperature.critical {
+    color:          @red;
+    animation:      blink 0.5s step-start infinite;
+}
+
+
+
+/* ── Battery ─────────────────────────────────────────────────────────────── */
+#battery {
+    color:          @green;
+}
+
+#battery.good {
+    color:          @cyan-dim;
+}
+
+#battery.warning {
+    color:          @yellow;
+}
+
+#battery.critical {
+    color:          @red;
+    animation:      blink 1s step-start infinite;
+}
+
+#battery.charging {
+    color:          @green;
+}
+
+#battery.full {
+    color:          @green;
+}
+
+
+
+/* ── Clock ───────────────────────────────────────────────────────────────── */
+#clock {
+    color:          @magenta;
+    font-weight:    600;
+}
+
+#clock:hover {
+    background:     rgba(255, 45, 120, 0.10);
+}
+
+
+/* ── Tray ────────────────────────────────────────────────────────────────── */
+#tray {
+    background:     transparent;
+}
+
+#tray > .passive {
+    -gtk-icon-effect: dim;
+}
+
+#tray > .needs-attention {
+    -gtk-icon-effect: highlight;
+    background:     rgba(224, 92, 111, 0.18);
+    border-radius:  6px;
+}
+
+
+/* ── LLM Status (Claude Code + Codex usage meters) ──────────────────────── */
+#custom-llm-claude,
+#custom-llm-codex,
+#custom-llm-antigravity {
+    font-weight:    500;
+    padding:        2px 10px;
+    margin:         3px 1px;
+    border-radius:  8px;
+}
+
+#custom-llm-claude {
+    color:          @magenta;
+    background:     rgba(255, 45, 120, 0.10);
+}
+
+#custom-llm-codex {
+    color:          @cyan;
+    background:     rgba(0, 245, 255, 0.10);
+}
+
+#custom-llm-antigravity {
+    color:          @violet;
+    background:     rgba(191, 95, 255, 0.10);
+}
+
+/* busy: actively working — cool cyan/violet, fast flicker (~6Hz) layered
+   over the slow background pulse so the pill reads as "alive" without
+   reaching for the magenta that's now reserved for "needs you" */
+#custom-llm-claude.llm-busy {
+    color:          @cyan;
+    background:     rgba(0, 245, 255, 0.14);
+    animation:      pulse-claude 2s ease-in-out infinite,
+                    flicker 0.16s step-start infinite;
+}
+
+/* ready-for-input: calm and inviting — cyan/green */
+#custom-llm-claude.llm-ready {
+    color:          @green;
+    background:     rgba(80, 250, 123, 0.12);
+}
+
+#custom-llm-claude.llm-idle {
+    color:          @magenta;
+    background:     rgba(255, 45, 120, 0.06);
+}
+
+/* needs-input: a tool-permission prompt is waiting on you — flash hard */
+#custom-llm-claude.llm-needs-input {
+    color:          @magenta;
+    background:     rgba(255, 45, 120, 0.30);
+    animation:      flash-magenta 0.5s step-start infinite;
+}
+
+/* needs-input parity for codex — unreachable until Codex grows a permission
+   hook surface, but the aggregate state machine already emits it */
+#custom-llm-codex.llm-needs-input {
+    color:          @magenta;
+    background:     rgba(255, 45, 120, 0.30);
+    animation:      flash-magenta 0.5s step-start infinite;
+}
+
+#custom-llm-antigravity.llm-needs-input {
+    color:          @magenta;
+    background:     rgba(255, 45, 120, 0.30);
+    animation:      flash-magenta 0.5s step-start infinite;
+}
+
+#custom-llm-codex.llm-busy {
+    color:          @cyan;
+    background:     rgba(0, 245, 255, 0.14);
+    animation:      pulse-codex 2s ease-in-out infinite,
+                    flicker 0.16s step-start infinite;
+}
+
+#custom-llm-antigravity.llm-busy {
+    color:          @cyan;
+    background:     rgba(0, 245, 255, 0.14);
+    animation:      pulse-antigravity 2s ease-in-out infinite,
+                    flicker 0.16s step-start infinite;
+}
+
+#custom-llm-codex.llm-ready {
+    color:          @green;
+    background:     rgba(80, 250, 123, 0.12);
+}
+
+#custom-llm-antigravity.llm-ready {
+    color:          @green;
+    background:     rgba(80, 250, 123, 0.12);
+}
+
+#custom-llm-codex.llm-idle {
+    color:          @muted;
+    background:     rgba(107, 104, 128, 0.06);
+}
+
+#custom-llm-antigravity.llm-idle {
+    color:          @violet;
+    background:     rgba(191, 95, 255, 0.06);
+}
+
+#custom-llm-claude.llm-idle,
+#custom-llm-codex.llm-idle,
+#custom-llm-antigravity.llm-idle {
+    padding:        1px 6px;
+    margin:         3px 1px;
+    opacity:        0.78;
+}
+
+#custom-llm-claude:hover {
+    background:     rgba(255, 45, 120, 0.20);
+}
+
+#custom-llm-codex:hover {
+    background:     rgba(0, 245, 255, 0.20);
+}
+
+#custom-llm-antigravity:hover {
+    background:     rgba(191, 95, 255, 0.20);
+}
+
+@keyframes pulse {
+    0%   { background: rgba(0, 245, 255, 0.08); }
+    50%  { background: rgba(0, 245, 255, 0.20); }
+    100% { background: rgba(0, 245, 255, 0.08); }
+}
+
+@keyframes pulse-claude {
+    0%   { background: rgba(0, 245, 255, 0.10); }
+    50%  { background: rgba(191, 95, 255, 0.22); }
+    100% { background: rgba(0, 245, 255, 0.10); }
+}
+
+@keyframes pulse-codex {
+    0%   { background: rgba(0, 245, 255, 0.10); }
+    50%  { background: rgba(80, 250, 123, 0.22); }
+    100% { background: rgba(0, 245, 255, 0.10); }
+}
+
+@keyframes pulse-antigravity {
+    0%   { background: rgba(0, 245, 255, 0.10); }
+    50%  { background: rgba(255, 121, 198, 0.22); }
+    100% { background: rgba(0, 245, 255, 0.10); }
+}
+
+/* fast opacity strobe (~6Hz) — the part of "active" that a slow background
+   pulse can't convey; layered on top of pulse-claude/pulse-codex above */
+@keyframes flicker {
+    50% { opacity: 0.6; }
+}
+
+/* hard, urgent flash for "needs your input right now" */
+@keyframes flash-magenta {
+    50% {
+        background: rgba(255, 45, 120, 0.55);
+        color:      @text;
+    }
+}
+
+
+/* ── Tooltip ─────────────────────────────────────────────────────────────── */
+tooltip {
+    background:     @surface;
+    border:         1px solid rgba(191, 95, 255, 0.30);
+    border-radius:  10px;
+    color:          @text;
+    padding:        6px 10px;
+}
+
+tooltip label {
+    color:          @text;
+    font-size:      12px;
+}
+
+/* workspace buttons (custom/wsN) */
+#custom-ws1, #custom-ws2, #custom-ws3, #custom-ws4, #custom-ws5,
+#custom-ws6, #custom-ws7, #custom-ws8, #custom-ws9, #custom-ws10 {
+    padding: 2px 8px;
+    margin: 3px 0;
+    color: @overlay1;
+    background: transparent;
+}
+#custom-ws1:hover, #custom-ws2:hover, #custom-ws3:hover, #custom-ws4:hover, #custom-ws5:hover,
+#custom-ws6:hover, #custom-ws7:hover, #custom-ws8:hover, #custom-ws9:hover, #custom-ws10:hover {
+    background: rgba(191, 95, 255, 0.12);
+    color: @violet;
+}
+#custom-ws1.active, #custom-ws2.active, #custom-ws3.active, #custom-ws4.active, #custom-ws5.active,
+#custom-ws6.active, #custom-ws7.active, #custom-ws8.active, #custom-ws9.active, #custom-ws10.active {
+    background: rgba(191, 95, 255, 0.20);
+    color: @violet;
+    font-weight: 700;
+}

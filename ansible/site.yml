@@ -1,0 +1,457 @@
+---
+# ansible/site.yml — RaBbLE-OS Master Playbook
+#
+# transcribe ~ site-yml >> layer order crystallized // %SITE_LOCKED%
+#
+# Tag conventions:
+#   --tags base                  → Layer 0: core system
+#   --tags hardware              → Layer 1: hardware abstraction (all targets)
+#   --tags asus_proart_p16       → Layer 1: ProArt P16 only
+#   --tags boot                  → Layer 2: boot chain
+#   --tags grub                  → Layer 2: GRUB2 only
+#   --tags plymouth              → Layer 2: Plymouth only
+#   --tags sddm                  → Layer 2: SDDM only
+#   --tags snapper               → Btrfs snapshots (cross-cutting)
+#   --tags runtime               → GPU/NPU runtimes + llama.cpp source build (cross-cutting)
+#   --tags llama-cpp             → llama.cpp CUDA build only
+#   --tags monitoring            → System observability stack (cross-cutting)
+#   --tags virtualization        → QEMU/KVM host stack (cross-cutting, dev machines)
+#   --tags desktop               → Layer 3: Hyprland + shell stack (incl. fastfetch)
+#   --tags fastfetch             → Layer 3: Fastfetch config + logo only
+#   --tags hyprland              → Layer 3: Hyprland only
+#   --tags apps                  → Layer 4: applications
+#   --tags layer                 → Optional feature groups (opt-in, see rabble_enable_* vars)
+#   --tags bottles               → Bottles (Wine app compat) only, opt-in
+#   --tags esp-idf               → ESP-IDF embedded toolchain (RaBbLE-Pocket firmware) only, opt-in
+#   --tags creator-apps          → Data-driven single-Flatpak creator apps (FreeCAD, …), opt-in
+#   --tags collective            → RaBbLE Collective dev tooling (Node.js, wrangler, age, gh)
+#   --tags ai-harnesses          → sCoRE local AI layer (claude-code, codex, opencode, aider, gemini-cli, ollama, vllm, free-claude-code, builder-skills)
+#   --tags free-claude-code      → free-claude-code proxy only
+#   --tags builder-skills        → BuilderIO slash-command skills only
+#   --tags plans                 → RaBbLE Plans local server (scaffold + theme + nginx + MCP)
+#   --tags dotfiles              → Dotfile symlinks only (user-level)
+#
+# Packages/config split (combine with above):
+#   --tags base,packages         → Layer 0 packages only
+#   --tags base,config           → Layer 0 config only
+#   --tags hardware,packages     → Layer 1 packages only
+#   --tags hardware,config       → Layer 1 config only
+#
+# Full deploy (no tag filter):
+#   ansible-playbook -i inventory/hosts.yml site.yml -K
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Hardware detection — runs first, always. Places hosts in asus_proart_p16 or
+# generic_x64 so the Layer 1 plays below dispatch correctly.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Hardware detection — assign hardware group from DMI"
+  hosts: all
+  gather_facts: true
+  become: false
+  tags: [always]
+  tasks:
+    # ProArt P16 reports product_name "ProArt P16 H7606WV_H7606WV" (board H7606WV).
+    # Anything else is generic_x64. Override: -e rabble_hardware=generic_x64|asus_proart_p16
+    - name: Group host by detected hardware
+      ansible.builtin.group_by:
+        key: >-
+          {{ rabble_hardware
+             | default('asus_proart_p16'
+                       if (ansible_facts['product_name'] | default('')) is match('ProArt P16')
+                       else 'generic_x64') }}
+      changed_when: false
+
+    - name: Report detected hardware
+      ansible.builtin.debug:
+        msg: >-
+          product_name="{{ ansible_facts['product_name'] | default('unknown') }}"
+          → {{ rabble_hardware | default('asus_proart_p16' if (ansible_facts['product_name'] | default('')) is match('ProArt P16') else 'generic_x64') }}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Layer 0 — Base System
+# All hosts. Always runs first.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Layer 0 — Base system"
+  hosts: all
+  become: true
+  tags: [base]
+  roles:
+    - role: core
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Layer 1 — Hardware Abstraction
+# Dispatches to the correct hardware role via host group membership.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Layer 1 — Hardware: ASUS ProArt P16"
+  hosts: asus_proart_p16
+  become: true
+  tags: [hardware, asus_proart_p16]
+  roles:
+    - role: hardware/x64/asus_proart_p16
+
+- name: "Layer 1 — Hardware: Generic x64"
+  hosts: generic_x64
+  become: true
+  tags: [hardware, generic_x64]
+  roles:
+    - role: hardware/x64/generic
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Runtime — Cross-cutting
+# GPU/NPU userspace runtimes: XRT (XDNA2), CUDA, ROCm.
+# Conditional on hardware vars — safe to run on all hosts.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Runtime — GPU/NPU runtimes"
+  hosts: all
+  become: true
+  tags: [runtime]
+  roles:
+    - role: runtime
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Monitoring — Cross-cutting
+# System monitoring stack: btop, htop, nvtop, powertop, lm_sensors.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Monitoring — System observability stack"
+  hosts: all
+  become: true
+  tags: [monitoring]
+  roles:
+    - role: monitoring
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Virtualization — Cross-cutting
+# KVM host stack for RaBbLE-OS development VMs.
+# Only needed on developer machines — skip with: --skip-tags virtualization
+# Pairs with RaBbLE-OS-vmctl.sh for VM lifecycle management.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Virtualization — QEMU/KVM host stack"
+  hosts: all
+  become: true
+  tags: [virtualization]
+  roles:
+    - role: virtualization
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Layer 2 — Boot Chain
+# GRUB2 → Plymouth → SDDM
+# Each sub-role is independently taggable.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Layer 2 — Boot: GRUB2"
+  hosts: all
+  become: true
+  tags: [boot, grub]
+  roles:
+    - role: boot/grub2
+
+- name: "Layer 2 — Boot: Plymouth"
+  hosts: all
+  become: true
+  tags: [boot, plymouth]
+  roles:
+    - role: boot/plymouth
+
+- name: "Layer 2 — Boot: SDDM session manager"
+  hosts: all
+  become: true
+  tags: [boot, sddm]
+  roles:
+    - role: boot/session_manager
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Snapper — Cross-cutting
+# Btrfs snapshot management. Runs independently of layer order.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Snapper — Btrfs snapshots"
+  hosts: all
+  become: true
+  tags: [snapper]
+  roles:
+    - role: snapper
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fonts — Typography stack
+# Must land after boot and before any desktop component renders.
+# Waybar and Kitty glyph rendering depend on JetBrains Mono + Font Awesome.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Fonts — Typography stack"
+  hosts: all
+  become: true
+  tags: [desktop, fonts]
+  roles:
+    - role: desktop/fonts
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Layer 3 — Desktop
+# Hyprland compositor, shell stack, terminal, dotfiles.
+# Runs as user (become: false) — dotfiles live in $HOME.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Layer 3 — Desktop: Wayland core"
+  hosts: all
+  become: true
+  tags: [desktop, wayland]
+  roles:
+    - role: desktop/wayland
+
+- name: "Layer 3 — Desktop: Hyprland"
+  hosts: all
+  become: true
+  tags: [desktop, hyprland]
+  roles:
+    - role: desktop/hyprland
+
+- name: "Layer 3 — Desktop: Quickshell"
+  hosts: all
+  become: true
+  tags: [desktop, quickshell]
+  roles:
+    - role: desktop/quickshell
+
+- name: "Layer 3 — Desktop: Terminal"
+  hosts: all
+  become: true
+  tags: [desktop, terminal]
+  roles:
+    - role: desktop/terminal
+
+- name: "Layer 3 — Desktop: Fastfetch"
+  hosts: all
+  become: true
+  tags: [desktop, fastfetch]
+  roles:
+    - role: desktop/fastfetch
+
+- name: "Layer 3 — Desktop: Waybar"
+  hosts: all
+  become: true
+  tags: [desktop, waybar]
+  roles:
+    - role: desktop/waybar
+
+- name: "Layer 3 — Desktop: Notifications (mako)"
+  hosts: all
+  become: true
+  tags: [desktop, notifications]
+  roles:
+    - role: desktop/notifications
+
+- name: "Layer 3 — Desktop: Screenshot (grim/slurp)"
+  hosts: all
+  become: true
+  tags: [desktop, screenshot]
+  roles:
+    - role: desktop/screenshot
+
+- name: "Layer 3 — Desktop: Launcher (fuzzel)"
+  hosts: all
+  become: true
+  tags: [desktop, launcher]
+  roles:
+    - role: desktop/launcher
+
+- name: "Layer 3 — Desktop: Network applet"
+  hosts: all
+  become: true
+  tags: [desktop, network-applet]
+  roles:
+    - role: desktop/network-applet
+
+- name: "Layer 3 — Desktop: V4L2 utils"
+  hosts: all
+  become: true
+  tags: [desktop, v4l2]
+  roles:
+    - role: desktop/v4l2
+
+- name: "Layer 3 — Desktop: SwayOSD"
+  hosts: all
+  become: true
+  tags: [desktop, swayosd]
+  roles:
+    - role: desktop/swayosd
+
+- name: "Layer 3 — Desktop: ZSH"
+  hosts: all
+  become: false
+  tags: [desktop, shell, zsh]
+  roles:
+    - role: desktop/shell/zsh
+
+- name: "Layer 3 — Desktop: Bash"
+  hosts: all
+  become: false
+  tags: [desktop, shell, bash]
+  roles:
+    - role: desktop/shell/bash
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dotfiles — Symlink pass
+# Re-linkable independently. Safe to run repeatedly.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Dotfiles — Symlink ~/.config entries"
+  hosts: all
+  become: false
+  tags: [dotfiles]
+  roles:
+    - role: desktop/hyprland
+      vars:
+        hyprland_tasks_only: dotfiles
+    - role: desktop/quickshell
+      vars:
+        quickshell_tasks_only: dotfiles
+    - role: desktop/shell/zsh
+      vars:
+        zsh_tasks_only: dotfiles
+    - role: desktop/shell/bash
+      vars:
+        bash_tasks_only: dotfiles
+    - role: desktop/fastfetch
+      vars:
+        fastfetch_tasks_only: config
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Layer 4 — Applications
+# Dev tools, IDE, browsers.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Layer 4 — Applications"
+  hosts: all
+  become: true
+  tags: [apps]
+  roles:
+    - role: apps
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Layer — Optional Feature Groups
+# Opt-in only — never installed by `apply all` / `upgrade` unless explicitly
+# enabled. Each is gated by its own rabble_enable_* var (role defaults/main.yml,
+# default false); layerctl flips the var automatically for its named `apply`
+# subcommand (see LAYER_EXTRA_VARS in RaBbLE-OS-layerctl.sh). This is the
+# reference implementation for the `layer/*` package groups documented in
+# ansible/packages/manifest.yml (layer/bluetooth, layer/nightmode, etc. are
+# declared there but not yet wired up — follow this play's shape when they are).
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Layer — Bottles (Wine-based Windows app compatibility)"
+  hosts: all
+  become: true
+  tags: [layer, bottles]
+  roles:
+    - role: layer/bottles
+      when: rabble_enable_wine_bottles | default(false) | bool
+
+- name: "Layer — Containers (Docker + Podman)"
+  hosts: all
+  become: true
+  tags: [layer, containers]
+  roles:
+    - role: layer/containers
+      when: rabble_enable_containers | default(false) | bool
+
+- name: "Layer — ESP-IDF (Espressif embedded toolchain, RaBbLE-Pocket firmware)"
+  hosts: all
+  become: true
+  tags: [layer, esp-idf]
+  roles:
+    - role: layer/esp-idf
+      when: rabble_enable_esp_idf | default(false) | bool
+
+- name: "Layer — Arduino CLI (ESP32 core, vendor .ino examples reference only)"
+  hosts: all
+  become: true
+  tags: [layer, arduino-cli]
+  roles:
+    - role: layer/arduino-cli
+      when: rabble_enable_arduino_cli | default(false) | bool
+
+- name: "Layer — ATLAS sentry (host dev tooling for the Pi 4 pan-tilt robot, opt-in)"
+  hosts: all
+  become: true
+  tags: [layer, atlas-sentry]
+  roles:
+    - role: layer/atlas-sentry
+      when: rabble_enable_atlas_sentry | default(false) | bool
+
+- name: "Layer — .NET SDK (dev tool, opt-in)"
+  hosts: all
+  become: true
+  tags: [layer, dotnet-sdk]
+  roles:
+    - role: layer/dotnet-sdk
+      when: rabble_enable_dotnet_sdk | default(false) | bool
+
+- name: "Layer — GNOME Shell (opt-in secondary DE, Aether theming testbed)"
+  hosts: all
+  become: true
+  tags: [layer, gnome]
+  roles:
+    - role: layer/gnome
+      when: rabble_enable_gnome_desktop | default(false) | bool
+
+- name: "Layer — Creator Apps (data-driven single-Flatpak apps for creators)"
+  hosts: all
+  become: true
+  tags: [layer, creator-apps]
+  roles:
+    - role: layer/creator-apps
+      when: rabble_enable_creator_apps | default(false) | bool
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Collective — RaBbLE development tooling
+# wrangler (Cloudflare Workers CLI), age (secrets), gh (GitHub CLI).
+# Node.js/npm/nginx are now in Layer 0 (core/tasks/packages.yml).
+# Run once on any machine developing or deploying the Collective.
+# Skip on headless servers: --skip-tags collective
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Collective — RaBbLE development tooling"
+  hosts: all
+  become: true
+  tags: [collective]
+  roles:
+    - role: apps/rabble-collective
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Plans — ARCHIVED / NOT ACTIVE
+#
+# The Agent-Native self-hosted plan server (apps/plans role) is archived.
+# Direction: plans are structured markdown in RaBbLE-Grimoire/log/plans/.
+# The visual render surface is a future NeBuLA/World feature (EP2).
+# See: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-VisualPlan-Protocol.md
+#
+# This play is intentionally never matched (hosts: plans_server_disabled)
+# so it never runs accidentally. Remove the role entirely post-EP2 cleanup.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "Plans — RaBbLE visual plan server (ARCHIVED)"
+  hosts: plans_server_disabled
+  become: false
+  tags: [plans]
+  roles:
+    - role: apps/plans
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI Harnesses — sCoRE local AI layer
+# Code agents and LLM CLI tools: Claude Code, Codex, opencode, aider,
+# Gemini CLI, Ollama. These are the backends sCoRE wraps for the RaBbLE TUI.
+# Runs as user (become: false) — installs to ~/.local/.
+# Skip on headless servers without GPU: --skip-tags ai-harnesses
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "AI Harnesses — sCoRE local AI layer"
+  hosts: all
+  become: false
+  tags: [ai-harnesses, ai]
+  roles:
+    - role: ai-harnesses

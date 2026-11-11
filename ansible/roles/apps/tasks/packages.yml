@@ -1,0 +1,63 @@
+# apps/tasks/packages.yml — GUI applications
+
+- name: apps | install theming stack (GTK + Qt + icons)
+  ansible.builtin.dnf:
+    name:
+      - papirus-icon-theme         # SVG icon theme — Papirus-Dark used across all apps
+      - papirus-icon-theme-dark    # Arc-Dark variant (bonus coverage)
+      - kvantum                    # Qt SVG theme engine — full Qt5/Qt6 visual control
+      - kvantum-qt5                # Qt5-specific Kvantum backend
+      - qt5ct                      # Qt5 configuration: style=kvantum, icon theme, fonts
+      - qt6ct                      # Qt6 configuration: same
+      - nwg-look                   # Wayland-native GTK theme selector (lxappearance uses X11)
+    state: present
+  tags: [apps, packages, theming]
+
+- name: apps | remove Thunar (replaced by yazi)
+  ansible.builtin.dnf:
+    name:
+      - Thunar
+      - thunar-archive-plugin
+      - thunar-volman
+    state: absent
+  tags: [apps, packages, filemanager]
+
+- name: apps | enable yazi COPR
+  community.general.copr:
+    name: "{{ yazi_copr }}"
+    state: enabled
+  become: true
+  tags: [apps, packages, filemanager, copr]
+
+- name: apps | install file managers and preview dependencies
+  ansible.builtin.dnf:
+    name:
+      - yazi                       # Primary TUI file manager — Rust/async, Lua plugins, Aether-themed
+      - imv                        # Image viewer — yazi opener rule for image MIME types
+      - ffmpegthumbnailer          # Video thumbnails in yazi preview pane
+      - poppler-utils              # PDF to image conversion for yazi preview pane
+      - fd-find                    # Fast file finder — yazi fzf-jump plugin dependency
+      - fzf                        # Fuzzy finder — yazi fzf-jump keybind (f key)
+      - unar                       # Archive extractor — yazi opener rule for archives
+      - dolphin                    # GUI bridge — drag-and-drop and Show in Folder
+      - kf5-kio-gui                # KDE I/O framework GUI (dolphin dep)
+      - kdegraphics-thumbnailers   # Image/PDF thumbnails in dolphin
+    state: present
+  tags: [apps, packages, filemanager]
+
+- name: apps | install media playback
+  ansible.builtin.dnf:
+    name:
+      - mpv                        # Primary video player
+      - celluloid                  # GTK frontend for mpv
+    state: present
+  tags: [apps, packages, media]
+
+- name: apps | install utility apps
+  ansible.builtin.dnf:
+    name:
+      - pavucontrol                # PipeWire/PulseAudio volume control GUI
+      - nm-connection-editor       # NetworkManager GUI connection editor
+      - gnome-disk-utility         # Disk management GUI — Wayland-compatible
+    state: present
+  tags: [apps, packages, utils]

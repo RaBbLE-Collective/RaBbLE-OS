@@ -1,0 +1,15 @@
+---
+# hardware/x64/asus_proart_p16/tasks/main.yml
+# spark ~ hardware/asus_proart_p16 >> stub // %DORMANT%
+- { ansible.builtin.include_tasks: amd_gfx.yml,        tags: [hardware, amd_gfx]        }
+- { ansible.builtin.include_tasks: nvidia.yml,          tags: [hardware, nvidia, boot]   }
+- { ansible.builtin.include_tasks: asusctl.yml,         tags: [hardware, asus]           }
+- { ansible.builtin.include_tasks: npu.yml,             tags: [hardware, npu]            }
+- { ansible.builtin.include_tasks: audio.yml,           tags: [hardware, audio]          }
+- { ansible.builtin.include_tasks: firmware.yml,        tags: [hardware, firmware]       }
+- { ansible.builtin.include_tasks: asusd.yml,     tags: [hardware, power, asusd]          }
+- { ansible.builtin.include_tasks: supergfx.yml, tags: [hardware, power, supergfxctl]           }
+- { ansible.builtin.include_tasks: tuned.yml,     tags: [hardware, power, tuned],          }
+- { ansible.builtin.include_tasks: arbitration.yml, tags: [hardware, power, arbitration]        }
+- { ansible.builtin.include_tasks: config.yml,          tags: [hardware, config]         }
+- { ansible.builtin.include_tasks: hypr-machine.yml,    tags: [hardware, hyprland, config] }

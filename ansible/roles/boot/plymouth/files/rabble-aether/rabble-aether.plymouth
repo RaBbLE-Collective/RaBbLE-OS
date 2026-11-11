@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=RaBbLE Aether
+Description=Void, neon, and the eye — the RaBbLE-OS boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/rabble-aether
+ScriptFile=/usr/share/plymouth/themes/rabble-aether/rabble-aether.script

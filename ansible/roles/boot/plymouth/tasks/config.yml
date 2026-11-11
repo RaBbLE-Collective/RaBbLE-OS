@@ -1,0 +1,107 @@
+---
+# boot/plymouth/tasks/config.yml
+# Deploys the rabble-aether boot splash — a frame-player port of the canonical
+# RaBbLE-Boot.html animation. Entity frames are pre-captured into
+# files/rabble-aether/frames/ by files/rabble-aether/build-assets.sh; Ansible
+# only deploys what is committed — it never runs the capture.
+
+- name: Create rabble system fonts directory
+  ansible.builtin.file:
+    path: /usr/share/fonts/rabble-fonts
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [boot, plymouth, config]
+
+- name: Install Orbitron variable font
+  ansible.builtin.copy:
+    src: rabble-aether/fonts/Orbitron-Variable.ttf
+    dest: /usr/share/fonts/rabble-fonts/Orbitron-Variable.ttf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: [rebuild font cache, rebuild initrd]
+  tags: [boot, plymouth, config]
+
+- name: Deploy rabble-aether Plymouth theme
+  ansible.builtin.copy:
+    src: rabble-aether/
+    dest: /usr/share/plymouth/themes/rabble-aether/
+    owner: root
+    group: root
+    directory_mode: "0755"
+    mode: "0644"
+  become: true
+  notify: rebuild initrd
+  tags: [boot, plymouth, config]
+
+- name: Include JetBrains Mono in the initrd for Image.Text rendering
+  ansible.builtin.copy:
+    dest: /etc/dracut.conf.d/90-rabble-plymouth-fonts.conf
+    content: |
+      # rabble-aether Plymouth theme — fonts + theme assets + GPU driver for splash
+      #
+      # install_items (theme dir): explicit inclusion because 95plymouth dracut
+      #   module does not reliably auto-include script-module themes with large
+      #   PNG frame arrays. Directory path → dracut recurses entire tree.
+      #
+      # label-pango.so: Plymouth's text rendering plugin. Without it, every call to
+      #   Image.Text() fails silently and 14+ "Could not load module" errors appear in
+      #   the Plymouth debug log. dracut auto-resolves pango/fontconfig shared libs.
+      #
+      # fc-match: invoked by the label plugin to resolve font names via fontconfig.
+      #   Without it, 100+ "sh: /usr/bin/fc-match: No such file or directory" entries
+      #   flood the journal per boot. dracut auto-resolves its shared libs (libfontconfig).
+      #
+      # amdgpu (add_drivers, REVERTED from force_drivers — S229): S224 switched this to
+      #   force_drivers to force-load amdgpu's firmware (DMUB/PSP/VBIOS/SMU) in dracut's
+      #   early pre-udev hook, before normal coldplug would reach it (~T+4.2s), so it
+      #   wouldn't yank the CRTC from under Plymouth mid-splash (the "Console: switching
+      #   to colour dummy device" black, see anatomy §3.3/§4). Confirmed working AS
+      #   DESCRIBED (real-boot journal, S226: amdgpu KMS complete by t≈4.1s, before
+      #   plymouth-start at t≈5.4s, no handoff). But S229: Mark reports the early-loaded
+      #   config is more glitchy/laggy overall than the late add_drivers one — plausible,
+      #   since forcing amdgpu's firmware load into dracut's busiest early window means it
+      #   competes with udev coldplug/module loading for CPU right when Plymouth needs
+      #   smooth frame timing. No amdgpu reset/hang/timeout errors in the kernel log either
+      #   version (checked S229) — not a fault, a scheduling cost. And it never actually
+      #   fixed the bug it was added for: the real black-screen cause turned out to be the
+      #   unrelated SDDM greeter DRM race (S207-S229 saga), not this handoff at all — so
+      #   force_drivers bought nothing for the problem it targeted while adding this cost.
+      #   Reverted to add_drivers; the handoff flash it reintroduces is a known, separate,
+      #   minor cosmetic issue, not the login blocker.
+      install_items+=" /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Bold.otf /usr/share/fonts/jetbrains-mono-fonts/JetBrainsMono-Regular.otf /usr/share/fonts/rabble-fonts/Orbitron-Variable.ttf "
+      install_items+=" /usr/share/plymouth/themes/rabble-aether/ "
+      install_items+=" /usr/lib64/plymouth/label-pango.so "
+      install_items+=" /usr/bin/fc-match "
+      add_drivers+=" amdgpu "
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: rebuild initrd
+  tags: [boot, plymouth, config]
+
+- name: Read current Plymouth default theme
+  ansible.builtin.command: plymouth-set-default-theme
+  register: plymouth_current_theme
+  changed_when: false
+  failed_when: false
+  become: true
+  tags: [boot, plymouth, config]
+
+- name: Set rabble-aether as the default Plymouth theme
+  ansible.builtin.command: plymouth-set-default-theme rabble-aether
+  when: (plymouth_current_theme.stdout | trim) != 'rabble-aether'
+  become: true
+  notify: rebuild initrd
+  tags: [boot, plymouth, config]
+
+- name: Rebuild initramfs with current Plymouth theme and dracut conf
+  ansible.builtin.command: dracut --force --regenerate-all  # every installed kernel, not `uname -r` (wrong inside the KS %post chroot)
+  become: true
+  changed_when: true
+  tags: [boot, plymouth, config]

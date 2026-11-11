@@ -1,0 +1,6 @@
+# apps/vars/main.yml
+
+yazi_copr: "lihaohong/yazi"
+
+yazi_packages:
+  - yazi

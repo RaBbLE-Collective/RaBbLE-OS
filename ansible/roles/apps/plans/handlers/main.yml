@@ -1,0 +1,26 @@
+---
+# apps/plans/handlers/main.yml
+
+- name: plans | rebuild app
+  ansible.builtin.command:
+    cmd: pnpm build
+    chdir: "{{ plans_install_dir }}"
+  become: false
+  environment:
+    NODE_ENV: production
+  listen: "plans | rebuild app"
+
+- name: plans | restart service
+  ansible.builtin.systemd:
+    name: "{{ plans_service }}"
+    state: restarted
+    daemon_reload: true
+  become: true
+  listen: "plans | restart service"
+
+- name: plans | reload nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
+  become: true
+  listen: "plans | reload nginx"

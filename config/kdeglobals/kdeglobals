@@ -1,0 +1,126 @@
+[General]
+ColorScheme=Catppuccin Mocha Mauve
+Name=Catppuccin Mocha Mauve
+shadeSortColumn=true
+
+[KDE]
+contrast=4
+widgetStyle=kvantum
+
+# Catppuccin Mocha Mauve color scheme — clean dark baseline (MIT).
+# Base: #1e1e2e · Text: #cdd6f4 · Accent: #cba6f7 (mauve)
+#
+# ── HOW KDE APP PALETTES ACTUALLY RESOLVE (S201 root cause, 7 sessions) ───────
+# KF6 apps (Dolphin, Kate, …) run KColorSchemeManager, which OWNS the app
+# QPalette and overrides Kvantum [GeneralColors], qt6ct, and the [Colors:*]
+# sections below. It selects a scheme by the [UiSettings] ColorScheme key
+# (KConfig cascade: <app>rc → this file). Value = .colors file BASENAME (no
+# spaces), resolved from ~/.local/share/color-schemes/ (color-schemes bundle).
+# Without that key it falls back to default Breeze — LIGHT on this session,
+# because qt6ct does not relay the portal dark preference — which was the
+# grey/unreadable Dolphin text bug. The [Colors:*] sections below still matter
+# for KColorScheme consumers that read kdeglobals directly (e.g. KWin/WM keys,
+# apps without the manager), so keep them in sync with the .colors file.
+# To overlay Aether colors: update config/color-schemes/CatppuccinMochaMauve.colors
+# and re-run: ./RaBbLE-OS-dotctl.sh apply color-schemes kdeglobals
+
+[UiSettings]
+ColorScheme=CatppuccinMochaMauve
+
+[ColorEffects:Disabled]
+Color=49,52,68
+ColorAmount=0.55
+ColorEffect=2
+ContrastAmount=0.65
+ContrastEffect=1
+IntensityAmount=0.1
+IntensityEffect=0
+
+[ColorEffects:Inactive]
+ChangeSelectionColor=true
+Color=49,52,68
+ColorAmount=0.025
+ColorEffect=2
+ContrastAmount=0.1
+ContrastEffect=2
+Enable=false
+IntensityAmount=0
+IntensityEffect=0
+
+[Colors:Button]
+BackgroundAlternate=69,71,90
+BackgroundNormal=49,52,68
+DecorationFocus=203,166,247
+DecorationHover=137,180,250
+ForegroundActive=203,166,247
+ForegroundInactive=205,214,244
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=249,226,175
+ForegroundNormal=205,214,244
+ForegroundPositive=166,227,161
+ForegroundVisited=180,190,254
+
+[Colors:Selection]
+BackgroundAlternate=203,166,247
+BackgroundNormal=203,166,247
+DecorationFocus=203,166,247
+DecorationHover=137,180,250
+ForegroundActive=17,17,27
+ForegroundInactive=17,17,27
+ForegroundLink=17,17,27
+ForegroundNegative=17,17,27
+ForegroundNeutral=17,17,27
+ForegroundNormal=17,17,27
+ForegroundPositive=17,17,27
+ForegroundVisited=17,17,27
+
+[Colors:Tooltip]
+BackgroundAlternate=24,24,37
+BackgroundNormal=24,24,37
+DecorationFocus=203,166,247
+DecorationHover=137,180,250
+ForegroundActive=203,166,247
+ForegroundInactive=205,214,244
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=249,226,175
+ForegroundNormal=205,214,244
+ForegroundPositive=166,227,161
+ForegroundVisited=180,190,254
+
+[Colors:View]
+BackgroundAlternate=17,17,27
+BackgroundNormal=30,30,46
+DecorationFocus=203,166,247
+DecorationHover=137,180,250
+ForegroundActive=203,166,247
+ForegroundInactive=205,214,244
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=249,226,175
+ForegroundNormal=205,214,244
+ForegroundPositive=166,227,161
+ForegroundVisited=180,190,254
+
+[Colors:Window]
+BackgroundAlternate=24,24,37
+BackgroundNormal=30,30,46
+DecorationFocus=203,166,247
+DecorationHover=137,180,250
+ForegroundActive=203,166,247
+ForegroundInactive=205,214,244
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=249,226,175
+ForegroundNormal=205,214,244
+ForegroundPositive=166,227,161
+ForegroundVisited=180,190,254
+
+[WM]
+activeBackground=49,52,68
+activeBlend=203,166,247
+activeForeground=205,214,244
+inactiveBackground=30,30,46
+inactiveBlend=108,112,134
+inactiveForeground=108,112,134

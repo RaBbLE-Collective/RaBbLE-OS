@@ -1,0 +1,3 @@
+---
+# desktop/v4l2/tasks/main.yml
+- { ansible.builtin.include_tasks: packages.yml, tags: [desktop, v4l2, packages] }

@@ -1,0 +1,23 @@
+---
+# desktop/shell/zsh/tasks/packages.yml
+- name: Install ZSH and plugins
+  ansible.builtin.dnf:
+    name: "{{ zsh_packages }}"
+    state: present
+  become: true
+  tags: [desktop, shell, zsh, packages]
+
+- name: Clone powerlevel10k
+  ansible.builtin.git:
+    repo: https://github.com/romkatv/powerlevel10k.git
+    dest: "{{ rabble_home }}/.local/share/powerlevel10k"
+    depth: 1
+    update: false
+  tags: [desktop, shell, zsh, packages]
+
+- name: Set ZSH as default shell for {{ rabble_user }}
+  ansible.builtin.user:
+    name: "{{ rabble_user }}"
+    shell: /bin/zsh
+  become: true
+  tags: [desktop, shell, zsh, packages]

@@ -1,0 +1,6 @@
+---
+# desktop/waybar/tasks/dotfiles.yml — STUB
+- name: waybar dotfiles — stub
+  ansible.builtin.debug:
+    msg: "spark ~ desktop/waybar >> dotfiles stub, no-op // %DORMANT%"
+  tags: [desktop, waybar, dotfiles]

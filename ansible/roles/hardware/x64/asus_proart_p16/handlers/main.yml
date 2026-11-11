@@ -1,0 +1,25 @@
+---
+# handlers/main.yml — no handlers yet
+# Common handlers to add: rebuild initramfs, rebuild grub config
+- name: reload udev
+  command: udevadm control --reload-rules
+
+- name: trigger udev
+  command: udevadm trigger
+
+- name: regenerate initramfs
+  command: dracut --force
+
+- name: restart asusd
+  systemd:
+    name: asusd
+    state: restarted
+
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: restart sddm
+  systemd:
+    name: sddm
+    state: restarted

@@ -1,0 +1,11 @@
+---
+- name: rebuild grub config
+  ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
+  become: true
+
+- name: reload vconsole font
+  ansible.builtin.systemd:
+    name: systemd-vconsole-setup.service
+    state: restarted
+  become: true
+  ignore_errors: true  # setfont requires a live VT; harmless in SSH/VM sessions — font loads on next boot

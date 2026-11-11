@@ -1,0 +1,12 @@
+---
+# ansible/roles/layer/dotnet-sdk/tasks/main.yml
+# .NET SDK — dev tool layer, opt-in (rabble_enable_dotnet_sdk, default false —
+# see defaults/main.yml). Fedora ships dotnet-sdk-8.0 directly (Red Hat
+# maintained), so unlike layer/arduino-cli or layer/esp-idf this is a plain
+# dnf install — no vendor script, no repo file, no user-local bin dir.
+
+- name: dotnet-sdk | install .NET SDK
+  ansible.builtin.dnf:
+    name: "{{ dotnet_sdk_package }}"
+    state: present
+  tags: [layer, dotnet-sdk, packages]

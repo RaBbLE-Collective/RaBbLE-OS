@@ -1,0 +1,6 @@
+---
+# desktop/terminal/tasks/config.yml — STUB
+- name: terminal config — stub
+  ansible.builtin.debug:
+    msg: "spark ~ desktop/terminal >> config stub, no-op // %DORMANT%"
+  tags: [desktop, terminal, config]

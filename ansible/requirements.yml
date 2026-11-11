@@ -1,0 +1,17 @@
+---
+# ansible/requirements.yml — RaBbLE-OS Galaxy Dependencies
+#
+# Install with:
+#   ansible-galaxy collection install -r ansible/requirements.yml
+
+collections:
+  # DNF module support — required for all package tasks on Fedora
+  - name: community.general
+    version: ">=9.0.0"
+
+  # Posix file operations, symlinks, templating helpers
+  - name: ansible.posix
+    version: ">=1.5.0"
+
+  # Builtin — no install needed, listed for explicit documentation
+  # ansible.builtin covers: dnf, systemd, template, file, copy, lineinfile, etc.

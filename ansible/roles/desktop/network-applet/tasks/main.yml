@@ -1,0 +1,3 @@
+---
+# desktop/network-applet/tasks/main.yml
+- { ansible.builtin.include_tasks: packages.yml, tags: [desktop, network-applet, packages] }

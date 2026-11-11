@@ -1,0 +1,6 @@
+---
+# desktop/waybar/tasks/config.yml — STUB
+- name: waybar config — stub
+  ansible.builtin.debug:
+    msg: "spark ~ desktop/waybar >> config stub, no-op // %DORMANT%"
+  tags: [desktop, waybar, config]

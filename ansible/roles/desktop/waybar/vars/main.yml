@@ -1,0 +1,4 @@
+# ansible/roles/desktop/waybar/vars/main.yml
+
+waybar_packages:
+  - waybar

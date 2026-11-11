@@ -1,0 +1,53 @@
+# {{ ansible_managed }}
+# ~/.config/environment.d/rabble.conf
+# Loaded by systemd for all user sessions (Wayland + login shells)
+
+# ── XDG base directories ──────────────────────────────────────────────────────
+XDG_CONFIG_HOME={{ rabble_config_home }}
+XDG_DATA_HOME={{ rabble_home }}/.local/share
+XDG_STATE_HOME={{ rabble_home }}/.local/state
+XDG_CACHE_HOME={{ rabble_home }}/.cache
+XDG_BIN_HOME={{ rabble_home }}/.local/bin
+
+# ── Default applications ──────────────────────────────────────────────────────
+TERMINAL=kitty
+BROWSER=firefox
+EDITOR=nvim
+VISUAL=nvim
+PAGER=less
+
+# ── Wayland session type ──────────────────────────────────────────────────────
+WAYLAND_DISPLAY=wayland-1
+XDG_SESSION_TYPE=wayland
+XDG_CURRENT_DESKTOP=Hyprland
+
+# ── Qt Wayland ────────────────────────────────────────────────────────────────
+QT_QPA_PLATFORM=wayland;xcb
+QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+QT_AUTO_SCREEN_SCALE_FACTOR=1
+
+# ── GTK Wayland ───────────────────────────────────────────────────────────────
+GDK_BACKEND=wayland,x11,*
+GTK_USE_PORTAL=1
+
+# ── App-specific Wayland flags ────────────────────────────────────────────────
+MOZ_ENABLE_WAYLAND=1
+ELECTRON_OZONE_PLATFORM_HINT=auto
+_JAVA_AWT_WM_NONREPARENTING=1
+SDL_VIDEODRIVER=wayland
+
+# ── HiDPI (values set from group_vars per hardware target) ───────────────────
+{% if rabble_hidpi_scale | int > 1 %}
+GDK_SCALE={{ rabble_hidpi_scale }}
+GDK_DPI_SCALE={{ (1.0 / rabble_hidpi_scale | float) | round(2) }}
+QT_SCREEN_SCALE_FACTORS={{ rabble_hidpi_scale }}
+QT_FONT_DPI={{ 96 * rabble_hidpi_scale | int }}
+XCURSOR_SIZE={{ 24 * rabble_hidpi_scale | int }}
+HYPRCURSOR_SIZE={{ 24 * rabble_hidpi_scale | int }}
+{% else %}
+XCURSOR_SIZE=24
+HYPRCURSOR_SIZE=24
+{% endif %}
+
+# ── PATH ──────────────────────────────────────────────────────────────────────
+PATH={{ rabble_home }}/.local/bin:/usr/local/bin:$PATH

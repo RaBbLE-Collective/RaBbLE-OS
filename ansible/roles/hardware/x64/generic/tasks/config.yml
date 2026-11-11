@@ -1,0 +1,6 @@
+---
+# hardware/x64/generic/tasks/config.yml — STUB
+- name: generic hardware config — stub
+  ansible.builtin.debug:
+    msg: "spark ~ hardware/generic >> config stub, no-op // %DORMANT%"
+  tags: [hardware, generic_x64, config]

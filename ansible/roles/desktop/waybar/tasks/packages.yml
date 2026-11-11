@@ -1,0 +1,8 @@
+---
+# desktop/waybar/tasks/packages.yml
+- name: Install Waybar
+  ansible.builtin.dnf:
+    name: "{{ waybar_packages }}"
+    state: present
+  become: true
+  tags: [desktop, waybar, packages]

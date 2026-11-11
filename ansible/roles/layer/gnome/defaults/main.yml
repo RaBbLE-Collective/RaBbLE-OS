@@ -1,0 +1,7 @@
+---
+# ansible/roles/layer/gnome/defaults/main.yml
+# Opt-in gate — this layer never runs under `apply all` / `upgrade` unless
+# flipped. layerctl flips it automatically for `apply gnome` (and `remove
+# gnome`, which also needs the role to run) via LAYER_EXTRA_VARS — see
+# RaBbLE-OS-layerctl.sh.
+rabble_enable_gnome_desktop: false

@@ -1,0 +1,6 @@
+# ansible/roles/desktop/screenshot/vars/main.yml
+
+screenshot_packages:
+  - grim                           # Screenshot capture
+  - slurp                          # Screen region selector
+  - swappy                         # Post-capture annotate/edit

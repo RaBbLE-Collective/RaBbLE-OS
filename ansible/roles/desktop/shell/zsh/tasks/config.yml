@@ -1,0 +1,6 @@
+---
+# desktop/shell/zsh/tasks/config.yml — STUB
+- name: zsh config — stub
+  ansible.builtin.debug:
+    msg: "spark ~ desktop/shell/zsh >> config stub, no-op // %DORMANT%"
+  tags: [desktop, shell, zsh, config]

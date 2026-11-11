@@ -1,0 +1,17 @@
+---
+- name: reload logind
+  ansible.builtin.systemd:
+    name: systemd-logind
+    state: reloaded
+  become: true
+
+- name: restart sddm
+  ansible.builtin.systemd:
+    name: sddm
+    state: restarted
+  become: true
+
+- name: reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true

@@ -1,0 +1,118 @@
+/* RaBbLE-Aether GTK3 — RaBbLE-OS personality layer
+ * Loads AFTER the Aether installed theme (RaBbLE-Aether synthwave skeleton).
+ * GTK3 user stylesheets have higher cascade priority than the installed theme.
+ * Same-specificity rules here win automatically.
+ * No !important — not needed or allowed in GTK3 user stylesheets.
+ *
+ * Palette: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md
+ * (hardcoded here — GTK3 user stylesheets don't inherit @define-color from installed themes)
+ *
+ *   #0a0010  void bg       #120025  surface / cards
+ *   #1a0030  raised        #2a0050  border_dim
+ *   #ff2d78  magenta       #00f5ff  cyan
+ *   #bf5fff  violet        #f8f4ff  text (PRIMARY — must be bright)
+ *   #8860aa  muted         #f7a8d4  soft pink
+ */
+
+/* ── Selection — cyan accent (Aether preference over magenta base) ───────────── */
+.view:selected,
+treeview:selected,
+.view row:selected,
+treeview row:selected,
+.view.cell:selected,
+iconview.cell:selected {
+  background-color: rgba(0, 245, 255, 0.20);
+  color: #f8f4ff;
+}
+
+.view row:selected:focus,
+treeview row:selected:focus {
+  color: #00f5ff;
+}
+
+/* ── Sidebar — explicit surface elevation ──────────────────────────────── */
+.sidebar,
+.sidebar scrolledwindow,
+.sidebar viewport {
+  background-color: #120025;
+  color: #f8f4ff;
+}
+
+.sidebar row {
+  background-color: #120025;
+  color: #f8f4ff;
+}
+
+.sidebar row:hover {
+  background-color: rgba(191, 95, 255, 0.18);
+  color: #f8f4ff;
+}
+
+.sidebar row:selected {
+  background-color: rgba(0, 245, 255, 0.20);
+  color: #00f5ff;
+}
+
+.sidebar .heading label {
+  color: #8860aa;
+  font-size: smaller;
+}
+
+/* ── Paned separator — violet seam ─────────────────────────────────── */
+paned > separator {
+  background-color: #bf5fff;
+  min-width: 2px;
+  min-height: 2px;
+  opacity: 0.65;
+}
+
+paned > separator:hover {
+  background-color: #00f5ff;
+  opacity: 1;
+}
+
+/* ── Scrollbars — magenta glowing thumb ───────────────────────────────── */
+scrollbar slider {
+  background-color: #ff2d78;
+  border-radius: 4px;
+  min-width: 6px;
+  min-height: 6px;
+  margin: 2px;
+}
+
+scrollbar slider:hover { background-color: #bf5fff; }
+scrollbar slider:active { background-color: #00f5ff; }
+
+/* ── Column headers in list view ──────────────────────────────────── */
+.view column-header button,
+treeview header button {
+  background-color: #120025;
+  color: #8860aa;
+  border-bottom: 1px solid rgba(191, 95, 255, 0.35);
+}
+
+.view column-header button:hover,
+treeview header button:hover {
+  color: #f8f4ff;
+  background-color: rgba(191, 95, 255, 0.10);
+}
+
+/* ── Menu hover — magenta stripe ──────────────────────────────────── */
+menuitem:hover,
+menuitem:selected {
+  background-color: rgba(255, 45, 120, 0.16);
+  border-left: 2px solid #ff2d78;
+}
+
+/* ── Entry focus — cyan ring ─────────────────────────────────────── */
+entry:focus {
+  border-color: #00f5ff;
+  box-shadow: 0 0 0 2px rgba(0, 245, 255, 0.16);
+}
+
+/* ── Statusbar — muted footer ─────────────────────────────────────── */
+statusbar {
+  background-color: #120025;
+  color: #8860aa;
+  border-top: 1px solid rgba(191, 95, 255, 0.20);
+}

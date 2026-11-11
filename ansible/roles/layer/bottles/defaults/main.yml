@@ -1,0 +1,90 @@
+---
+# ansible/roles/layer/bottles/defaults/main.yml
+# Opt-in gate — this layer never runs under `apply all` / `upgrade` unless
+# flipped. layerctl flips it automatically for `apply bottles` via
+# LAYER_EXTRA_VARS (see RaBbLE-OS-layerctl.sh).
+rabble_enable_wine_bottles: false
+
+# ── UP Studio bottle (Cetus3D MK2) ────────────────────────────────────────────
+# Always attempted once the layer above is enabled — no separate opt-in var,
+# since bottle creation and the download/extract are harmless and the whole
+# block self-skips once already installed (see tasks/upstudio.yml).
+rabble_upstudio_bottle_name: UPStudio
+
+# First-party TierTime CDN (static.tiertime.com, AWS CloudFront/S3) — Mark
+# confirmed this directly, 2026-07-21. Pinned to the build he found
+# (2.6.75.627, 2024-09-26); TierTime's marketing site gates newer releases
+# behind a WooCommerce checkout with no stable link, so this can't be
+# auto-updated — if a newer version surfaces, override this var with the new
+# URL. Set to "" to disable the download entirely and manage
+# rabble_upstudio_installer_path manually instead.
+rabble_upstudio_installer_url: "https://static.tiertime.com/downloads/UP_Studio_x64_2.6.75.627-20240926.zip"
+# MUST live under Bottles' own Flatpak data dir — `flatpak info
+# --show-permissions com.usebottles.bottles` shows no [filesystem] grant at
+# all, so paths like ~/.cache or ~/Downloads are invisible to the sandboxed
+# process (confirmed 2026-07-22: bottles-cli reported the exe "does not
+# exist" from a ~/.cache path that was plainly present on the host). Every
+# Flatpak app's own ~/.var/app/<id>/data is always sandbox-visible with no
+# extra override needed, so the cache rides there instead.
+rabble_upstudio_installer_cache_dir: "{{ rabble_home }}/.var/app/com.usebottles.bottles/data/rabble-upstudio"
+rabble_upstudio_installer_zip_path: "{{ rabble_upstudio_installer_cache_dir }}/{{ rabble_upstudio_installer_url | basename }}"
+# The zip has always contained exactly one file, UP_Studio_x64.exe (verified
+# 2026-07-21 against the pinned build above) — if TierTime changes the
+# internal filename in a future release, update this to match.
+rabble_upstudio_installer_path: "{{ rabble_upstudio_installer_cache_dir }}/UP_Studio_x64.exe"
+
+# Fixed, predictable location inside the bottle once actually installed
+# (confirmed 2026-07-22 against the real install) — used to detect "is it
+# installed" for the desktop entry.
+rabble_upstudio_exe_path: "{{ rabble_home }}/.var/app/com.usebottles.bottles/data/bottles/bottles/{{ rabble_upstudio_bottle_name }}/drive_c/Program Files/UP Studio/UPStudio.exe"
+
+# Bottles' registered-program name for launching post-install (confirmed
+# 2026-07-22 — Bottles auto-detected it from Program Files as "UPStudio").
+# Launch via `bottles-cli run -p <name>`, NOT `-e <path>` — this matters, not
+# just style: `-p` uses the program's own folder as the process's working
+# directory; `-e` doesn't set one. That distinction is load-bearing — see the
+# /Tiertime path fix below.
+rabble_upstudio_program_name: UPStudio
+
+# ── /Tiertime path bug (confirmed 2026-07-22, see Layer-Bottles.md) ──────────
+# UP Studio builds some of its own data paths as bare drive-relative strings
+# like "/Tiertime/Log" (no drive letter). Real Windows resolves a
+# drive-relative path against the CURRENT drive; if the process's working
+# directory is anywhere other than C:, the current "drive" is Z: (Wine's
+# mapping of the real host filesystem root), so "/Tiertime/Log" resolves to
+# literally /Tiertime/Log on the real Linux filesystem — which a normal user
+# can never write to (root-owned, mode 555). Launching via `-p` (working dir
+# = the app's own Program Files folder, on C:) fixes this for most paths, but
+# not reliably for every code path in the app — so both fixes are kept
+# together: proper working directory AND real host-side directories that the
+# Flatpak sandbox can actually see (it has zero filesystem access beyond its
+# own app data dir by default — confirmed via `flatpak info
+# --show-permissions`, so creating the host directories alone is not enough;
+# the override below is what actually makes them visible to the sandboxed
+# process).
+rabble_upstudio_tiertime_dirs:
+  - Log
+  - Temp
+  - Cache
+  - Config
+  - Data
+  - Db
+
+# RESOLVED 2026-07-22: keep this empty. It's the confirmed-working default,
+# not a placeholder. This is an Advanced Installer-wrapped MSI (AI_UNINSTALLER
+# = msiexec.exe) whose bootstrapper genuinely forwards standard msiexec
+# switches — /quiet IS a real working silent flag (no GUI popped) — but
+# /quiet alone reliably FAILS: a custom action (MsiInstallDrivers, feature
+# WinusbFM) tries to install a real Windows USB driver, impossible under Wine,
+# fails rc 1603, full rollback, nothing installed. Very likely the exact
+# issue TierTime's own KB article "UP Studio cannot be installed due to
+# unsigned driver issues" describes.
+#
+# The full interactive wizard (empty args, i.e. this default) DOES succeed —
+# verified end to end on Mark's machine: this task launched it, Mark clicked
+# through once, the complete app landed under Program Files\UP Studio\
+# including the WinusbFM driver files. Root cause of why the fast /quiet path
+# fails while the full wizard succeeds wasn't pinned down further (not worth
+# it once a known-working path exists) — see
+# RaBbLE-Grimoire/RaBbLE-OS/layers/RaBbLE-OS-Layer-Bottles.md for the detail.
+rabble_upstudio_installer_args: ""

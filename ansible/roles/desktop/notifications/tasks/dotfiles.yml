@@ -1,0 +1,6 @@
+---
+# desktop/notifications/tasks/dotfiles.yml — STUB
+- name: notifications dotfiles — stub
+  ansible.builtin.debug:
+    msg: "spark ~ desktop/notifications >> dotfiles stub, no-op // %DORMANT%"
+  tags: [desktop, notifications, dotfiles]

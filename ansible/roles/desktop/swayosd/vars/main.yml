@@ -1,0 +1,6 @@
+# ansible/roles/desktop/swayosd/vars/main.yml
+
+swayosd_copr: "erikreider/swayosd"
+
+swayosd_packages:
+  - swayosd

@@ -1,0 +1,51 @@
+---
+# =============================================================================
+# Runtime Role — AI/ML Userspace Runtimes
+# =============================================================================
+# Sits above hardware (kernel modules) and below applications.
+# Provides the compute substrate that agentic workloads target.
+#
+# NPU stack (AMD XDNA2, Strix Point / Krackan):
+#   hardware/npu.yml      → amdxdna in-tree kernel driver (7.0+), /dev/accel0
+#   runtime/xrt.yml       → XRT userspace (COPR: xanderlent/amd-npu-driver)
+#   runtime/fastflowlm.yml → FastFlowLM LLM inference engine (COPR or source)
+#   runtime/lemonade.yml   → Lemonade Server (OpenAI-compat API on :8000)
+#
+# GPU/CPU fallback stack (llama.cpp — Vulkan or CUDA):
+#   runtime/llama-cpp.yml → llama.cpp source build; backend: vulkan (iGPU) or cuda (RTX 3060)
+#   ProArt P16: currently vulkan (dGPU suspended, gpu_mode: integrated)
+#
+# All NPU tasks gate on: npu.enabled + npu.vendor == "amd" + npu.family == "xdna2"
+# Set in group_vars/asus_proart_p16.yml
+# =============================================================================
+
+- name: Configure XRT + XDNA2 userspace runtime
+  ansible.builtin.import_tasks: xrt.yml
+  when:
+    - npu.enabled | bool
+    - npu.vendor == "amd"
+    - npu.family in ["xdna2", "xdna"]
+  tags: [runtime, xrt, npu]
+
+- name: Install FastFlowLM NPU inference engine
+  ansible.builtin.import_tasks: fastflowlm.yml
+  when:
+    - npu.enabled | bool
+    - npu.vendor == "amd"
+    - npu.family in ["xdna2", "xdna"]
+    - fastflowlm.enabled | bool
+  tags: [runtime, fastflowlm, npu]
+
+- name: Install Lemonade Server (OpenAI-compat local AI API on :8000)
+  ansible.builtin.import_tasks: lemonade.yml
+  when:
+    - npu.enabled | bool
+    - npu.vendor == "amd"
+    - npu.family in ["xdna2", "xdna"]
+    - lemonade.enabled | bool
+  tags: [runtime, lemonade, npu]
+
+- name: Build and install llama.cpp (Vulkan or CUDA)
+  ansible.builtin.import_tasks: llama-cpp.yml
+  when: llama_cpp.enabled | bool
+  tags: [runtime, llama-cpp]

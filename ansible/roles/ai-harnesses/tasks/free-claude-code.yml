@@ -1,0 +1,223 @@
+---
+# free-claude-code — Local Anthropic API proxy for Claude Code
+# https://github.com/Alishahryar1/free-claude-code  (MIT)
+#
+# FastAPI server on :8082 that speaks the Anthropic Messages API.
+# Claude Code CLI routes through it via ANTHROPIC_BASE_URL=http://localhost:8082,
+# giving CC access to Groq/Cerebras/DeepSeek/NIM/etc at no Anthropic cost.
+#
+# sCoRE provider: claude_code_proxy (subprocess, injects ANTHROPIC_BASE_URL)
+# Admin UI: http://127.0.0.1:8082/admin  (local-only; auth token in fcc.env)
+# Spells: bash RaBbLE-Grimoire/spells/fcc-ctl.sh {start|stop|status|logs|keys}
+
+- name: Ensure uv (Python package manager) is installed
+  ansible.builtin.shell: |
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.local/bin/uv"
+
+# Upstream pins a minimum uv (pyproject `required-version`); the installer's
+# `creates:` guard above never upgrades, so refresh it. Non-installer uv (e.g. an
+# RPM) can't self-update — tolerate that and let `uv sync` report a real mismatch.
+- name: Update uv to the latest release
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/uv self update"
+  register: _fcc_uv_update
+  changed_when: "'Upgraded' in (_fcc_uv_update.stderr ~ _fcc_uv_update.stdout)"
+  failed_when: false
+
+- name: Clone free-claude-code repository
+  ansible.builtin.git:
+    repo: "https://github.com/Alishahryar1/free-claude-code.git"
+    dest: "{{ lookup('env', 'HOME') }}/.local/share/RaBbLE/free-claude-code"
+    version: main
+    depth: 1
+    force: false
+
+# uv sync also fetches the interpreter upstream pins (requires-python == 3.14.x).
+- name: Install free-claude-code dependencies via uv
+  ansible.builtin.command: >
+    {{ lookup('env', 'HOME') }}/.local/bin/uv sync
+  args:
+    chdir: "{{ lookup('env', 'HOME') }}/.local/share/RaBbLE/free-claude-code"
+
+- name: Ensure RaBbLE config directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.config/RaBbLE"
+    state: directory
+    mode: '0700'
+
+- name: Deploy fcc.env from example if not present
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../config/RaBbLE/fcc.env.example"
+    dest: "{{ lookup('env', 'HOME') }}/.config/RaBbLE/fcc.env"
+    mode: '0600'
+    force: false
+
+- name: Deploy fcc-ctl wrapper to ~/.local/bin
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/fcc-ctl"
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      # Thin wrapper — delegates to Grimoire spell
+      exec bash "${HOME}/RaBbLE-Collective/RaBbLE-Grimoire/spells/fcc-ctl.sh" "$@"
+
+- name: Deploy claude-free launcher to ~/.local/bin
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/claude-free"
+    mode: '0755'
+    force: true
+    content: |
+      #!/usr/bin/env bash
+      # Claude Code routed through local free-claude-code proxy
+      # Proxy: http://127.0.0.1:8082  (systemctl --user status free-claude-code)
+      # Models: configured in ~/.config/RaBbLE/fcc.env  (fcc-ctl sync to update)
+      #
+      # ISOLATION: runs against a SEPARATE config dir (~/.claude-free) so setting an
+      # API key here can never clobber the real ~/.claude OAuth login. Without this,
+      # ANTHROPIC_API_KEY flips the shared profile into api-key auth mode and logs
+      # the paid/Pro session out. Keep the dir isolated.
+      exec env \
+        CLAUDE_CONFIG_DIR="${HOME}/.claude-free" \
+        ANTHROPIC_BASE_URL=http://127.0.0.1:8082 \
+        ANTHROPIC_API_KEY=fcc-no-auth \
+        claude "$@"
+
+- name: Deploy claude-paid launcher to ~/.local/bin
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/claude-paid"
+    mode: '0755'
+    force: true
+    content: |
+      #!/usr/bin/env bash
+      # Claude Code against real Anthropic API — strips proxy/api-key overrides if set,
+      # and pins the real config dir so it always uses the paid OAuth login.
+      exec env -u ANTHROPIC_BASE_URL -u ANTHROPIC_API_KEY -u CLAUDE_CONFIG_DIR claude "$@"
+
+# ── Share context into the isolated profile ───────────────────────────────────
+# claude-free runs against ~/.claude-free so its api-key auth can't clobber the
+# real ~/.claude OAuth login. But a bare profile loses your memories + global
+# instructions. Fix: symlink the *non-auth* context (CLAUDE.md, commands,
+# projects/ — which holds auto-memory AND history) into the isolated dir.
+# Credentials / settings stay separate — that's the whole point.
+- name: Ensure isolated claude-free profile directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.claude-free"
+    state: directory
+    mode: '0700'
+
+- name: Detect which ~/.claude context files exist to share
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.claude/{{ item }}"
+  loop:
+    - CLAUDE.md
+    - commands
+    - projects
+    - themes
+  register: _claude_shared
+
+- name: Symlink shared context into ~/.claude-free (memories + instructions, not auth)
+  ansible.builtin.file:
+    src: "{{ lookup('env', 'HOME') }}/.claude/{{ item.item }}"
+    dest: "{{ lookup('env', 'HOME') }}/.claude-free/{{ item.item }}"
+    state: link
+    force: true
+  loop: "{{ _claude_shared.results }}"
+  when: item.stat.exists
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Deploy claude-free settings.json (RaBbLE theme, minimal)
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.claude-free/settings.json"
+    mode: '0600'
+    force: true
+    content: |
+      {
+        "theme": "custom:rabble-theme"
+      }
+
+- name: Approve fcc-no-auth key in claude-free profile (prevents rejection loop)
+  ansible.builtin.shell: |
+    python3 - <<'EOF'
+    import json, os, pathlib
+    p = pathlib.Path(os.environ['HOME']) / '.claude-free' / '.claude.json'
+    if not p.exists():
+        data = {}
+    else:
+        with open(p) as f:
+            data = json.load(f)
+    resp = data.setdefault('customApiKeyResponses', {'approved': [], 'rejected': []})
+    key = 'fcc-no-auth'
+    if key not in resp.get('approved', []):
+        resp.setdefault('approved', []).append(key)
+    resp['rejected'] = [k for k in resp.get('rejected', []) if k != key]
+    with open(p, 'w') as f:
+        json.dump(data, f, indent=2)
+    EOF
+  changed_when: false
+
+- name: Ensure systemd user directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.config/systemd/user"
+    state: directory
+    mode: '0755'
+
+- name: Deploy free-claude-code systemd user service
+  register: _fcc_unit
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.config/systemd/user/free-claude-code.service"
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=free-claude-code — local Anthropic API proxy for Claude Code
+      After=network-online.target
+
+      [Service]
+      Type=simple
+      WorkingDirectory=%h/.local/share/RaBbLE/free-claude-code
+      # Upstream moved to a src/free_claude_code package; `uvicorn server:app` no
+      # longer imports. fcc-server is the supported entrypoint; bind via env.
+      # SECURITY: upstream reads HOST/PORT (its example's FCC_HOST is NOT honored)
+      # and defaults to 0.0.0.0. The proxy accepts a no-auth key, so it MUST stay
+      # on loopback.
+      Environment=HOST=127.0.0.1
+      Environment=PORT=8082
+      # After Environment= so fcc.env can override the defaults above.
+      EnvironmentFile=-%h/.config/RaBbLE/fcc.env
+      ExecStart=%h/.local/share/RaBbLE/free-claude-code/.venv/bin/fcc-server
+      Restart=on-failure
+      RestartSec=5
+
+      [Install]
+      WantedBy=default.target
+
+- name: Sync model routing from fcc.env.example
+  ansible.builtin.command: >
+    bash {{ lookup('env', 'HOME') }}/RaBbLE-Collective/RaBbLE-Grimoire/spells/fcc-ctl.sh sync
+  changed_when: false
+
+- name: Enable and start free-claude-code service
+  ansible.builtin.systemd:
+    name: free-claude-code
+    enabled: true
+    state: "{{ 'restarted' if _fcc_unit is changed else 'started' }}"
+    scope: user
+    daemon_reload: true
+
+- name: Verify service is reachable
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8082/health
+    return_content: false
+  register: _fcc_health
+  failed_when: false
+  retries: 5
+  delay: 2
+  until: _fcc_health.status is defined and _fcc_health.status in [200, 404]
+
+- name: Report free-claude-code status
+  ansible.builtin.debug:
+    msg: >-
+      free-claude-code:
+      {{ 'running at http://127.0.0.1:8082' if (_fcc_health.status | default(0)) in [200, 404]
+         else 'not reachable — check: systemctl --user status free-claude-code' }}

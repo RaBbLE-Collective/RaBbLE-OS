@@ -1,0 +1,11 @@
+---
+# desktop/swayosd/tasks/service.yml
+# swayosd-libinput-backend.service must run as the user (not root).
+# swayosd-server is autostarted via compositor exec — see hyprland-binds.conf.j2.
+- name: Enable swayOSD libinput backend service
+  ansible.builtin.systemd:
+    name: swayosd-libinput-backend.service
+    enabled: true
+    scope: system
+  become: true
+  tags: [desktop, swayosd, service]

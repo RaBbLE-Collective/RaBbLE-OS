@@ -1,0 +1,8 @@
+---
+- name: rebuild font cache
+  ansible.builtin.command: fc-cache -fv
+  become: true
+
+- name: rebuild initrd
+  ansible.builtin.command: dracut --force --regenerate-all  # every installed kernel, not `uname -r` (wrong inside the KS %post chroot)
+  become: true

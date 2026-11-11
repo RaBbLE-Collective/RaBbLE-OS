@@ -1,0 +1,8 @@
+---
+# desktop/launcher/tasks/packages.yml
+- name: Install app launcher packages
+  ansible.builtin.dnf:
+    name: "{{ launcher_packages }}"
+    state: present
+  become: true
+  tags: [desktop, launcher, packages]

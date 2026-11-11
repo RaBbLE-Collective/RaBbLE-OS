@@ -1,0 +1,4 @@
+---
+# runtime/vars/main.yml
+# vars/ has higher precedence than group_vars — keep this file empty.
+# All configurable defaults live in defaults/main.yml where group_vars can override them.

@@ -1,0 +1,1010 @@
+#!/usr/bin/env python3
+"""
+score-usage-detail.py — Full Claude/Codex usage + agent breakdown.
+Opened by clicking the waybar llm-status module.
+
+Default (one-shot) mode prints everything once — pipeable into less.
+--live keeps the popup open and self-refreshing:
+  · Agents panel + usage bars repaint every 2s (cheap: session-state files,
+    incremental transcript tails, cached API observations)
+  · the heavy sections (per-session 5h/24h/7d token lists, Codex quota)
+    recompute every 15s
+  · q / Esc closes
+
+The Agents panel reads the per-session state files score-sessions.py
+maintains (one per running Claude instance, hook-fed, PID-checked) — state,
+project, model, current context size, session token totals, last activity.
+"""
+
+import contextlib
+import datetime
+import io
+import json
+import os
+import pathlib
+import subprocess
+import sys
+import time
+
+# Shared dollar-cost helper (sibling module). Scripts dir on path so the
+# underscore-named module imports cleanly; pricing is optional, so degrade
+# gracefully if it ever goes missing.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+try:
+    import score_pricing
+except Exception:
+    score_pricing = None
+
+CLAUDE_DIR = pathlib.Path.home() / ".claude" / "projects"
+CODEX_DIR = pathlib.Path.home() / ".codex" / "sessions"
+CACHE_DIR = pathlib.Path.home() / ".cache" / "rabble"
+LATEST_OBS = CACHE_DIR / "llm-usage-latest.json"
+SESS_DIR = CACHE_DIR / "claude-sessions"
+CODEX_CACHE = CACHE_DIR / "score-codex.json"
+
+LIGHT_REFRESH_S = 2
+HEAVY_REFRESH_S = 15
+
+# Strip ANSI when piped, unless FORCE_COLOR is set (e.g. piped into less -R)
+_tty = sys.stdout.isatty() or bool(os.environ.get("FORCE_COLOR"))
+CYAN    = "\033[38;2;0;245;255m"    if _tty else ""
+VIOLET  = "\033[38;2;191;95;255m"   if _tty else ""
+GREEN   = "\033[38;2;80;250;123m"   if _tty else ""
+YELLOW  = "\033[38;2;241;250;140m"  if _tty else ""
+MUTED   = "\033[38;2;107;64;128m"   if _tty else ""
+TEXT    = "\033[38;2;232;213;255m"  if _tty else ""
+MAGENTA = "\033[38;2;255;45;120m"   if _tty else ""
+RESET   = "\033[0m"                  if _tty else ""
+
+STATE_META = {
+    "needs-input": ("⚑", "needs input", MAGENTA),
+    "busy":        ("✦", "busy",        CYAN),
+    "ready":       ("▶", "ready",       GREEN),
+}
+
+
+def fmt_tokens(n: int) -> str:
+    if n >= 1_000_000:
+        return f"{n/1_000_000:.2f}M"
+    if n >= 1_000:
+        return f"{n/1_000:.1f}K"
+    return str(n)
+
+
+def fmt_ts(ts: float) -> str:
+    return datetime.datetime.fromtimestamp(ts).strftime("%a %H:%M")
+
+
+def fmt_age(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    h, rem = divmod(seconds, 3600)
+    m = rem // 60
+    if h:
+        return f"{h}h {m:02d}m ago"
+    if m:
+        return f"{m}m ago"
+    return f"{seconds}s ago"
+
+
+def fmt_dur(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}h {m:02d}m"
+    if m:
+        return f"{m}m {s:02d}s"
+    return f"{s}s"
+
+
+def parse_any_ts(row: dict, fallback: float) -> float:
+    raw = row.get("timestamp") or row.get("ts")
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    if raw:
+        try:
+            return datetime.datetime.fromisoformat(str(raw).replace("Z", "+00:00")).timestamp()
+        except Exception:
+            pass
+    return fallback
+
+
+# ── Agents panel ──────────────────────────────────────────────────────────────
+
+
+def load_agents(now: float) -> list[dict]:
+    """Read score-sessions.py's per-session state files. Read-only mirror of
+    its load logic — the engine itself owns pruning; here a dead PID just
+    hides the row."""
+    agents = []
+    if not SESS_DIR.is_dir():
+        return agents
+    for p in SESS_DIR.glob("*.json"):
+        try:
+            data = json.loads(p.read_text())
+            age = now - p.stat().st_mtime
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        pid = data.get("pid")
+        alive = None
+        if pid:
+            try:
+                alive = (pathlib.Path(f"/proc/{pid}/comm").read_text().strip() == "claude")
+            except OSError:
+                alive = False
+        if alive is False or (alive is None and age > 6 * 3600):
+            continue
+
+        state = data.get("state", "ready")
+        if state == "busy" and age > (7200 if alive else 600):
+            state = "ready"
+        data["effective_state"] = state
+        data["age_s"] = int(age)
+        agents.append(data)
+
+    rank = {"needs-input": 3, "busy": 2, "ready": 1}
+    agents.sort(key=lambda d: (-rank.get(d["effective_state"], 0), d["age_s"]))
+    return agents
+
+
+def update_transcript_stats(cache: dict, path: str) -> dict:
+    """Incremental per-session transcript totals. Remembers the byte offset
+    between live-mode refreshes so each repaint only parses new lines. Never
+    consumes a trailing partial line (the file is being written mid-turn)."""
+    st = cache.get(path)
+    if st is None:
+        st = {"offset": 0, "in": 0, "out": 0, "model": "", "ctx": 0, "last_ts": 0.0}
+        cache[path] = st
+    try:
+        size = os.stat(path).st_size
+    except OSError:
+        return st
+    if size < st["offset"]:  # truncated/rotated — start over
+        st.update(offset=0, **{"in": 0, "out": 0, "ctx": 0})
+    if size == st["offset"]:
+        return st
+
+    try:
+        with open(path, "rb") as f:
+            f.seek(st["offset"])
+            chunk = f.read()
+    except OSError:
+        return st
+    nl = chunk.rfind(b"\n")
+    if nl == -1:
+        return st
+    st["offset"] += nl + 1
+
+    for line in chunk[: nl + 1].decode("utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        msg = entry.get("message", {})
+        usage = msg.get("usage") or entry.get("usage") or {}
+        if not usage:
+            continue
+        inp = usage.get("input_tokens", 0)
+        out = usage.get("output_tokens", 0)
+        st["in"] += inp
+        st["out"] += out
+        # Current context size = the latest request's full input picture
+        st["ctx"] = (
+            inp
+            + usage.get("cache_read_input_tokens", 0)
+            + usage.get("cache_creation_input_tokens", 0)
+        )
+        if msg.get("model"):
+            st["model"] = msg["model"]
+        st["last_ts"] = parse_any_ts(entry, st["last_ts"])
+    return st
+
+
+def codex_instance_count() -> int:
+    try:
+        out = subprocess.run(
+            ["pgrep", "-cx", "codex"], capture_output=True, text=True, timeout=2
+        ).stdout.strip()
+        return int(out)
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return 0
+
+
+def codex_bar_state() -> str:
+    """Codex state as the bar sees it — read from the heavy-tier cache."""
+    try:
+        cls = json.loads(CODEX_CACHE.read_text()).get("class", "")
+    except (OSError, json.JSONDecodeError):
+        return ""
+    return cls.removeprefix("llm-")
+
+
+def short_model(model: str) -> str:
+    m = model.removeprefix("claude-")
+    return m if len(m) <= 18 else m[:17] + "…"
+
+
+def print_agents(now: float, tcache: dict):
+    agents = load_agents(now)
+    codex_n = codex_instance_count()
+
+    n_blocked = sum(1 for a in agents if a["effective_state"] == "needs-input")
+    n_busy = sum(1 for a in agents if a["effective_state"] == "busy")
+    head = f"{len(agents)} claude · {codex_n} codex"
+    if n_blocked:
+        head += f"  {MAGENTA}⚑{n_blocked} blocked{RESET}"
+
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}Agents{RESET}  {TEXT}{head}{RESET}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+
+    if not agents and codex_n == 0:
+        print(f"  {MUTED}no agents running{RESET}")
+
+    for a in agents:
+        state = a["effective_state"]
+        glyph, label, color = STATE_META.get(state, ("·", state, MUTED))
+        project = (a.get("project") or "?")[:22]
+        sid = (a.get("session_id") or "")[-6:]
+
+        stats = {}
+        if a.get("transcript"):
+            stats = update_transcript_stats(tcache, a["transcript"])
+
+        last_ts = max(
+            float(stats.get("last_ts") or 0), now - a["age_s"]
+        )
+        detail = []
+        if stats.get("model"):
+            detail.append(short_model(stats["model"]))
+        if stats.get("ctx"):
+            detail.append(f"ctx {fmt_tokens(stats['ctx'])}")
+        if stats.get("in") or stats.get("out"):
+            detail.append(f"Σ {fmt_tokens(stats['in'] + stats['out'])}")
+        if state == "busy" and a.get("busy_since"):
+            detail.append(f"turn {fmt_dur(now - float(a['busy_since']))}")
+        if state == "needs-input" and a.get("note"):
+            note = a["note"].strip()
+            detail.append(note if len(note) <= 48 else note[:47] + "…")
+
+        print(
+            f"  {color}{glyph} {label:<11}{RESET} {TEXT}{project:<22}{RESET} "
+            f"{MUTED}{fmt_age(now - last_ts):>10} · {' · '.join(detail) or '—'} · {sid}{RESET}"
+        )
+
+    if codex_n:
+        state = codex_bar_state() or "ready"
+        glyph, label, color = STATE_META.get(state, (">_", state or "?", CYAN))
+        print(
+            f"  {color}{glyph} {label:<11}{RESET} {TEXT}{'codex':<22}{RESET} "
+            f"{MUTED}{codex_n} instance{'s' if codex_n != 1 else ''}{RESET}"
+        )
+
+    # Hook-less stragglers: claude processes with no session registration
+    try:
+        claude_procs = int(subprocess.run(
+            ["pgrep", "-cx", "claude"], capture_output=True, text=True, timeout=2
+        ).stdout.strip())
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        claude_procs = 0
+    if claude_procs > len(agents):
+        extra = claude_procs - len(agents)
+        print(f"  {MUTED}· {extra} claude process(es) without session hooks (pre-wiring){RESET}")
+
+
+# ── Usage bars (official API observations) ───────────────────────────────────
+
+
+def latest_web_observations(now: float) -> dict:
+    if not LATEST_OBS.exists():
+        return {}
+    try:
+        data = json.loads(LATEST_OBS.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    out = {}
+    for label, max_age in (("5h", 18_000), ("week", 604_800)):
+        row = data.get(label) or {}
+        try:
+            ts = float(row["ts"])
+            pct = float(row["pct"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if now - ts <= max_age:
+            entry = {"pct": pct, "age": now - ts, "web_used": bool(row.get("web_used"))}
+            raw_reset = row.get("resets_at")
+            if raw_reset:
+                try:
+                    if isinstance(raw_reset, str):
+                        entry["resets_at"] = datetime.datetime.fromisoformat(
+                            raw_reset.replace("Z", "+00:00")
+                        ).timestamp()
+                    else:
+                        entry["resets_at"] = float(raw_reset)
+                except Exception:
+                    pass
+            out[label] = entry
+    return out
+
+
+def make_bar(pct: float, width: int = 26) -> str:
+    pct = max(0.0, min(100.0, pct))
+    filled = round(pct / 100 * width)
+    color = GREEN if pct < 60 else YELLOW if pct < 85 else MAGENTA
+    return f"{color}{'█' * filled}{MUTED}{'░' * (width - filled)}{RESET}"
+
+
+def print_usage_bars(now: float):
+    observations = latest_web_observations(now)
+    if not observations:
+        return
+
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}Claude quota{RESET}  {MUTED}(Anthropic's own meter){RESET}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+    for label in ("5h", "week"):
+        row = observations.get(label)
+        if not row:
+            continue
+        reset_txt = ""
+        if row.get("resets_at"):
+            left = int(row["resets_at"] - now)
+            reset_txt = " · resets now" if left <= 0 else (
+                f" · resets {left // 3600}h {(left % 3600) // 60:02d}m"
+            )
+        print(
+            f"  {CYAN}{label:<5}{RESET} {make_bar(row['pct'])} "
+            f"{TEXT}{row['pct']:>5.1f}%{RESET}"
+            f"{MUTED}{reset_txt} · {fmt_age(row['age'])}{RESET}"
+        )
+
+
+# ── Heavy sections (per-session token lists, Codex quota) ────────────────────
+
+
+def _short_model(m: str) -> str:
+    return m.replace("claude-", "").replace("-20251001", "")
+
+
+def parse_sessions(since_s: float) -> list[dict]:
+    """Return list of {path, first_ts, last_ts, input, output, models} for each session."""
+    sessions = []
+    if not CLAUDE_DIR.exists():
+        return sessions
+
+    for jl in CLAUDE_DIR.rglob("*.jsonl"):
+        try:
+            mtime = jl.stat().st_mtime
+            if mtime < since_s - 60:
+                continue
+
+            first_ts  = mtime
+            last_ts   = mtime
+            total_in  = 0
+            total_out = 0
+            has_data  = False
+            models: dict[str, int] = {}  # short_name -> output tokens (share display)
+            # short_name -> full token breakdown, for dollar costing:
+            #   in = non-cached input (down), out = output (up), cr/cc = cache
+            model_io: dict[str, dict] = {}
+
+            with open(jl) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    ts = parse_any_ts(entry, mtime)
+
+                    if ts < since_s:
+                        continue
+
+                    msg   = entry.get("message", {})
+                    usage = msg.get("usage") or entry.get("usage") or {}
+                    inp   = usage.get("input_tokens", 0)
+                    out   = usage.get("output_tokens", 0)
+                    cr    = usage.get("cache_read_input_tokens", 0)
+                    cc    = usage.get("cache_creation_input_tokens", 0)
+
+                    if inp or out:
+                        total_in  += inp
+                        total_out += out
+                        has_data   = True
+                        if ts < first_ts:
+                            first_ts = ts
+                        if ts > last_ts:
+                            last_ts = ts
+                        model = msg.get("model") or entry.get("model") or ""
+                        if model and model != "<synthetic>":
+                            ms = _short_model(model)
+                            models[ms] = models.get(ms, 0) + out
+                            mio = model_io.setdefault(
+                                ms, {"in": 0, "out": 0, "cr": 0, "cc": 0})
+                            mio["in"]  += inp
+                            mio["out"] += out
+                            mio["cr"]  += cr
+                            mio["cc"]  += cc
+
+            if has_data:
+                proj_name = jl.parent.name
+                sessions.append({
+                    "path":     str(jl),
+                    "project":  proj_name.replace("-", "/").lstrip("/"),
+                    "first_ts": first_ts,
+                    "last_ts":  last_ts,
+                    "input":    total_in,
+                    "output":   total_out,
+                    "total":    total_in + total_out,
+                    "models":   models,
+                    "model_io": model_io,
+                })
+        except Exception:
+            continue
+
+    sessions.sort(key=lambda s: s["last_ts"], reverse=True)
+    return sessions
+
+
+def parse_codex(now: float) -> dict | None:
+    if not CODEX_DIR.exists():
+        return None
+
+    latest = None
+    buckets = {
+        "5h": {"input": 0, "cached": 0, "output": 0, "reasoning": 0, "total": 0},
+        "7d": {"input": 0, "cached": 0, "output": 0, "reasoning": 0, "total": 0},
+    }
+
+    def add_tokens(bucket: dict, usage: dict):
+        bucket["input"] += int(usage.get("input_tokens", 0) or 0)
+        bucket["cached"] += int(usage.get("cached_input_tokens", 0) or 0)
+        bucket["output"] += int(usage.get("output_tokens", 0) or 0)
+        bucket["reasoning"] += int(usage.get("reasoning_output_tokens", 0) or 0)
+        bucket["total"] += int(usage.get("total_tokens", 0) or 0)
+
+    for jl in CODEX_DIR.rglob("*.jsonl"):
+        try:
+            mtime = jl.stat().st_mtime
+            if mtime < now - 2_678_400:  # 31 days — matches Codex quota window
+                continue
+            with open(jl) as f:
+                for line in f:
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    payload = row.get("payload") or {}
+                    if payload.get("type") != "token_count":
+                        continue
+                    ts = parse_any_ts(row, mtime)
+                    info = payload.get("info") or {}
+                    usage = info.get("last_token_usage") or {}
+                    if usage:
+                        if ts >= now - 604_800:
+                            add_tokens(buckets["7d"], usage)
+                        if ts >= now - 18_000:
+                            add_tokens(buckets["5h"], usage)
+                    rate = payload.get("rate_limits") or {}
+                    if rate.get("primary") and (latest is None or ts > latest["ts"]):
+                        latest = {"ts": ts, "rate": rate}
+        except Exception:
+            continue
+
+    if not latest:
+        return None
+    return {"latest": latest, "tokens": buckets}
+
+
+def window_reset(sessions: list[dict], window_s: float, now: float, reset_override: float | None = None) -> str:
+    if reset_override is not None:
+        resets_at = reset_override
+    else:
+        if not sessions:
+            return "—"
+        oldest = min(s["first_ts"] for s in sessions)
+        resets_at = oldest + window_s
+    left = int(resets_at - now)
+    if left <= 0:
+        return "now"
+    h, m = divmod(left, 3600)
+    m = m // 60
+    return f"{h}h {m:02d}m" if h else f"{m}m"
+
+
+def section_cost(sessions: list[dict]) -> tuple[float, dict]:
+    """Total list-price API dollar cost across sessions, plus per-model cost.
+    Returns (total_usd, {short_model: usd}). Empty if pricing unavailable."""
+    if score_pricing is None:
+        return 0.0, {}
+    pricing = score_pricing.load()
+    per_model: dict[str, float] = {}
+    for s in sessions:
+        for m, t in s.get("model_io", {}).items():
+            per_model[m] = per_model.get(m, 0.0) + score_pricing.cost(
+                m, inp=t["in"], out=t["out"],
+                cache_read=t["cr"], cache_write=t["cc"], pricing=pricing,
+            )
+    return sum(per_model.values()), per_model
+
+
+def print_section(title: str, sessions: list[dict], window_s: float, now: float, reset_override: float | None = None):
+    total = sum(s["total"] for s in sessions)
+    reset = window_reset(sessions, window_s, now, reset_override)
+    total_usd, cost_by_model = section_cost(sessions)
+
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}{title}{RESET}  {TEXT}{fmt_tokens(total)} tokens{RESET}", end="")
+    if total_usd > 0:
+        print(f"  {GREEN}≈{score_pricing.fmt_usd(total_usd)} API{RESET}", end="")
+    if sessions and window_s < 86400 * 2:
+        print(f"  {MUTED}(window resets in {reset}){RESET}", end="")
+    print()
+    print(f"{VIOLET}{'─'*60}{RESET}")
+
+    if not sessions:
+        print(f"  {MUTED}no activity{RESET}")
+        return
+
+    for s in sessions:
+        label = s["project"][:40]
+        age   = fmt_ts(s["last_ts"])
+        tok   = fmt_tokens(s["total"])
+        inp   = fmt_tokens(s["input"])
+        out   = fmt_tokens(s["output"])
+        print(f"  {CYAN}{age}{RESET}  {TEXT}{tok:>7}{RESET}  {MUTED}↓{inp} ↑{out}{RESET}  {MUTED}{label}{RESET}")
+
+    # Per-model breakdown: aggregate output tokens across all sessions shown,
+    # then display as a share of total output (ratios hold despite duplicate records)
+    if sessions:
+        model_totals: dict[str, int] = {}
+        for s in sessions:
+            for m, toks in s.get("models", {}).items():
+                model_totals[m] = model_totals.get(m, 0) + toks
+        total_mtok = sum(model_totals.values())
+        if total_mtok > 0:
+            parts = []
+            for m, toks in sorted(model_totals.items(), key=lambda x: -x[1]):
+                pct = 100 * toks / total_mtok
+                if pct >= 1:
+                    usd = cost_by_model.get(m, 0.0)
+                    cost_tag = f" {GREEN}≈{score_pricing.fmt_usd(usd)}{RESET}" if usd > 0 else ""
+                    parts.append(f"{YELLOW}{m}{RESET} {fmt_tokens(toks)} ({pct:.0f}%){cost_tag}")
+            if parts:
+                print(f"  {MUTED}{'─'*58}{RESET}")
+                print(f"  {MUTED}By model (output share · API cost): {RESET}{'  '.join(parts)}")
+
+
+def print_separator(title: str):
+    label = f" {title} "
+    width = 60
+    side = max(4, (width - len(title) - 2) // 2)
+    line = f"{'═' * side}{label}{'═' * (width - side - len(label))}"
+    print(f"\n{VIOLET}{line}{RESET}")
+
+
+def print_codex(now: float):
+    print(f"\n{MAGENTA}  Codex Tracker{RESET}  {MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}{RESET}")
+
+    # Running instances
+    try:
+        import subprocess
+        result = subprocess.run(["pgrep", "-cx", "codex"], capture_output=True, text=True)
+        codex_count = int(result.stdout.strip() or "0")
+    except Exception:
+        codex_count = 0
+
+    if codex_count > 0:
+        print(f"  {CYAN}● {codex_count} instance{'s' if codex_count > 1 else ''} running{RESET}")
+    else:
+        print(f"  {MUTED}○ not running{RESET}")
+
+    codex = parse_codex(now)
+    if not codex:
+        print(f"\n  {MUTED}No session data found in {CODEX_DIR}{RESET}")
+        return
+
+    rate = codex["latest"]["rate"]
+    primary = rate.get("primary") or {}
+    secondary = rate.get("secondary") or {}
+    pct = primary.get("used_percent")
+    reset_ts = primary.get("resets_at")
+    reset_text = ""
+    if reset_ts:
+        left = int(float(reset_ts) - now)
+        reset_text = "now" if left <= 0 else f"{left // 3600}h {(left % 3600) // 60:02d}m"
+
+    # Data age
+    session_age = now - codex["latest"]["ts"]
+    age_note = f"{MUTED}(last session {fmt_age(session_age)}){RESET}" if session_age > 86_400 else ""
+
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    plan = rate.get("plan_type") or "unknown"
+    print(f"{VIOLET}Quota{RESET}  {MUTED}plan: {plan}{RESET}  {age_note}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+
+    if pct is not None:
+        color = GREEN if float(pct) < 60 else YELLOW if float(pct) < 85 else MAGENTA
+        bar = make_bar(float(pct))
+        reset_txt = f" · resets in {reset_text}" if reset_text else ""
+        print(f"  {CYAN}primary {RESET} {bar} {color}{float(pct):>5.1f}%{RESET}{MUTED}{reset_txt}{RESET}")
+    else:
+        print(f"  {MUTED}primary  no quota data{RESET}")
+
+    if secondary:
+        sec_pct = secondary.get("used_percent")
+        sec_reset = secondary.get("resets_at")
+        sec_reset_txt = ""
+        if sec_reset:
+            left = int(float(sec_reset) - now)
+            sec_reset_txt = f" · resets in {'now' if left <= 0 else f'{left // 3600}h {(left % 3600) // 60:02d}m'}"
+        if sec_pct is not None:
+            sec_bar = make_bar(float(sec_pct))
+            print(f"  {CYAN}secondary{RESET} {sec_bar} {TEXT}{float(sec_pct):>5.1f}%{RESET}{MUTED}{sec_reset_txt}{RESET}")
+
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}Token usage{RESET}  {MUTED}(from local transcripts){RESET}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+    for label, window_s in (("5h", 18_000), ("7d", 604_800)):
+        bucket = codex["tokens"][label]
+        total = bucket["total"]
+        if total == 0:
+            print(f"  {CYAN}{label:<5}{RESET} {MUTED}no activity{RESET}")
+        else:
+            print(
+                f"  {CYAN}{label:<5}{RESET} {TEXT}{fmt_tokens(total):>7}{RESET}  "
+                f"{MUTED}↓{fmt_tokens(bucket['input'])} cached {fmt_tokens(bucket['cached'])} "
+                f"↑{fmt_tokens(bucket['output'])} reason {fmt_tokens(bucket['reasoning'])}{RESET}"
+            )
+
+
+# ── Render orchestration ──────────────────────────────────────────────────────
+
+
+def five_h_window_start(now: float):
+    """Anchor the 5h section to Anthropic's real window when known."""
+    web_obs = latest_web_observations(now)
+    five_h_reset = (web_obs.get("5h") or {}).get("resets_at")
+    five_h_start = now - 18_000
+    if five_h_reset is not None:
+        candidate_start = five_h_reset - 18_000
+        if candidate_start <= now:
+            five_h_start = candidate_start
+        else:
+            five_h_reset = None  # snapshot hasn't caught up with a fresh reset yet
+    return five_h_start, five_h_reset
+
+
+def _capture(fn, *args, **kwargs) -> str:
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        fn(*args, **kwargs)
+    return buf.getvalue()
+
+
+def render_light(now: float, tcache: dict, live: bool) -> str:
+    def body():
+        hint = "live" if live else "q to close"
+        print(
+            f"\n{MAGENTA}  sCoRE Usage Tracker{RESET}  "
+            f"{MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}{RESET}  "
+            f"{CYAN}{hint}{RESET}"
+        )
+        print_agents(now, tcache)
+        print_usage_bars(now)
+    return _capture(body)
+
+
+_AGY_QUOTA_MOD = None
+
+
+def _agy_quota(now: float) -> dict:
+    """Live agy pool state via the sibling score-agy-quota.py (dashed filename,
+    so loaded by path). Falls back to a both-clear result on any error."""
+    global _AGY_QUOTA_MOD
+    try:
+        if _AGY_QUOTA_MOD is None:
+            import importlib.util
+            p = pathlib.Path(__file__).resolve().parent / "score-agy-quota.py"
+            spec = importlib.util.spec_from_file_location("score_agy_quota", p)
+            _AGY_QUOTA_MOD = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(_AGY_QUOTA_MOD)
+        return _AGY_QUOTA_MOD.compute(now)
+    except Exception:
+        empty = {"exhausted": False, "reset_epoch": None, "remaining_s": 0,
+                 "resets_in": "", "model": ""}
+        return {"gemini": dict(empty), "service": dict(empty)}
+
+
+
+def print_antigravity(now: float) -> None:
+    import subprocess, glob as _glob
+
+    agy_dir = pathlib.Path.home() / ".gemini" / "antigravity-cli"
+    log_dir = agy_dir / "log"
+    conv_dir = agy_dir / "conversations"
+    settings_file = agy_dir / "settings.json"
+
+    print(f"\n{MAGENTA}  Antigravity Tracker{RESET}  {MUTED}{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}{RESET}")
+
+    # Running instances
+    try:
+        result = subprocess.run(["pgrep", "-cx", "agy"], capture_output=True, text=True)
+        agy_count = int(result.stdout.strip() or "0")
+    except Exception:
+        agy_count = 0
+
+    if agy_count > 0:
+        print(f"  {CYAN}● {agy_count} instance{'s' if agy_count > 1 else ''} running{RESET}")
+    else:
+        print(f"  {MUTED}○ not running{RESET}")
+
+    # Configured model
+    current_model = "unknown"
+    if settings_file.is_file():
+        try:
+            s = json.loads(settings_file.read_text())
+            current_model = s.get("model", "unknown")
+        except Exception:
+            pass
+    is_claude = "claude" in current_model.lower() or "sonnet" in current_model.lower() or "opus" in current_model.lower()
+    model_color = CYAN if is_claude else GREEN
+    print(f"  {MUTED}model:{RESET} {model_color}{current_model}{RESET}")
+
+    # Login status (from logs)
+    not_logged_in = False
+    if log_dir.is_dir():
+        try:
+            logs_24h = sorted(log_dir.glob("cli-*.log"))
+            for lf in reversed(logs_24h[-5:]):
+                content = lf.read_bytes()
+                if b"not logged into Antigravity" in content:
+                    not_logged_in = True
+                    break
+        except Exception:
+            pass
+    if not_logged_in:
+        print(f"  {YELLOW}⚠ not logged into Antigravity service{RESET}")
+
+    # ── Quota section ──────────────────────────────────────────────────────────
+    # agy has TWO independent quota pools, neither shared with Claude Code:
+    #   1. Gemini API quota          — hit when a Gemini/Flash model is active
+    #   2. Antigravity service quota — hit when Claude/GPT models are active
+    # Live state comes from score-agy-quota.py: a pool counts as exhausted only
+    # while its latest RESOURCE_EXHAUSTED has no successful model activity after
+    # it AND its reset wall-clock (the event's own glog timestamp + "Resets in")
+    # is still in the future — so a reset clears the ⊘ right away instead of
+    # lingering for the whole 7-day window.
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}Quota{RESET}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+
+    quota = _agy_quota(now)
+    gem, svc = quota["gemini"], quota["service"]
+
+    if gem["exhausted"]:
+        bar = make_bar(100.0)
+        print(f"  {CYAN}Gemini API    {RESET} {bar} {MAGENTA}100%{RESET}  {MUTED}⊘ resets in {gem['resets_in']}{RESET}")
+    else:
+        print(f"  {CYAN}Gemini API    {RESET} {GREEN}available{RESET}  {MUTED}(daily limits apply){RESET}")
+
+    # Antigravity service quota (Sonnet/Opus/GPT) — agy's own second quota pool,
+    # independent of both Gemini API and Claude Code's Anthropic quota.
+    if svc["exhausted"]:
+        bar = make_bar(100.0)
+        mdl_note = f" ({svc['model']})" if svc["model"] else ""
+        print(f"  {VIOLET}Service quota {RESET} {bar} {MAGENTA}100%{RESET}  {MUTED}⊘ resets in {svc['resets_in']}{RESET}")
+        print(f"    {MUTED}Sonnet/Opus/GPT — Antigravity service{mdl_note}{RESET}")
+    else:
+        print(f"  {VIOLET}Service quota {RESET} {GREEN}available{RESET}"
+              f"  {MUTED}(Sonnet/Opus/GPT){RESET}")
+
+    # ── Sessions section ───────────────────────────────────────────────────────
+    print(f"\n{VIOLET}{'─'*60}{RESET}")
+    print(f"{VIOLET}Sessions{RESET}  {MUTED}(conversation history){RESET}")
+    print(f"{VIOLET}{'─'*60}{RESET}")
+
+    if conv_dir.is_dir():
+        dbs = sorted(conv_dir.glob("*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+        total = len(dbs)
+        recent_24h = sum(1 for d in dbs if now - d.stat().st_mtime < 86_400)
+        recent_7d  = sum(1 for d in dbs if now - d.stat().st_mtime < 604_800)
+        print(f"  {TEXT}{total} total{RESET}  {CYAN}{recent_24h} today{RESET}  {MUTED}{recent_7d} last 7d{RESET}")
+        if dbs:
+            last_active = now - dbs[0].stat().st_mtime
+            print(f"  {MUTED}last activity: {fmt_age(last_active)}{RESET}")
+        # Show up to 5 most recent conversations with age
+        for db in dbs[:5]:
+            age_s = now - db.stat().st_mtime
+            cid = db.stem[:8]
+            print(f"  {MUTED}  {cid}…  {fmt_age(age_s)}{RESET}")
+    else:
+        print(f"  {MUTED}no conversation data at {conv_dir}{RESET}")
+
+    # Cache staleness warning
+    cache = CACHE_DIR / "score-antigravity.json"
+    if cache.is_file():
+        cache_age = now - cache.stat().st_mtime
+        if cache_age > 30:
+            print(f"\n  {YELLOW}⚠ cache is {int(cache_age)}s old — daemon may be down{RESET}")
+
+
+def render_heavy(now: float, mode: str) -> str:
+    def body():
+        five_h_start, five_h_reset = five_h_window_start(now)
+        sessions_5h  = parse_sessions(five_h_start)
+        sessions_24h = parse_sessions(now - 86_400)
+        sessions_7d  = parse_sessions(now - 604_800)
+
+        def claude_sections():
+            print_separator("Claude Code")
+            print_section("5-hour window", sessions_5h,  18_000,  now, five_h_reset)
+            print_section("Last 24 hours", sessions_24h, 86_400,  now)
+            print_section("Last 7 days",   sessions_7d,  604_800, now)
+
+        def codex_sections():
+            print_codex(now)
+
+        def antigravity_sections():
+            print_antigravity(now)
+
+        if mode == "antigravity":
+            antigravity_sections()
+        elif mode == "codex":
+            codex_sections()
+        else:
+            claude_sections()
+            codex_sections()
+            total_week = sum(s["total"] for s in sessions_7d)
+            print(f"\n{MUTED}  Weekly total: {fmt_tokens(total_week)} tokens across {len(sessions_7d)} session(s){RESET}\n")
+    return _capture(body)
+
+
+def read_key(timeout: float):
+    """One keypress, with arrow/page escape sequences decoded — a bare Esc is
+    distinguishable from the \\x1b that starts every arrow key, so scrolling
+    never accidentally closes the popup (the `less` failure mode)."""
+    import select
+
+    r, _, _ = select.select([sys.stdin], [], [], timeout)
+    if not r:
+        return None
+    ch = sys.stdin.read(1)
+    if ch != "\x1b":
+        return ch
+    r, _, _ = select.select([sys.stdin], [], [], 0.03)
+    if not r:
+        return "ESC"
+    if sys.stdin.read(1) != "[":
+        return "ESC"
+    final = sys.stdin.read(1)
+    if final.isdigit():
+        num = final
+        while True:
+            c = sys.stdin.read(1)
+            if not c.isdigit():
+                break
+            num += c
+        return {"5": "PGUP", "6": "PGDN", "1": "HOME", "4": "END"}.get(num)
+    return {"A": "UP", "B": "DOWN", "H": "HOME", "F": "END"}.get(final)
+
+
+def run_live(mode: str):
+    import shutil
+
+    tcache: dict = {}
+    heavy = ""
+    heavy_ts = 0.0
+    offset = 0
+    frame_lines: list[str] = []
+
+    old_attrs = None
+    fd = None
+    try:
+        import termios
+        import tty
+        fd = sys.stdin.fileno()
+        old_attrs = termios.tcgetattr(fd)
+        tty.setcbreak(fd)
+    except Exception:
+        old_attrs = None
+
+    def draw():
+        nonlocal offset
+        cols, rows = shutil.get_terminal_size()
+        view_h = max(5, rows - 1)  # last row is the status bar
+        max_off = max(0, len(frame_lines) - view_h)
+        offset = max(0, min(offset, max_off))
+        visible = frame_lines[offset:offset + view_h]
+        pos = "all" if max_off == 0 else f"{offset + 1}-{offset + len(visible)}/{len(frame_lines)}"
+        status = (
+            f"{MUTED}  [{pos}] ↑↓/jk PgUp/PgDn scroll · g/G top/bottom · "
+            f"q close · refresh {LIGHT_REFRESH_S}s{RESET}"
+        )
+        sys.stdout.write("\x1b[H\x1b[2J" + "\n".join(visible) + "\n" + status)
+        sys.stdout.flush()
+
+    sys.stdout.write("\x1b[?1049h\x1b[?25l")  # alt screen, hide cursor
+    try:
+        while True:
+            now = time.time()
+            if now - heavy_ts > HEAVY_REFRESH_S:
+                heavy = render_heavy(now, mode)
+                heavy_ts = now
+            if mode == "claude":
+                frame_lines = (render_light(now, tcache, live=True) + heavy).splitlines()
+            else:
+                frame_lines = heavy.splitlines()
+            draw()
+
+            if old_attrs is None:
+                time.sleep(LIGHT_REFRESH_S)
+                continue
+
+            # Keys act instantly (redraw the same data at the new offset);
+            # the data refresh itself waits for the cadence timeout.
+            deadline = time.time() + LIGHT_REFRESH_S
+            quit_now = False
+            while True:
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    break
+                key = read_key(remaining)
+                if key is None:
+                    continue
+                page = max(5, shutil.get_terminal_size().lines - 2)
+                if key in ("q", "Q", "ESC"):
+                    quit_now = True
+                    break
+                elif key in ("UP", "k"):
+                    offset -= 1
+                elif key in ("DOWN", "j"):
+                    offset += 1
+                elif key in ("PGUP",):
+                    offset -= page
+                elif key in ("PGDN", " "):
+                    offset += page
+                elif key in ("HOME", "g"):
+                    offset = 0
+                elif key in ("END", "G"):
+                    offset = 10**9
+                else:
+                    continue
+                draw()
+            if quit_now:
+                break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        sys.stdout.write("\x1b[?25h\x1b[?1049l")
+        sys.stdout.flush()
+        if old_attrs is not None:
+            import termios
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_attrs)
+
+
+def main():
+    args = [a for a in sys.argv[1:]]
+    live = "--live" in args
+    mode = next((a for a in args if not a.startswith("-")), "claude").strip().lower()
+
+    if live:
+        run_live(mode)
+        return
+
+    now = time.time()
+    if mode == "claude":
+        sys.stdout.write(render_light(now, {}, live=False))
+    sys.stdout.write(render_heavy(now, mode))
+
+
+if __name__ == "__main__":
+    main()

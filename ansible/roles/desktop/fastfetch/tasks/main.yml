@@ -1,0 +1,4 @@
+---
+# desktop/fastfetch/tasks/main.yml
+- { ansible.builtin.include_tasks: packages.yml, tags: [desktop, fastfetch, packages] }
+- { ansible.builtin.include_tasks: config.yml,   tags: [desktop, fastfetch, config]   }

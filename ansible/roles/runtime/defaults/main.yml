@@ -1,0 +1,58 @@
+---
+# runtime/defaults/main.yml
+# Lowest-precedence defaults — safely overridden by group_vars per hardware target.
+# Do NOT use Jinja2 templates here. Plain values only.
+
+# ── NPU identity ──────────────────────────────────────────────────────────────
+# Concrete values come from group_vars/<machine>.yml (e.g. asus_proart_p16.yml).
+# These are the safe fallbacks for machines without NPU (generic_x64, VMs).
+npu:
+  enabled: false
+  vendor: "none"
+  family: "none"
+  driver: "none"
+
+xrt_rollback: false
+
+# ── FastFlowLM — AMD XDNA2 LLM inference ─────────────────────────────────────
+# XDNA2 only: Strix Point, Krackan, Strix Halo, Gorgon Point.
+# XDNA1 (Ryzen AI 7000/8000/200-series) NOT supported.
+# Install tries xanderlent COPR binary first; falls back to cmake source build.
+fastflowlm:
+  enabled: true
+  repo: "https://github.com/FastFlowLM/FastFlowLM.git"
+  src_dir: "/opt/src/FastFlowLM"
+  install_prefix: "/opt/fastflowlm"
+
+# ── Lemonade Server — OpenAI-compat local AI API on :8000 ────────────────────
+# Wraps FastFlowLM (NPU), optionally llama.cpp (GPU), Whisper STR, Kokoro TTS.
+# disabled by default — enable after XRT + FastFlowLM validate successfully.
+# Known bug: 'lemonade-server recipes' shows "Requires Windows" for NPU — ignore it.
+lemonade:
+  enabled: false
+  port: 8000
+
+# ── llama.cpp install ─────────────────────────────────────────────────────────
+# install_method: "source" (default) or "prebuilt"
+#   source   — clone + cmake + ninja. ~5-15 min. Full backend control.
+#   prebuilt — download GitHub release archive. Fast. No build deps needed.
+#
+# version: "latest" (default), "HEAD" (source only — tracks main tip), or
+#          a specific release tag e.g. "b4600"
+#   latest resolves the current GitHub release at provision time.
+#   HEAD always rebuilds on each run (use only during active development).
+#
+# backend (source only — prebuilt ships Vulkan):
+#   vulkan — AMD iGPU or any Vulkan GPU. Default. Fedora-native deps.
+#   cuda   — NVIDIA GPU. Requires NVIDIA CUDA repo pre-configured.
+#     cuda_architectures: "86"=RTX3060, "89"=RTX4060, "native"=auto
+llama_cpp:
+  enabled: true
+  install_method: "prebuilt"
+  backend: "vulkan"
+  repo: "https://github.com/ggml-org/llama.cpp"
+  version: "latest"
+  src_dir: "/opt/llama.cpp"
+  build_dir: "/opt/llama.cpp/build"
+  install_prefix: "/usr/local"
+  cuda_architectures: "86"

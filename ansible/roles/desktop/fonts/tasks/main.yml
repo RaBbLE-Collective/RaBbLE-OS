@@ -1,0 +1,5 @@
+---
+# desktop/fonts/tasks/main.yml
+# Must run before any DE component renders — waybar and kitty glyph rendering
+# depend on JetBrains Mono and Font Awesome being present.
+- { ansible.builtin.include_tasks: packages.yml, tags: [desktop, fonts, packages] }

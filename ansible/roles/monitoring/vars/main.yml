@@ -1,0 +1,2 @@
+---
+powertop_rollback: "{{ powertop_rollback | default(false) }}"

@@ -1,0 +1,60 @@
+---
+# =============================================================================
+# PowerTop — Power Event Reporting + Auto-tune Service
+# Lives in observability: the TUI and HTML reports are passive read tools.
+# The auto-tune systemd service writes wake/autosuspend settings at boot —
+# this is the durable system-level effect we care about deploying.
+# =============================================================================
+
+- name: Deploy powertop auto-tune systemd unit
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/powertop.service
+    content: |
+      [Unit]
+      Description=PowerTOP auto-tune — apply optimal power settings at boot
+      After=multi-user.target
+      ConditionVirtualization=no
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/sbin/powertop --auto-tune
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  tags: [monitoring, powertop]
+  notify: reload systemd daemon
+
+- name: Enable powertop auto-tune service
+  become: true
+  ansible.builtin.systemd:
+    name: powertop
+    enabled: true
+    daemon_reload: true
+  tags: [monitoring, powertop]
+  # state: omitted intentionally — Type=oneshot runs at boot, not mid-playbook.
+  # Starting it live fires --auto-tune on a running desktop (disrupts USB/audio).
+
+# ── Rollback ──────────────────────────────────────────────────────────────────
+
+# - name: Rollback — disable powertop auto-tune service
+#   become: true
+#   ansible.builtin.systemd:
+#     name: powertop
+#     enabled: false
+#     state: stopped
+#   when: powertop_rollback | default(false)
+#   tags: [monitoring, powertop, rollback]
+
+# - name: Rollback — remove powertop systemd unit
+#   become: true
+#   ansible.builtin.file:
+#     path: /etc/systemd/system/powertop.service
+#     state: absent
+#   when: powertop_rollback | default(false)
+#   tags: [monitoring, powertop, rollback]

@@ -1,0 +1,13 @@
+- name: Install Wayland core packages
+  ansible.builtin.dnf:
+    name: "{{ wayland_core_packages }}"
+    state: present
+  become: true
+  tags: [desktop, wayland, packages]
+
+- name: Install Qt Wayland support
+  ansible.builtin.dnf:
+    name: "{{ wayland_qt_support }}"
+    state: present
+  become: true
+  tags: [desktop, wayland, packages, qt]

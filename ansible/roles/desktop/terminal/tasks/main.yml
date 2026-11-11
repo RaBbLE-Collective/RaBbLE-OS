@@ -1,0 +1,4 @@
+---
+# desktop/terminal/tasks/main.yml — STUB
+- { ansible.builtin.include_tasks: packages.yml, tags: [desktop, terminal, packages] }
+- { ansible.builtin.include_tasks: config.yml,   tags: [desktop, terminal, config]   }

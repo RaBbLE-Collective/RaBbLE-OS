@@ -1,0 +1,4 @@
+# ansible/roles/desktop/notifications/vars/main.yml
+
+notifications_packages:
+  - mako                           # Wayland notification daemon

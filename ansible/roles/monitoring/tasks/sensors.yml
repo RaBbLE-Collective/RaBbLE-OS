@@ -1,0 +1,54 @@
+---
+# =============================================================================
+# Hardware Sensors — lm-sensors + hwmon
+# Passive read-only. Exposes thermal, fan, voltage data.
+# =============================================================================
+
+- name: Install sensor packages
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - htop          # Interactive process viewer
+      - btop          # Resource monitor — CPU, memory, network, disk
+      - nvtop         # GPU process monitor — works with AMD and NVIDIA
+      - powertop      # Intel/AMD power usage analyser — identify power hogs
+      - powerstat     # ACPI power draw over time — best for baseline capture
+      - kernel-tools  # Includes turbostat — CPU package/core power in watts
+      - lm_sensors    # Hardware sensor readings — temps, fan speeds, voltages
+      - lm_sensors-devel
+    state: present
+  retries: 3
+  delay: 5
+  register: _sensor_pkg
+  until: _sensor_pkg is not failed
+  tags: [monitoring, sensors]
+
+- name: Run sensors-detect (non-interactive, auto-accept)
+  become: true
+  ansible.builtin.shell: yes "" | sensors-detect --auto
+  args:
+    creates: /etc/sysconfig/lm_sensors   # Only runs once — idempotent guard
+  register: sensors_detect
+  failed_when: false
+  tags: [monitoring, sensors]
+
+- name: Enable lm_sensors service
+  become: true
+  ansible.builtin.systemd:
+    name: lm_sensors
+    enabled: true
+    state: started
+  failed_when: false          # Not all systems have this unit
+  tags: [monitoring, sensors]
+
+- name: Verify sensors output
+  ansible.builtin.command: sensors
+  register: sensors_output
+  changed_when: false
+  failed_when: false
+  tags: [monitoring, sensors, verify]
+
+- name: Report sensor readings
+  ansible.builtin.debug:
+    msg: "{{ sensors_output.stdout_lines | default(['sensors not available']) }}"
+  tags: [monitoring, sensors, verify]

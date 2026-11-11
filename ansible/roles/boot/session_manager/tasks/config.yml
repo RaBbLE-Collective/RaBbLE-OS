@@ -1,0 +1,113 @@
+---
+# boot/session_manager/tasks/config.yml
+# System-level session/login configuration (requires become: true).
+# Logind controls hardware events (lid close, power button, suspend).
+# SDDM greeter theme (rabble-aether) is deployed below — pure QML, no assets.
+
+- name: Create logind drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/logind.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [boot, sddm, config]
+
+- name: Deploy logind lid-switch policy (suspend on lid close)
+  ansible.builtin.copy:
+    src: "{{ dotfiles_repo_root }}/config/systemd/logind.conf.d/99-rabble-lid.conf"
+    dest: /etc/systemd/logind.conf.d/99-rabble-lid.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload logind
+  tags: [boot, sddm, config]
+
+# ── SDDM greeter theme — rabble-aether ───────────────────────────────────────
+# Deliberately no `notify: restart sddm`: restarting SDDM kills the active
+# session. The theme is picked up the next time the greeter starts.
+
+- name: Deploy rabble-aether SDDM theme
+  ansible.builtin.copy:
+    src: sddm-theme/
+    dest: /usr/share/sddm/themes/rabble-aether/
+    owner: root
+    group: root
+    directory_mode: "0755"
+    mode: "0644"
+  become: true
+  tags: [boot, sddm, config]
+
+- name: Create SDDM config drop-in directory
+  ansible.builtin.file:
+    path: /etc/sddm.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [boot, sddm, config]
+
+- name: Activate rabble-aether SDDM theme
+  ansible.builtin.copy:
+    src: 99-rabble-theme.conf
+    dest: /etc/sddm.conf.d/99-rabble-theme.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  tags: [boot, sddm, config]
+
+# ── Plymouth→SDDM gap fix — retain-splash handoff ───────────────────────────
+# Overrides plymouth-quit.service to exit with --retain-splash, leaving the
+# frozen splash frame on the framebuffer instead of releasing DRM to black.
+# The greeter then paints over a still splash, not black, at the handoff.
+
+- name: Create plymouth-quit drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/plymouth-quit.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [boot, plymouth, config]
+
+- name: Deploy plymouth-quit retain-splash drop-in
+  ansible.builtin.copy:
+    src: plymouth-quit-sddm.conf
+    dest: /etc/systemd/system/plymouth-quit.service.d/sddm-first-frame.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload systemd daemon
+  tags: [boot, plymouth, config]
+
+# ── SDDM greeter DRM race fix (S207) ────────────────────────────────────────
+# sddm.service is vendor-ordered After=plymouth-quit.service (fires the quit
+# signal, doesn't wait for it), not plymouth-quit-wait.service (actually
+# blocks until Plymouth releases DRM). The greeter's sway compositor does a
+# single non-retrying DRM open() and dies instantly if it loses that race —
+# see files/sddm-plymouth-handoff.conf for full real-boot evidence.
+
+- name: Create sddm.service drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/sddm.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [boot, sddm, config]
+
+- name: Deploy sddm plymouth-quit-wait ordering drop-in
+  ansible.builtin.copy:
+    src: sddm-plymouth-handoff.conf
+    dest: /etc/systemd/system/sddm.service.d/plymouth-handoff.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload systemd daemon
+  tags: [boot, sddm, config]

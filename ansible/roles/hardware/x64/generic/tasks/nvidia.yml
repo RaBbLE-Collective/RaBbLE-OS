@@ -1,0 +1,136 @@
+---
+# hardware/x64/generic/tasks/nvidia.yml
+# NVIDIA proprietary driver for generic x64 desktops. Runs ONLY when an NVIDIA GPU
+# is actually present (DRM vendor 0x10de), so VMs and AMD/Intel-only boxes skip it.
+# The ProArt P16 has its own hybrid/RTD3 recipe (asus_proart_p16/tasks/nvidia.yml);
+# none of that (PRIME offload, D3cold, deferred load, SDDM pin) applies here.
+#
+# Requires RPM Fusion nonfree (akmod-nvidia lives there). Reboot after first run:
+# the nouveau blacklist + akmod build only take effect on the next boot.
+
+- name: nvidia | detect GPU vendors present (DRM)
+  ansible.builtin.shell: |
+    for v in /sys/class/drm/card[0-9]*/device/vendor; do
+      [ -r "$v" ] && cat "$v"
+    done | sort -u | tr '\n' ' '
+  register: _gpu_vendors
+  changed_when: false
+  check_mode: false
+  tags: [hardware, nvidia, boot]
+
+- name: nvidia | set detection facts
+  ansible.builtin.set_fact:
+    _has_nvidia: "{{ '0x10de' in _gpu_vendors.stdout }}"
+    # NVIDIA is the ONLY GPU → it drives the display, Hyprland needs NVIDIA env.
+    # With an iGPU present we leave the compositor env alone (no blind pinning).
+    _nvidia_sole_gpu: "{{ _gpu_vendors.stdout.split() | unique | list == ['0x10de'] }}"
+  tags: [hardware, nvidia, boot]
+
+- name: nvidia | GPU report
+  ansible.builtin.debug:
+    msg: >-
+      GPU vendors: {{ _gpu_vendors.stdout | default('none') }}
+      → NVIDIA {{ 'present' if _has_nvidia else 'absent, skipping' }}
+  tags: [hardware, nvidia, boot]
+
+- name: nvidia | driver setup
+  when: _has_nvidia
+  tags: [hardware, nvidia, boot]
+  block:
+    - name: nvidia | check RPM Fusion nonfree is enabled
+      ansible.builtin.command: rpm -q rpmfusion-nonfree-release
+      register: _rpmfusion
+      changed_when: false
+      check_mode: false
+      failed_when: false
+
+    - name: nvidia | RPM Fusion missing
+      ansible.builtin.fail:
+        msg: >-
+          akmod-nvidia comes from RPM Fusion nonfree, which is not installed.
+          Enable it (layerctl base / manifest) and re-run: layerctl apply hardware
+      when: _rpmfusion.rc != 0
+
+    - name: nvidia | Secure Boot state
+      ansible.builtin.command: mokutil --sb-state
+      register: _sb
+      changed_when: false
+      check_mode: false
+      failed_when: false
+
+    - name: nvidia | warn if Secure Boot is enabled (unsigned akmod will not load)
+      ansible.builtin.debug:
+        msg: >-
+          Secure Boot is enabled. akmod-nvidia builds a kernel module that must be
+          signed with an enrolled MOK, or it will silently fail to load.
+          Run: sudo kmodgenca -a && sudo mokutil --import /etc/pki/akmods/certs/public_key.der
+          then reboot and enroll the key at the blue MOK screen.
+      when: "'enabled' in (_sb.stdout | default('') | lower) and 'disabled' not in (_sb.stdout | default('') | lower)"
+
+    - name: nvidia | blacklist nouveau
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/blacklist-nouveau.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # RaBbLE-OS: nouveau conflicts with the proprietary NVIDIA driver
+          blacklist nouveau
+          options nouveau modeset=0
+      notify: regenerate initramfs
+
+    - name: nvidia | Wayland KMS options
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/rabble-nvidia-wayland.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # RaBbLE-OS: NVIDIA Wayland / KMS (fbdev needed on driver >= 545)
+          options nvidia-drm modeset=1
+          options nvidia-drm fbdev=1
+      notify: regenerate initramfs
+
+    - name: nvidia | install driver stack
+      ansible.builtin.dnf:
+        name:
+          - akmod-nvidia
+          - xorg-x11-drv-nvidia
+          - xorg-x11-drv-nvidia-cuda
+          - xorg-x11-drv-nvidia-cuda-libs
+          - libva-nvidia-driver
+          - libva-utils
+        state: present
+
+    - name: nvidia | reboot notice
+      ansible.builtin.debug:
+        msg: >-
+          Reboot required: akmod builds the module for the running kernel on first
+          boot after install (wait ~1-2 min at first boot; check `modinfo nvidia`).
+
+- name: nvidia | Hyprland env (NVIDIA is the only GPU)
+  when: _has_nvidia and _nvidia_sole_gpu
+  tags: [hardware, nvidia, hyprland, config]
+  block:
+    - name: nvidia | ensure ~/.config/hypr/conf_d exists
+      ansible.builtin.file:
+        path: "{{ rabble_home }}/.config/hypr/conf_d"
+        state: directory
+        owner: "{{ rabble_user }}"
+        mode: "0755"
+
+    - name: nvidia | deploy machine.lua (NVIDIA env, no GPU pin)
+      ansible.builtin.copy:
+        dest: "{{ rabble_home }}/.config/hypr/conf_d/machine.lua"
+        owner: "{{ rabble_user }}"
+        mode: "0644"
+        content: |
+          -- ~/.config/hypr/conf_d/machine.lua — generic x64, NVIDIA sole GPU
+          -- Written by ansible/roles/hardware/x64/generic (tasks/nvidia.yml).
+          -- NOT in config/hypr, so dotctl never deploys it to other machines.
+          hl.env("LIBVA_DRIVER_NAME", "nvidia")
+          hl.env("NVD_BACKEND", "direct")
+          hl.env("GBM_BACKEND", "nvidia-drm")
+          hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
+          -- Hardware cursors on NVIDIA Wayland cause artifacts — disable
+          hl.env("HYPRLAND_NO_HARDWARE_CURSORS", 1)

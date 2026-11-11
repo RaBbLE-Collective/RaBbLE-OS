@@ -1,0 +1,20 @@
+# ansible/roles/desktop/wayland/vars/main.yml
+# =============================================================================
+# wayland role — internal variables
+# vars/ = role-internal, not intended for override
+# defaults/ = user-overridable role config
+# =============================================================================
+
+wayland_core_packages:
+  - wl-clipboard                   # Clipboard read/write primitives
+  - cliphist                       # Clipboard history manager
+  - xdg-desktop-portal-gtk         # GTK portal backend — file pickers
+  - kanshi                         # Display profile manager — auto-switches on connect
+  - wlr-randr                      # Monitor configuration utility
+  - socat                          # IPC socket relay — used by Hyprland hotplug scripts
+
+wayland_qt_support:
+  - qt6-qtwayland                  # Wayland backend for Qt6 apps
+  - qt5-qtwayland                  # Wayland backend for Qt5 apps
+
+

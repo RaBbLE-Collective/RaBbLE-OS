@@ -1,0 +1,5 @@
+---
+# desktop/quickshell/tasks/main.yml — STUB
+- { ansible.builtin.include_tasks: packages.yml, tags: [desktop, quickshell, packages] }
+- { ansible.builtin.include_tasks: config.yml,   tags: [desktop, quickshell, config]   }
+- { ansible.builtin.include_tasks: dotfiles.yml, tags: [desktop, quickshell, dotfiles] }

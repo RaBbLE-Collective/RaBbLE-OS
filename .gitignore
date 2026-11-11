@@ -1,0 +1,40 @@
+# Scratchpad
+BaBbLE/
+
+# AI tooling — local only, created by sync-symlinks spell
+CLAUDE.md
+CODEX.md
+GEMINI.md
+.claude/*
+.codex
+
+# Logs
+logs/
+
+# Ansible
+*.retry
+ansible/.vault_pass
+ansible/vault_pass
+*.vault
+
+# eim (Espressif ESP-IDF installer, layer/esp-idf) — writes its own local
+# state wherever `eim install` runs from; machine-specific paths, redundant
+# with ansible/roles/layer/esp-idf/vars/main.yml. See RaBbLE-Pocket/ops/
+# esp-idf-select.sh for the toolchain this feeds.
+ansible/eim_config.toml
+
+# Python (galaxy deps, generate scripts)
+__pycache__/
+*.py[cod]
+.venv/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+#ISOs
+ISO/*
+Codex.md
+.claude/

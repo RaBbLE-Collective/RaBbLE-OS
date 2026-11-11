@@ -1,0 +1,5 @@
+---
+# desktop/shell/zsh/tasks/main.yml — STUB
+- { ansible.builtin.include_tasks: packages.yml, tags: [desktop, shell, zsh, packages] }
+- { ansible.builtin.include_tasks: config.yml,   tags: [desktop, shell, zsh, config]   }
+- { ansible.builtin.include_tasks: dotfiles.yml, tags: [desktop, shell, zsh, dotfiles] }

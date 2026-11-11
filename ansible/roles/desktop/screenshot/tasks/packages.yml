@@ -1,0 +1,8 @@
+---
+# desktop/screenshot/tasks/packages.yml
+- name: Install screenshot tools
+  ansible.builtin.dnf:
+    name: "{{ screenshot_packages }}"
+    state: present
+  become: true
+  tags: [desktop, screenshot, packages]

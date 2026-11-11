@@ -1,0 +1,65 @@
+# config/yazi/keymap.toml — RaBbLE-OS yazi keybindings
+
+[manager]
+keymap = [
+  # ── Escape / quit ────────────────────────────────────────────────────────
+  { on = ["<Esc>"], run = "escape",             desc = "Exit visual/select mode or cancel" },
+  { on = ["q"],     run = "quit",               desc = "Quit yazi" },
+  { on = ["Q"],     run = "quit --no-cwd-file", desc = "Quit without cd" },
+
+  # ── Open ─────────────────────────────────────────────────────────────────
+  { on = ["<Enter>"], run = "open",             desc = "Open selected file" },
+  { on = ["o"],       run = "open",             desc = "Open selected file" },
+
+  # ── RaBbLE custom openers ────────────────────────────────────────────────
+  { on = ["e"],       run = "open --opener edit",   desc = "Open in VSCodium" },
+  { on = ["R"],       run = "open --opener reveal",  desc = "Reveal in Dolphin" },
+  { on = ["."],       run = "hidden toggle",          desc = "Toggle hidden files" },
+
+  # ── Sort presets ─────────────────────────────────────────────────────────
+  { on = ["s", "n"],  run = "sort natural   --dir-first", desc = "Sort: natural name" },
+  { on = ["s", "m"],  run = "sort modified  --reverse",   desc = "Sort: newest first" },
+  { on = ["s", "s"],  run = "sort size      --reverse",   desc = "Sort: largest first" },
+  { on = ["s", "e"],  run = "sort extension --dir-first", desc = "Sort: by extension" },
+
+  # ── fzf jump ─────────────────────────────────────────────────────────────
+  { on = ["f"], run = "plugin fzf-jump", desc = "Fuzzy find and jump" },
+
+  # ── Git status ───────────────────────────────────────────────────────────
+  { on = ["g", "s"], run = "plugin git --args=status", desc = "Show git status" },
+
+  # ── Navigation ───────────────────────────────────────────────────────────
+  { on = ["h"],       run = "leave",           desc = "Go to parent directory" },
+  { on = ["l"],       run = "enter",           desc = "Enter directory or open file" },
+  { on = ["j"],       run = "arrow 1",         desc = "Move down" },
+  { on = ["k"],       run = "arrow -1",        desc = "Move up" },
+  { on = ["J"],       run = "arrow 5",         desc = "Move down 5" },
+  { on = ["K"],       run = "arrow -5",        desc = "Move up 5" },
+  { on = ["g", "g"],  run = "arrow -99999999", desc = "Go to top" },
+  { on = ["G"],       run = "arrow 99999999",  desc = "Go to bottom" },
+
+  # ── File operations ──────────────────────────────────────────────────────
+  { on = ["y"],       run = "yank",            desc = "Copy selected" },
+  { on = ["x"],       run = "yank --cut",      desc = "Cut selected" },
+  { on = ["p"],       run = "paste",           desc = "Paste" },
+  { on = ["P"],       run = "paste --force",   desc = "Paste (overwrite)" },
+  { on = ["d"],       run = "remove",          desc = "Move to trash" },
+  { on = ["D"],       run = "remove --permanently", desc = "Delete permanently" },
+  { on = ["a"],       run = "create",          desc = "Create file or directory" },
+  { on = ["r"],       run = "rename",          desc = "Rename" },
+
+  # ── Selection ────────────────────────────────────────────────────────────
+  { on = ["<Space>"], run = "select --state=none",   desc = "Toggle selection" },
+  { on = ["v"],       run = "visual_mode",            desc = "Enter visual mode" },
+  { on = ["V"],       run = "select_all --state=true", desc = "Select all" },
+
+  # ── Tabs ─────────────────────────────────────────────────────────────────
+  { on = ["t"],       run = "tab_create --current",       desc = "New tab (current dir)" },
+  { on = ["["],       run = "tab_switch -1 --relative",   desc = "Previous tab" },
+  { on = ["]"],       run = "tab_switch 1 --relative",    desc = "Next tab" },
+
+  # ── Search ───────────────────────────────────────────────────────────────
+  { on = ["/"],       run = "find",            desc = "Find" },
+  { on = ["n"],       run = "find_arrow",      desc = "Next find result" },
+  { on = ["N"],       run = "find_arrow --previous", desc = "Previous find result" },
+]

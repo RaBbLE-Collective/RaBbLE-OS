@@ -1,0 +1,8 @@
+---
+# apps/plans/tasks/main.yml
+
+- { ansible.builtin.include_tasks: install.yml,  tags: [plans, install]  }
+- { ansible.builtin.include_tasks: theme.yml,    tags: [plans, theme]    }
+- { ansible.builtin.include_tasks: service.yml,  tags: [plans, service]  }
+- { ansible.builtin.include_tasks: proxy.yml,    tags: [plans, proxy]    }
+- { ansible.builtin.include_tasks: mcp.yml,      tags: [plans, mcp]      }

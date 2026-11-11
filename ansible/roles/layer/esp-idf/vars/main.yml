@@ -1,0 +1,50 @@
+---
+# ansible/roles/layer/esp-idf/vars/main.yml
+
+# Multiple versions install side by side under esp_idf_eim_path, each its own
+# --version-name subdirectory — EIM's registry (`eim list`) tracks what's
+# installed; its toolchain/venv caches under ~/.espressif/ are keyed by
+# version too, so this never collides. Which one a given firmware project
+# actually uses is a project-level concern, not a machine-level one — see
+# RaBbLE-Pocket/firmware/.esp-idf-version and RaBbLE-Pocket/ops/esp-idf-select.sh.
+# Start with the one the ADR pinned; append more here (e.g. "v6.0.2") when a
+# second is actually needed.
+esp_idf_versions:
+  - "v5.5.4"
+  - "v6.0.1"   # Muse Gadget SDK requires exactly this (Pocket muse bring-up)
+esp_idf_target: "esp32s3"
+esp_idf_eim_path: "{{ rabble_home }}/esp/esp-idf-eim"
+
+# Espressif's documented Linux/Fedora build prerequisites — eim's `install`
+# still needs these present; it doesn't auto-install Linux system deps
+# (its --install-all-prerequisites flag is Windows-only per --help).
+# ESP-IDF itself is not a Fedora package — installed via eim, see tasks/main.yml.
+esp_idf_prereq_packages:
+  - git
+  - wget
+  - flex
+  - bison
+  - gperf
+  - python3
+  - python3-pip
+  - cmake
+  - ninja-build
+  - ccache
+  - dfu-util
+  - libusbx
+  - openssl-devel
+  - libffi-devel
+
+# Broader embedded-dev tools, not required by install.sh itself but directly
+# useful for USB/serial work on this board. picocom: lightweight serial
+# terminal, handy without idf.py's environment active. usbutils: lsusb, for
+# diagnosing device enumeration. fzf: nicer picker in esp-idf-select.sh (that
+# script falls back to plain `select` if fzf isn't present). libasan/libubsan/
+# libtsan: sanitizer runtimes for Pocket's host-side firmware tests.
+esp_idf_extra_packages:
+  - picocom
+  - usbutils
+  - fzf
+  - libasan
+  - libubsan
+  - libtsan

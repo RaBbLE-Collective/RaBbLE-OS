@@ -1,0 +1,5 @@
+# ansible/roles/desktop/launcher/vars/main.yml
+
+launcher_packages:
+  - fuzzel                         # App launcher — fast, minimal, Wayland-native
+  - rofimoji                       # Emoji picker — uses fuzzel as selector backend

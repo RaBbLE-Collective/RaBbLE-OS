@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+# /etc/vconsole.conf — TTY console font for HiDPI displays
+#
+# On a 3840x2400 16" panel, the default TTY font is unreadably small.
+# Terminus is the best HiDPI-compatible bitmap font available in Fedora.
+#
+# Font size guide:
+#   ter-v32b = 32pt bold — 3840x2400 @ 16" (ProArt P16)
+#   ter-v28b = 28pt bold — 2560x1600 @ 14"
+#   ter-v24b = 24pt bold — 1920x1200 @ 15"
+#   ter-v22b = 22pt bold — 1920x1080 @ 24" (standard desktop)
+#
+# rabble_console_font is set in group_vars per hardware target.
+
+KEYMAP="{{ rabble_console_keymap | default('us') }}"
+FONT="{{ rabble_console_font | default('ter-v28b') }}"

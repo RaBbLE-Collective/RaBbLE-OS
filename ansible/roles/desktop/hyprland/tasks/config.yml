@@ -1,0 +1,37 @@
+# ---
+# # desktop/hyprland/tasks/config.yml
+# # Deploys hyprland config files from the grimoire to ~/.config/hypr/
+
+# - name: Create hypr config directories
+#   ansible.builtin.file:
+#     path: "{{ item }}"
+#     state: directory
+#     mode: '0755'
+#   loop:
+#     - "{{ hypr_config_dir }}"
+#     - "{{ hypr_config_dir }}/conf.d"
+#     - "{{ hypr_config_dir }}/scripts"
+#   tags: [desktop, hyprland, config]
+
+# - name: Deploy hypr config files
+#   ansible.builtin.copy:
+#     src: "{{ dotfiles_repo_root }}/{{ item.src }}"
+#     dest: "{{ item.dest }}"
+#     mode: '0644'
+#     backup: true
+#   loop: "{{ hypr_config_files }}"
+#   tags: [desktop, hyprland, config]
+
+# - name: Create wallpaper directory
+#   ansible.builtin.file:
+#     path: "{{ wallpaper_dir }}"
+#     state: directory
+#     mode: '0755'
+#   tags: [desktop, hyprland, config]
+
+# - name: Deploy RaBbLE wallpaper
+#   ansible.builtin.copy:
+#     src: "{{ dotfiles_repo_root }}/{{ wallpaper_src }}"
+#     dest: "{{ wallpaper_dest }}"
+#     mode: '0644'
+#   tags: [desktop, hyprland, config]

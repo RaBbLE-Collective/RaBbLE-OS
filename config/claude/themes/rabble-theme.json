@@ -1,0 +1,16 @@
+{
+  "name": "RaBbLE-Theme",
+  "base": "dark",
+  "overrides": {
+    "claude": "#ff2d78",
+    "claudeShimmer": "#00f5ff",
+    "error": "#e05c6f",
+    "success": "#50fa7b",
+    "warning": "#f1fa8c",
+    "bash": "#00f5ff",
+    "text": "#e8e6f0",
+    "permission": "#bf5fff",
+    "diffAddedDimmed": "#50fa7b",
+    "diffRemovedDimmed": "#e05c6f"
+  }
+}

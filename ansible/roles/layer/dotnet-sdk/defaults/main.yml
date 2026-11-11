@@ -1,0 +1,10 @@
+---
+# ansible/roles/layer/dotnet-sdk/defaults/main.yml
+# Opt-in gate — this layer never runs under `apply all` / `upgrade` unless
+# flipped. layerctl flips it automatically for `apply dotnet-sdk` via
+# LAYER_EXTRA_VARS (see RaBbLE-OS-layerctl.sh).
+rabble_enable_dotnet_sdk: false
+
+# Fedora ships this as a plain dnf package (Red Hat maintained, no separate
+# repo needed) — bump this to track a newer SDK, e.g. dotnet-sdk-9.0.
+dotnet_sdk_package: dotnet-sdk-8.0

@@ -1,0 +1,4 @@
+---
+# desktop/swayosd/tasks/main.yml
+- { ansible.builtin.include_tasks: packages.yml, tags: [desktop, swayosd, packages] }
+- { ansible.builtin.include_tasks: service.yml,  tags: [desktop, swayosd, service]  }

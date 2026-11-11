@@ -1,0 +1,4 @@
+---
+# boot/plymouth/tasks/main.yml — STUB
+- { ansible.builtin.include_tasks: packages.yml, tags: [boot, plymouth, packages] }
+- { ansible.builtin.include_tasks: config.yml,   tags: [boot, plymouth, config]   }

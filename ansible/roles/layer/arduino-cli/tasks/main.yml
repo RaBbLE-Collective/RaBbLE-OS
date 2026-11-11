@@ -1,0 +1,85 @@
+---
+# ansible/roles/layer/arduino-cli/tasks/main.yml
+# spark ~ layer/arduino-cli >> arduino-cli + ESP32 core, for building the vendor's
+# reference .ino examples (firmware/vendor/.../examples/arduino/) — comparison
+# material only. RaBbLE-Pocket's actual firmware stays on ESP-IDF; see the ADR:
+#   RaBbLE-Pocket/planning/decisions/2026-08-07-esp-idf-over-arduino.md
+#
+# Opt-in layer (rabble_enable_arduino_cli, default false — see defaults/main.yml).
+# Fourth layer/* reference impl, after bottles, containers, esp-idf.
+#
+# arduino-cli ships as a prebuilt release tarball (no dnf package, same
+# not-a-repo-package situation as EIM in layer/esp-idf) — installed to a
+# user-local bin dir, no root needed for the binary itself.
+
+- name: arduino-cli | ensure user-local bin dir exists
+  ansible.builtin.file:
+    path: "{{ arduino_cli_bin_dir }}"
+    state: directory
+    mode: "0755"
+  become: false
+  tags: [layer, arduino-cli, packages]
+
+- name: arduino-cli | install via official install script
+  ansible.builtin.shell: |
+    set -e
+    curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+  args:
+    creates: "{{ arduino_cli_bin_dir }}/arduino-cli"
+  environment:
+    BINDIR: "{{ arduino_cli_bin_dir }}"
+  become: false
+  tags: [layer, arduino-cli, packages]
+  # Not a get_url+unarchive against a constructed release URL — that broke:
+  # unlike layer/esp-idf's EIM (a static filename, eim-cli-linux-x64.rpm,
+  # identical on every release, so GitHub's /releases/latest/download/<name>
+  # shortcut works), arduino-cli's release assets embed the real version
+  # number in the filename (arduino-cli_1.5.1_Linux_64bit.tar.gz) — the
+  # literal string "latest" can't substitute into that, so a URL built from
+  # arduino_cli_version=latest 404s (confirmed against the GitHub API: no
+  # asset named arduino-cli_latest_Linux_64bit.tar.gz has ever existed).
+  # The vendor's own install.sh (same curl|sh pattern as ollama elsewhere in
+  # this manifest) resolves the real latest version and arch itself —
+  # BINDIR points it at arduino_cli_bin_dir instead of its own ./bin default.
+
+- name: arduino-cli | initialize config (first run only)
+  ansible.builtin.command: "{{ arduino_cli_bin_dir }}/arduino-cli config init"
+  args:
+    creates: "{{ rabble_home }}/.arduino15/arduino-cli.yaml"
+  become: false
+  tags: [layer, arduino-cli, packages]
+
+- name: arduino-cli | add ESP32 board-manager index URL
+  ansible.builtin.command: >
+    {{ arduino_cli_bin_dir }}/arduino-cli config add
+    board_manager.additional_urls {{ arduino_esp32_board_index_url }}
+  become: false
+  changed_when: true
+  tags: [layer, arduino-cli, packages]
+  # arduino-cli dedupes this list internally, so re-running is safe even
+  # though the task always reports changed.
+
+- name: arduino-cli | update board index
+  ansible.builtin.command: "{{ arduino_cli_bin_dir }}/arduino-cli core update-index"
+  become: false
+  changed_when: false
+  tags: [layer, arduino-cli, packages]
+
+- name: arduino-cli | install ESP32 core
+  ansible.builtin.command: "{{ arduino_cli_bin_dir }}/arduino-cli core install {{ arduino_esp32_core }}"
+  become: false
+  changed_when: true
+  tags: [layer, arduino-cli, packages]
+  # `core install` is itself idempotent (no-ops if the exact version is
+  # already present) — always-changed here is a simplification, not a claim
+  # this reinstalls every run.
+
+- name: arduino-cli | add user to dialout group (USB-serial flashing access)
+  ansible.builtin.user:
+    name: "{{ rabble_user }}"
+    groups: dialout
+    append: true
+  become: true
+  tags: [layer, arduino-cli, usb-serial]
+  # Same board, same native USB-Serial/JTAG port as layer/esp-idf — redundant
+  # if that layer is already applied, but this layer needs to stand alone too.

@@ -1,0 +1,7 @@
+---
+# desktop/hyprland/tasks/dotfiles.yml — STUB
+# This task file will symlink dotfiles/hyprland/ → ~/.config/hypr/
+- name: hyprland dotfiles — stub
+  ansible.builtin.debug:
+    msg: "spark ~ desktop/hyprland >> dotfiles stub, no-op // %DORMANT%"
+  tags: [desktop, hyprland, dotfiles]

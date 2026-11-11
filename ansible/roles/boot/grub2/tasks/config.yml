@@ -1,0 +1,162 @@
+---
+# boot/grub2/tasks/config.yml
+
+# ── GRUB default config ────────────────────────────────────────────────────────
+
+- name: Deploy /etc/default/grub
+  ansible.builtin.template:
+    src: grub.j2
+    dest: /etc/default/grub
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: rebuild grub config
+  tags: [boot, grub, config]
+
+- name: Re-label existing BLS entries with RaBbLE-OS identity
+  # kernel-install only stamps new kernels from /etc/os-release; existing
+  # entries keep whatever title was baked in at install time.
+  ansible.builtin.shell: |
+    changed=0
+    for entry in /boot/loader/entries/*.conf; do
+      [ -f "$entry" ] || continue
+      ver=$(awk '/^version /{print $2; exit}' "$entry")
+      # Strip the ".fcNN.arch" dist suffix: boot entries must not name the Fedora base.
+      ver="${ver%%.fc[0-9]*}"
+      new_title="{{ rabble_os_name }} - {{ rabble_epoch_name }}${ver:+ (${ver})}"
+      if ! grep -qF "title ${new_title}" "$entry"; then
+        sed -i "s|^title .*|title ${new_title}|" "$entry"
+        changed=1
+      fi
+    done
+    exit $changed
+  become: true
+  register: bls_relabel
+  changed_when: bls_relabel.rc == 1
+  failed_when: bls_relabel.rc > 1
+  notify: rebuild grub config
+  tags: [boot, grub, config, identity]
+
+# ── GRUB theme ─────────────────────────────────────────────────────────────────
+
+- name: Create GRUB theme directory
+  ansible.builtin.file:
+    path: /boot/grub2/themes/rabble
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  tags: [boot, grub, theme]
+
+# Deploy theme.txt + the pre-rendered liminal background only — NOT build-grub-bg.py,
+# which is a build-time generator and has no business living in /boot.
+- name: Deploy GRUB theme.txt
+  ansible.builtin.template:
+    src: theme.j2
+    dest: /boot/grub2/themes/rabble/theme.txt
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: rebuild grub config
+  tags: [boot, grub, theme]
+
+- name: Deploy GRUB liminal background (24bpp RGB, GRUB requires <=24bpp)
+  ansible.builtin.copy:
+    src: theme/grub-bg.png
+    dest: /boot/grub2/themes/rabble/grub-bg.png
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: rebuild grub config
+  tags: [boot, grub, theme]
+
+- name: Find Noto Sans Regular TTF for GRUB font generation
+  ansible.builtin.find:
+    paths: /usr/share/fonts
+    patterns:
+      - "NotoSans-Regular.ttf"
+      - "Noto_Sans-Regular.ttf"
+      - "NotoSans[wght].ttf"
+    recurse: true
+  register: noto_sans_ttf
+  tags: [boot, grub, theme]
+
+- name: Generate GRUB theme fonts from Noto Sans
+  # grub2-mkfont embeds the name via -n so theme.txt references are predictable.
+  # Falls back gracefully — GRUB uses its built-in unifont if .pf2 is missing.
+  ansible.builtin.command:
+    cmd: >
+      grub2-mkfont
+      --size={{ item.size }}
+      --name="RaBbLE UI Regular"
+      --output=/boot/grub2/themes/rabble/noto{{ item.size }}.pf2
+      {{ noto_sans_ttf.files[0].path }}
+    creates: "/boot/grub2/themes/rabble/noto{{ item.size }}.pf2"
+  become: true
+  when: noto_sans_ttf.files | length > 0
+  loop:
+    - { size: 12 }   # 1080p hint
+    - { size: 16 }   # 1080p body / GRUB default
+    - { size: 18 }   # 1080p subtitle
+    - { size: 24 }   # 4K hint
+    - { size: 32 }   # 4K body / GRUB default
+    - { size: 36 }   # 1080p title / 4K subtitle
+    - { size: 72 }   # 4K title
+  notify: rebuild grub config
+  tags: [boot, grub, theme]
+
+# ── vconsole — TTY font ────────────────────────────────────────────────────────
+
+- name: Deploy /etc/vconsole.conf (HiDPI TTY font)
+  ansible.builtin.template:
+    src: vconsole.conf.j2
+    dest: /etc/vconsole.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: reload vconsole font
+  tags: [boot, grub, console, tty]
+
+# ── TTY color palette ──────────────────────────────────────────────────────────
+
+- name: Deploy Aether TTY color palette profile.d script
+  ansible.builtin.template:
+    src: rabble-tty-palette.sh.j2
+    dest: /etc/profile.d/rabble-tty-palette.sh
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  tags: [boot, grub, console, tty, palette]
+
+# ── TTY font — Plymouth handoff race fix (S207) ─────────────────────────────
+# systemd-vconsole-setup races Plymouth for console ownership and loses on
+# every observed boot ("All allocated virtual consoles are busy, will not
+# configure key mapping and font"), so ter-v32b above never actually lands.
+# Separately, fbcon=font:TER16x32 on the GRUB cmdline is a dead no-op on this
+# kernel (CONFIG_FONT_8x16 only, no CONFIG_FONT_TER16x32 built in) — full
+# real-boot evidence in files/rabble-console-font.service.
+
+- name: Deploy rabble-console-font.service (reapply TTY font after Plymouth)
+  ansible.builtin.copy:
+    src: rabble-console-font.service
+    dest: /etc/systemd/system/rabble-console-font.service
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  register: console_font_unit
+  tags: [boot, grub, console, tty]
+
+- name: Enable rabble-console-font.service
+  ansible.builtin.systemd:
+    name: rabble-console-font.service
+    enabled: true
+    daemon_reload: "{{ console_font_unit.changed }}"
+  become: true
+  tags: [boot, grub, console, tty]

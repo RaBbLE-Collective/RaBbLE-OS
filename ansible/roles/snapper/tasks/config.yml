@@ -1,0 +1,6 @@
+---
+# snapper/tasks/config.yml — STUB
+- name: snapper config — stub
+  ansible.builtin.debug:
+    msg: "spark ~ snapper >> config stub, no-op // %DORMANT%"
+  tags: [snapper, config]

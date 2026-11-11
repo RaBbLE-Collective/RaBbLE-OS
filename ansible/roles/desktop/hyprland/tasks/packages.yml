@@ -1,0 +1,15 @@
+---
+# desktop/hyprland/tasks/packages.yml
+- name: Enable Hyprland COPR
+  community.general.copr:
+    name: "{{ hyprland_copr }}"
+    state: enabled
+  become: true
+  tags: [desktop, hyprland,  packages, copr]
+
+- name: Install Hyprland core packages
+  ansible.builtin.dnf:
+    name: "{{ hyprland_core_packages }}"
+    state: present
+  become: true
+  tags: [desktop, hyprland, packages, hyprland_core]
