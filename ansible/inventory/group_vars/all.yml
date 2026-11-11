@@ -32,10 +32,11 @@ rabble_color_surface: "#120025"   # Elevated surface — input fields, cards
 # Nothing user-visible mentions the Fedora base. ID/VERSION_ID/PLATFORM_ID keep
 # Fedora's real values for DNF/RPM/repo compatibility ($releasever comes from
 # VERSION_ID) and are derived from the running system, never hardcoded.
-# rabble_os_version follows the Five-Es format (v{Epoch}.{Evolution}.{Echo}.{Episode}.{Event},
-# see Grimoire RaBbLE-Versioning.md); bump only when the Collective's version advances.
+# rabble_os_version is semver and is the one source of the OS version (Grimoire
+# RaBbLE-Versioning.md section 2). The two entry scripts carry a copy because they
+# run before the repo is cloned; keep them in step.
 # Override rabble_epoch_name in host_vars/ to distinguish installs in GRUB.
-rabble_epoch_name:     "Episode 1 Preview"
+rabble_epoch_name:     "Genesis"
 rabble_os_name:        "RaBbLE-OS"
 rabble_os_pretty_name: "RaBbLE-OS - {{ rabble_epoch_name }}"
 rabble_os_version:     "0.1.0"
