@@ -115,6 +115,17 @@ window#waybar.empty {
     animation:      blink 0.8s step-start infinite;
 }
 
+/* niri: hide workspaces with no windows (GTK3 CSS has no display:none), but keep the focused one */
+#workspaces button.empty:not(.focused):not(.active) {
+    min-width:      0;
+    min-height:     0;
+    padding:        0;
+    margin:         0;
+    border:         none;
+    font-size:      0;
+    opacity:        0;
+}
+
 #workspaces button.special {
     color:          @yellow;
 }

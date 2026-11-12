@@ -108,8 +108,9 @@
         //   "TelegramDesktop": "$HOME/.local/share/icons/hicolor/16x16/apps/telegram.png"
         // }
     },
+    // Number + name; unnamed workspaces show just the number. Empty ones are collapsed in style.css.
     "niri/workspaces": {
-        "format": "{index}",
+        "format": "{index} {name}",
         "disable-scroll": false
     },
 
