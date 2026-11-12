@@ -87,6 +87,7 @@ declare -A LAYER_NAMES=(
   [atlas-sentry]="ATLAS sentry host dev tooling — opencv/numpy/pyserial, dialout, Arduino Nano Every core (opt-in)"
   [dotnet-sdk]=".NET SDK (dotnet-sdk-8.0) — dev tool, Fedora-native package (opt-in)"
   [gnome]="GNOME Shell — Aether-themed secondary DE, SDDM fallback + theming testbed (opt-in)"
+  [niri]="niri — scrolling-tiling compositor, trial session alongside Hyprland; config via dotctl (opt-in)"
   [creator-apps]="Creator apps — data-driven single-Flatpak apps (see 'app list') (opt-in)"
   [all]="Full system — all layers in order"
 )
@@ -102,6 +103,7 @@ declare -A LAYER_EXTRA_VARS=(
   [atlas-sentry]="rabble_enable_atlas_sentry=true"
   [dotnet-sdk]="rabble_enable_dotnet_sdk=true"
   [gnome]="rabble_enable_gnome_desktop=true"
+  [niri]="rabble_enable_niri=true"
   [creator-apps]="rabble_enable_creator_apps=true"
 )
 
@@ -133,13 +135,14 @@ declare -A LAYER_VERIFY=(
   [atlas-sentry]="python3 -c 'import cv2, numpy, serial'"
   [dotnet-sdk]="command -v dotnet && dotnet --list-sdks"
   [gnome]="rpm -q gnome-shell gnome-session-wayland-session >/dev/null && ! rpm -q gdm >/dev/null 2>&1 && test -f /usr/share/wayland-sessions/gnome.desktop"
+  [niri]="rpm -q niri swaybg >/dev/null && test -f /usr/share/wayland-sessions/niri.desktop"
   [creator-apps]="verify_creator_apps"
   [all]=""
 )
 
 # Ordered list for status display and sequential all-deploy
 # Mirrors site.yml play order: base → hardware → runtime → monitoring → virtualization → boot → ...
-LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers esp-idf arduino-cli atlas-sentry dotnet-sdk gnome creator-apps)
+LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers esp-idf arduino-cli atlas-sentry dotnet-sdk gnome niri creator-apps)
 
 # ── State tracking ────────────────────────────────────────────────────────────
 

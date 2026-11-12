@@ -1,0 +1,9 @@
+---
+# ansible/roles/layer/niri/tasks/packages.yml
+
+- name: niri | install niri session packages
+  ansible.builtin.dnf:
+    name: "{{ niri_packages }}"
+    state: present
+  become: true
+  tags: [layer, niri, packages]

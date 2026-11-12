@@ -1,0 +1,329 @@
+// RaBbLE-OS :: niri trial session (niri 26.04, Fedora 44 `updates`)
+// Mirrors config/hypr/conf_d/{look,animations,input,env,autostart,keybinds,functionkeys}.lua
+// Palette: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md only.
+//   #ff2d78 magenta · #00f5ff cyan · #bf5fff violet · #0a0010 void · #2a2840 border
+// Deploy: ./RaBbLE-OS-dotctl.sh apply niri  (live-reloaded by niri; validate: niri validate -c config.kdl)
+// Bind map, gaps vs Hyprland: /tmp/rabble-crew/niri-trial.md
+
+// ── Outputs ──────────────────────────────────────────────────────────────────
+// eDP-1 logical 1920x1200; HDMI-A-1 logical 1920x1080 sits above it (y = -1080).
+output "eDP-1" {
+    mode "3840x2400"
+    scale 2
+    position x=0 y=0
+    variable-refresh-rate
+}
+output "HDMI-A-1" {
+    mode "2560x1440@75"
+    scale 1.333333
+    position x=0 y=-1080
+    variable-refresh-rate
+}
+
+// ── Input ────────────────────────────────────────────────────────────────────
+input {
+    keyboard {
+        xkb {
+            layout "us"
+        }
+        numlock
+    }
+    touchpad {
+        tap
+        natural-scroll
+        dwt
+        drag true
+        middle-emulation
+        click-method "clickfinger"
+        scroll-factor 0.8
+    }
+    mouse {
+        accel-profile "adaptive"
+        accel-speed 0.2
+    }
+    focus-follows-mouse
+}
+
+// ── Environment ──────────────────────────────────────────────────────────────
+// niri sets XDG_CURRENT_DESKTOP / XDG_SESSION_TYPE itself; HYPRCURSOR_* not needed.
+environment {
+    QT_QPA_PLATFORM "wayland;xcb"
+    QT_QPA_PLATFORMTHEME "qt6ct"
+    QT_STYLE_OVERRIDE "kvantum"
+    QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
+    QT_AUTO_SCREEN_SCALE_FACTOR "1"
+    GDK_BACKEND "wayland,x11,*"
+    GTK_THEME "RaBbLE-Aether"
+    GTK_USE_PORTAL "1"
+    MOZ_ENABLE_WAYLAND "1"
+    ELECTRON_OZONE_PLATFORM_HINT "auto"
+    _JAVA_AWT_WM_NONREPARENTING "1"
+    SDL_VIDEODRIVER "wayland"
+    EDITOR "nvim"
+    VISUAL "nvim"
+    TERMINAL "kitty"
+    BROWSER "firefox"
+}
+
+cursor {
+    xcursor-theme "Bibata-Modern-Classic"
+    xcursor-size 24
+}
+
+// Server-side decorations: lets niri draw the border/shadow/radius uniformly.
+prefer-no-csd
+hotkey-overlay {
+    skip-at-startup
+}
+screenshot-path "~/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+
+// ── Look (look.lua) ──────────────────────────────────────────────────────────
+// Hyprland gaps_in 4 / gaps_out 10: niri `gaps` is the inner gap, struts add to the outer edge.
+layout {
+    gaps 4
+    center-focused-column "never"
+    default-column-width { proportion 0.5; }
+    preset-column-widths {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+
+    // The ring is off; the border carries the gradient, as in Hyprland (border_size 2).
+    focus-ring {
+        off
+    }
+    border {
+        width 2
+        active-gradient from="#ff2d78" to="#00f5ff" angle=45
+        inactive-color "#2a2840"
+        urgent-color "#ff2d78"
+    }
+    shadow {
+        on
+        softness 24
+        spread 0
+        offset x=0 y=4
+        color "#bf5fff18"
+        inactive-color "#0a001099"
+    }
+    struts {
+        left 6
+        right 6
+        top 6
+        bottom 6
+    }
+}
+
+// Blur: niri blur is global (passes/offset/noise/saturation) and enabled per surface by rule.
+// Hyprland's size 6 / passes 2 / noise 0.02 -> passes 2 offset 3 noise 0.02.
+// No equivalent for Hyprland's contrast 0.9 / brightness 0.8.
+blur {
+    passes 2
+    offset 3
+    noise 0.02
+    saturation 1.0
+}
+
+// Rounding 10 + blur behind every window (xray, like Hyprland xray = true).
+window-rule {
+    geometry-corner-radius 10
+    clip-to-geometry true
+    background-effect {
+        blur true
+        xray true
+    }
+}
+
+window-rule {
+    match app-id=r#"firefox$"# title="^Picture-in-Picture$"
+    open-floating true
+}
+
+// Backdrop between workspaces / in overview.
+overview {
+    backdrop-color "#0a0010"
+}
+
+// ── Animations (animations.lua) ──────────────────────────────────────────────
+// Hyprland speed N = N * 100 ms. Bezier points are the same curves.
+// Gap: niri has no animated/rotating border gradient (Hyprland `borderangle` loop).
+//      The 45 degree magenta -> cyan border is static. Not faked.
+animations {
+    // windows: rabble, speed 5 ; windowsOut: smoothOut, speed 4
+    window-open {
+        duration-ms 500
+        curve "cubic-bezier" 0.22 1 0.36 1
+    }
+    window-close {
+        duration-ms 400
+        curve "cubic-bezier" 0.36 0 0.66 -0.56
+    }
+    // windowsMove: rabble, speed 4
+    window-movement {
+        duration-ms 400
+        curve "cubic-bezier" 0.22 1 0.36 1
+    }
+    window-resize {
+        duration-ms 400
+        curve "cubic-bezier" 0.22 1 0.36 1
+    }
+    horizontal-view-movement {
+        duration-ms 400
+        curve "cubic-bezier" 0.22 1 0.36 1
+    }
+    // workspaces: rabble, speed 5
+    workspace-switch {
+        duration-ms 500
+        curve "cubic-bezier" 0.22 1 0.36 1
+    }
+}
+
+// ── Autostart (autostart.lua) ────────────────────────────────────────────────
+// Skipped (Hyprland-only): hyprpaper, hypridle (its config calls hyprctl), split-dir-daemon,
+// rdisplay daemon (hyprctl), xdg-desktop-portal-hyprland.
+spawn-at-startup "sh" "-c" "dbus-update-activation-environment --systemd --all; systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
+spawn-at-startup "sh" "-c" "gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'"
+spawn-at-startup "systemctl" "--user" "start" "hyprpolkitagent"
+spawn-at-startup "swaybg" "-m" "fill" "-i" "~/.config/wallpapers/RaBbLE_WP.PNG"
+spawn-at-startup "waybar" "-c" "~/.config/waybar/config-niri.jsonc"
+spawn-at-startup "mako"
+spawn-at-startup "wl-paste" "--type" "text" "--watch" "cliphist" "store"
+spawn-at-startup "wl-paste" "--type" "image" "--watch" "cliphist" "store"
+spawn-at-startup "nm-applet" "--indicator"
+spawn-at-startup "swayosd-server"
+spawn-at-startup "sh" "-c" "uv run ~/.config/waybar/scripts/score-usage-api-poll.py"
+spawn-at-startup "sh" "-c" "~/.config/waybar/scripts/score-status-daemon.sh"
+
+// ── Keybinds (keybinds.lua + functionkeys.lua) ───────────────────────────────
+// Mod = Super. niri is scrolling columns: Hyprland "window" moves become column/window actions.
+binds {
+    // Session
+    Mod+Shift+Q repeat=false { close-window; }
+    Mod+Shift+E { quit; }
+    Mod+Escape { spawn "hyprlock"; }
+    Mod+F1 { show-hotkey-overlay; }
+
+    // Apps
+    Mod+Return { spawn "kitty"; }
+    Mod+Space { spawn "fuzzel"; }
+    Mod+B { spawn "firefox"; }
+    Mod+E { spawn "dolphin"; }
+    Mod+Shift+C { spawn-sh "cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"; }
+
+    // Screenshots: niri's built-in UI (screen / region), region -> swappy as in Hyprland
+    Mod+S { screenshot-screen; }
+    Mod+Shift+S { spawn-sh "grim -g \"$(slurp)\" - | swappy -f -"; }
+    Print { screenshot-screen; }
+    Shift+Print { spawn-sh "grim -g \"$(slurp)\" - | swappy -f -"; }
+    Ctrl+Print { spawn-sh "grim -g \"$(slurp)\" - | wl-copy"; }
+    Alt+Print { screenshot-window; }
+
+    // Layout: F fullscreen, Shift+F maximize (keeps bar/gaps)
+    Mod+F { fullscreen-window; }
+    Mod+Shift+F { maximize-column; }
+    Mod+V { toggle-window-floating; }
+    Mod+Shift+V { switch-focus-between-floating-and-tiling; }
+    Mod+G { toggle-column-tabbed-display; }
+    Mod+O { toggle-overview; }
+    Mod+C { center-column; }
+
+    // Focus (hjkl + arrows). Hyprland smart-focus = nearest in direction; niri = column/window.
+    Mod+H { focus-column-left; }
+    Mod+L { focus-column-right; }
+    Mod+K { focus-window-up; }
+    Mod+J { focus-window-down; }
+    Mod+Left { focus-column-left; }
+    Mod+Right { focus-column-right; }
+    Mod+Up { focus-window-up; }
+    Mod+Down { focus-window-down; }
+    Mod+Home { focus-column-first; }
+    Mod+End { focus-column-last; }
+
+    // Move (Hyprland Shift+hjkl swap / Shift+arrows smart-move)
+    Mod+Shift+H { move-column-left; }
+    Mod+Shift+L { move-column-right; }
+    Mod+Shift+K { move-window-up; }
+    Mod+Shift+J { move-window-down; }
+    Mod+Shift+Left { move-column-left; }
+    Mod+Shift+Right { move-column-right; }
+    Mod+Shift+Up { move-window-up; }
+    Mod+Shift+Down { move-window-down; }
+
+    // Group-ish: Hyprland Alt+hjkl move into group -> pull window into the adjacent column
+    Mod+Alt+H { consume-or-expel-window-left; }
+    Mod+Alt+L { consume-or-expel-window-right; }
+    Mod+Alt+Left { consume-or-expel-window-left; }
+    Mod+Alt+Right { consume-or-expel-window-right; }
+    Mod+Alt+Escape { expel-window-from-column; }
+    // Hyprland addmaster / removemaster
+    Mod+Comma { consume-window-into-column; }
+    Mod+Period { expel-window-from-column; }
+
+    // Resize: no submaps in niri, so Mod+R cycles preset widths and Mod+-/= nudge
+    Mod+R { switch-preset-column-width; }
+    Mod+Shift+R { switch-preset-window-height; }
+    Mod+Minus { set-column-width "-10%"; }
+    Mod+Equal { set-column-width "+10%"; }
+    Mod+Shift+Minus { set-window-height "-10%"; }
+    Mod+Shift+Equal { set-window-height "+10%"; }
+
+    // Monitors (Hyprland Ctrl+hjkl preselect has no niri meaning, so Ctrl takes the monitor jump)
+    Mod+Ctrl+H { focus-monitor-left; }
+    Mod+Ctrl+L { focus-monitor-right; }
+    Mod+Ctrl+K { focus-monitor-up; }
+    Mod+Ctrl+J { focus-monitor-down; }
+    Mod+Ctrl+Left { focus-monitor-left; }
+    Mod+Ctrl+Right { focus-monitor-right; }
+    Mod+Ctrl+Up { focus-monitor-up; }
+    Mod+Ctrl+Down { focus-monitor-down; }
+    Mod+Ctrl+Shift+H { move-column-to-monitor-left; }
+    Mod+Ctrl+Shift+L { move-column-to-monitor-right; }
+    Mod+Ctrl+Shift+K { move-column-to-monitor-up; }
+    Mod+Ctrl+Shift+J { move-column-to-monitor-down; }
+
+    // Workspaces (niri workspaces are per-monitor and vertical)
+    Mod+1 { focus-workspace 1; }
+    Mod+2 { focus-workspace 2; }
+    Mod+3 { focus-workspace 3; }
+    Mod+4 { focus-workspace 4; }
+    Mod+5 { focus-workspace 5; }
+    Mod+6 { focus-workspace 6; }
+    Mod+7 { focus-workspace 7; }
+    Mod+8 { focus-workspace 8; }
+    Mod+9 { focus-workspace 9; }
+    Mod+0 { focus-workspace 10; }
+    Mod+Shift+1 { move-window-to-workspace 1; }
+    Mod+Shift+2 { move-window-to-workspace 2; }
+    Mod+Shift+3 { move-window-to-workspace 3; }
+    Mod+Shift+4 { move-window-to-workspace 4; }
+    Mod+Shift+5 { move-window-to-workspace 5; }
+    Mod+Shift+6 { move-window-to-workspace 6; }
+    Mod+Shift+7 { move-window-to-workspace 7; }
+    Mod+Shift+8 { move-window-to-workspace 8; }
+    Mod+Shift+9 { move-window-to-workspace 9; }
+    Mod+Shift+0 { move-window-to-workspace 10; }
+    Mod+Tab { focus-workspace-previous; }
+    Mod+BracketRight { focus-workspace-down; }
+    Mod+BracketLeft { focus-workspace-up; }
+    Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+    Mod+WheelScrollUp cooldown-ms=150 { focus-workspace-up; }
+    Mod+Shift+WheelScrollDown { focus-column-right; }
+    Mod+Shift+WheelScrollUp { focus-column-left; }
+
+    // Function keys (functionkeys.lua)
+    XF86AudioMute allow-when-locked=true { spawn "swayosd-client" "--output-volume" "mute-toggle"; }
+    XF86AudioLowerVolume allow-when-locked=true { spawn "swayosd-client" "--output-volume" "lower"; }
+    XF86AudioRaiseVolume allow-when-locked=true { spawn "swayosd-client" "--output-volume" "raise"; }
+    XF86AudioMicMute allow-when-locked=true { spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle; swayosd-client --input-volume mute-toggle"; }
+    XF86MonBrightnessUp allow-when-locked=true { spawn "swayosd-client" "--brightness" "raise" "--device" "amdgpu_bl1"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn "swayosd-client" "--brightness" "lower" "--device" "amdgpu_bl1"; }
+    XF86KbdLightOnOff { spawn-sh "~/.config/hypr/scripts/kb-brightness.sh toggle"; }
+    XF86KbdBrightnessUp { spawn-sh "~/.config/hypr/scripts/kb-brightness.sh up"; }
+    XF86KbdBrightnessDown { spawn-sh "~/.config/hypr/scripts/kb-brightness.sh down"; }
+    XF86EmojiPicker { spawn-sh "rofimoji --selector fuzzel"; }
+    XF86Launch1 { spawn "kitty" "--title" "rabble-scratch"; }
+    XF86Assistant { spawn-sh "kitty --title rabble-assistant -e bash -c \"echo 'RaBbLE entity dormant // %ENTITY_DORMANT%'; bash\""; }
+
+    Mod+Shift+P { power-off-monitors; }
+}

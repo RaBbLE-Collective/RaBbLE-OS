@@ -599,6 +599,33 @@ packages:
     edition: core
     ks: false
 
+  - name: niri
+    category: compositor
+    reason: "Scrollable-tiling Wayland compositor — trial session alongside Hyprland (config/niri/, dotctl bundle niri). Fedora 44 `updates` ships 26.04 (blur and background-effect need 26.04+); hard-requires xwayland-satellite, which dnf pulls in"
+    source: fedora
+    platform: all
+    layer: compositor
+    edition: core
+    ks: false
+
+  - name: swaybg
+    category: compositor.wallpaper
+    reason: Wallpaper setter for the niri session (no hyprpaper.conf dependency) — spawned from config/niri/config.kdl with ~/.config/wallpapers/RaBbLE_WP.PNG
+    source: fedora
+    platform: all
+    layer: compositor
+    edition: core
+    ks: false
+
+  - name: xdg-desktop-portal-gnome
+    category: compositor.portals
+    reason: Portal backend niri's niri-portals.conf prefers (gnome;gtk) — screencasting and screenshots need it under niri; xdg-desktop-portal-gtk already listed handles the rest
+    source: fedora
+    platform: all
+    layer: compositor
+    edition: core
+    ks: false
+
   - name: hyprcursor
     category: compositor.cursor
     reason: Cursor management — loads Bibata-Modern-Classic, resolves Wayland cursor scaling

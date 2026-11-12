@@ -62,6 +62,7 @@ _firefox_profile_dir() {
 
 declare -A BUNDLE_SRC=(
   [hypr]="config/hypr"
+  [niri]="config/niri"
   [wallpapers]="config/wallpapers"
   [waybar]="config/waybar"
   [quickshell]="config/quickshell"
@@ -87,6 +88,7 @@ declare -A BUNDLE_SRC=(
 
 declare -A BUNDLE_DEST=(
   [hypr]="${HOME}/.config/hypr"
+  [niri]="${HOME}/.config/niri"
   [wallpapers]="${HOME}/.config/wallpapers"
   [waybar]="${HOME}/.config/waybar"
   [quickshell]="${HOME}/.config/quickshell"
@@ -112,6 +114,7 @@ declare -A BUNDLE_DEST=(
 
 declare -A BUNDLE_DESC=(
   [hypr]="Hyprland compositor config"
+  [niri]="niri compositor trial config (scrolling columns; Hyprland look-alike, pairs with waybar config-niri.jsonc)"
   [wallpapers]="Wallpaper assets"
   [waybar]="Waybar status bar config + scripts"
   [quickshell]="Quickshell QML bar & launcher"
@@ -135,7 +138,7 @@ declare -A BUNDLE_DESC=(
   [firefox]="Firefox Aether theme → active profile (chrome/*.css symlinked from RaBbLE-Aether, user.js prefs)"
 )
 
-BUNDLE_ORDER=(hypr wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd swappy claude vscodium kvantum kdeglobals color-schemes qt5ct qt6ct gtk3 gtk4 themes firefox)
+BUNDLE_ORDER=(hypr niri wallpapers waybar quickshell kitty fuzzel zsh bash mako swayosd swappy claude vscodium kvantum kdeglobals color-schemes qt5ct qt6ct gtk3 gtk4 themes firefox)
 
 # Post-apply hooks — run after a bundle's files are deployed.
 # Only set for bundles that need more than a file copy (e.g. patching a config key).
@@ -147,6 +150,7 @@ declare -A BUNDLE_POST_APPLY=(
 
 declare -A BUNDLE_RELOAD=(
   [hypr]="hyprctl reload"
+  [niri]="niri msg action load-config-file"
   [wallpapers]="pkill -x hyprpaper || true; setsid --fork hyprpaper &>/dev/null"
   [waybar]="pkill -x waybar || true; setsid --fork waybar &>/dev/null"
   [quickshell]="pkill -x quickshell || true; setsid --fork quickshell &>/dev/null"

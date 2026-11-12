@@ -1,0 +1,259 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// RaBbLE-OS :: Waybar Configuration
+// Target  : ASUS ProArt P16 (niri / Wayland) — niri variant of config.jsonc; run with waybar -c
+// Modules : workspaces, title, MPRIS | clock/calendar | tray, media, hw, bat
+// ═══════════════════════════════════════════════════════════════════════════
+
+
+{
+    // "layer": "top", // Waybar at top layer
+    // "position": "bottom", // Waybar position (top|bottom|left|right)
+    "height": 30, // Waybar height (to be removed for auto height)
+    // "width": 1280, // Waybar width
+    "spacing": 4, // Gaps between modules (4px)
+    // Choose the order of the modules
+    "modules-left": [
+        "niri/workspaces",
+        "niri/window"
+    ],
+    "modules-center": [],
+    "modules-right": [
+        "custom/llm-claude",
+        "custom/llm-codex",
+        "custom/llm-antigravity",
+        "pulseaudio",
+        "network",
+        "cpu",
+        "memory",
+        "temperature",
+        "custom/power-profile",
+        "battery",
+        "clock",
+        "tray"
+    ],
+    // Modules configuration
+    // "sway/workspaces": {
+    //     "disable-scroll": true,
+    //     "all-outputs": true,
+    //     "warp-on-scroll": false,
+    //     "format": "{name}: {icon}",
+    //     "format-icons": {
+    //         "1": "",
+    //         "2": "",
+    //         "3": "",
+    //         "4": "",
+    //         "5": "",
+    //         "urgent": "",
+    //         "focused": "",
+    //         "default": ""
+    //     }
+    // },
+    "keyboard-state": {
+        "numlock": true,
+        "capslock": true,
+        "format": "{name} {icon}",
+        "format-icons": {
+            "locked": "",
+            "unlocked": ""
+        }
+    },
+    "sway/mode": {
+        "format": "<span style=\"italic\">{}</span>"
+    },
+    "sway/scratchpad": {
+        "format": "{icon} {count}",
+        "show-empty": false,
+        "format-icons": ["", ""],
+        "tooltip": true,
+        "tooltip-format": "{app}: {title}"
+    },
+    "mpd": {
+        "format": "{stateIcon} {consumeIcon}{randomIcon}{repeatIcon}{singleIcon}{artist} - {album} - {title} ({elapsedTime:%M:%S}/{totalTime:%M:%S}) ⸨{songPosition}|{queueLength}⸩ {volume}% ",
+        "format-disconnected": "Disconnected ",
+        "format-stopped": "{consumeIcon}{randomIcon}{repeatIcon}{singleIcon}Stopped ",
+        "unknown-tag": "N/A",
+        "interval": 5,
+        "consume-icons": {
+            "on": " "
+        },
+        "random-icons": {
+            "off": "<span color=\"#f53c3c\"></span> ",
+            "on": " "
+        },
+        "repeat-icons": {
+            "on": " "
+        },
+        "single-icons": {
+            "on": "1 "
+        },
+        "state-icons": {
+            "paused": "",
+            "playing": ""
+        },
+        "tooltip-format": "MPD (connected)",
+        "tooltip-format-disconnected": "MPD (disconnected)"
+    },
+    "idle_inhibitor": {
+        "format": "{icon}",
+        "format-icons": {
+            "activated": "",
+            "deactivated": ""
+        }
+    },
+    "tray": {
+        // "icon-size": 21,
+        "spacing": 10,
+        // "icons": {
+        //   "blueman": "bluetooth",
+        //   "TelegramDesktop": "$HOME/.local/share/icons/hicolor/16x16/apps/telegram.png"
+        // }
+    },
+    "niri/workspaces": {
+        "format": "{index}",
+        "disable-scroll": false
+    },
+
+    "niri/window": {
+        "max-length": 60,
+        "separate-outputs": true
+    },
+
+    "clock": {
+        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+        "format":     "{:%I:%M %p}",
+        "format-alt": "{:%a %d %b  %I:%M %p}"
+    },
+    "cpu": {
+        "format": "{usage}% ",
+        "tooltip": false
+    },
+    "memory": {
+        "format": "{}% "
+    },
+    "temperature": {
+        // "thermal-zone": 2,
+        // "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input",
+        "critical-threshold": 80,
+        // "format-critical": "{temperatureC}°C {icon}",
+        "format": "{temperatureC}°C {icon}",
+        "format-icons": ["", "", ""]
+    },
+    "backlight": {
+        // "device": "acpi_video1",
+        "format": "{percent}% {icon}",
+        "format-icons": ["🌑", "🌘", "🌗", "🌖", "🌕"]
+    },
+    "battery": {
+        "states": {
+            // "good": 95,
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{capacity}% {icon}",
+        "format-full": "{capacity}% {icon}",
+        "format-charging": "{capacity}% ",
+        "format-plugged": "{capacity}% ",
+        "format-alt": "{time} {icon}",
+        // "format-good": "", // An empty format will hide the module
+        // "format-full": "",
+        "format-icons": ["", "", "", "", ""]
+    },
+    "battery#bat2": {
+        "bat": "BAT2"
+    },
+    "network": {
+        "format-wifi": " {essid}",
+        "format-ethernet": "{ifname}",
+        "format-disconnected": "⚠ Offline",
+        "tooltip-format": "{essid}\nSignal: {signalStrength}%\nIP: {ipaddr}",
+        "on-click": "~/.config/waybar/scripts/network-menu.sh"
+    },
+    "pulseaudio": {
+        // "scroll-step": 1, // %, can be a float
+        "format": "{volume}% {icon} {format_source}",
+        "format-bluetooth": "{volume}% {icon} {format_source}",
+        "format-bluetooth-muted": " {icon} {format_source}",
+        "format-muted": " {format_source}",
+        "format-source": "{volume}% ",
+        "format-source-muted": "",
+        "format-icons": {
+            "headphone": "",
+            "hands-free": "",
+            "headset": "",
+            "phone": "",
+            "portable": "",
+            "car": "",
+            "default": ["", "", ""]
+        },
+        // Scroll / right-click adjust through swayOSD → same themed OSD as the Fn
+        // keys (the "linear feel"). Left-click toggles a compact floating mixer
+        // popup (see scripts/audio-popup.sh + hypr windowrules), not a full tile.
+        "on-scroll-up": "swayosd-client --output-volume +5",
+        "on-scroll-down": "swayosd-client --output-volume -5",
+        "on-click-right": "swayosd-client --output-volume mute-toggle",
+        "on-click": "$HOME/.config/waybar/scripts/audio-popup.sh"
+    },
+    "custom/media": {
+        "format": "{icon} {text}",
+        "return-type": "json",
+        "max-length": 40,
+        "format-icons": {
+            "spotify": "",
+            "default": "🎜"
+        },
+        "escape": true,
+        "exec": "$HOME/.config/waybar/mediaplayer.py 2> /dev/null" // Script in resources folder
+        // "exec": "$HOME/.config/waybar/mediaplayer.py --player spotify 2> /dev/null" // Filter player based on name
+    },
+    "custom/power": {
+        "format" : "⏻ ",
+		"tooltip": false,
+		"menu": "on-click",
+		"menu-file": "$HOME/.config/waybar/power_menu.xml", // Menu file in resources folder
+		"menu-actions": {
+			"shutdown": "shutdown",
+			"reboot": "reboot",
+			"suspend": "systemctl suspend",
+			"hibernate": "systemctl hibernate"
+		}
+    },
+
+    // ── Power Profile (tuned-ppd + asusd composite modes) ───────────────────
+    // Three composite modes, not the old 3 stock power-profiles-daemon
+    // profiles — see config/waybar/scripts/power-profile.sh header. Left-click
+    // cycles; "signal": 8 matches the script's `pkill -SIGRTMIN+8 waybar`
+    // refresh-on-change (same pattern the script itself already relies on).
+    "custom/power-profile": {
+        "exec": "$HOME/.config/waybar/scripts/power-profile.sh get",
+        "return-type": "json",
+        "tooltip": true,
+        "on-click": "$HOME/.config/waybar/scripts/power-profile.sh cycle",
+        "signal": 8
+    },
+
+    // ── sCoRE Usage Tracker (Claude Code + Codex) ────────────────────────────
+    // Continuous-output modules (no "interval" — Waybar treats each stdout
+    // line as a fresh state). score-glyph-stream.sh is a cheap loop that
+    // repaints just the glyph at high frequency on top of a JSON cache that
+    // score-status-daemon.sh refreshes every few seconds with the heavy
+    // transcript-parsed token counts/tooltip. See score-status-daemon.sh's
+    // header for the two-tier rationale.
+    "custom/llm-claude": {
+        "exec": "$HOME/.config/waybar/scripts/score-glyph-stream.sh claude",
+        "return-type": "json",
+        "tooltip": true,
+        "on-click": "kitty --class rabble-popup -e python3 $HOME/.config/waybar/scripts/score-usage-detail.py claude --live"
+    },
+    "custom/llm-codex": {
+        "exec": "$HOME/.config/waybar/scripts/score-glyph-stream.sh codex",
+        "return-type": "json",
+        "tooltip": true,
+        "on-click": "kitty --class rabble-popup -e python3 $HOME/.config/waybar/scripts/score-usage-detail.py codex --live"
+    },
+    "custom/llm-antigravity": {
+        "exec": "$HOME/.config/waybar/scripts/score-glyph-stream.sh antigravity",
+        "return-type": "json",
+        "tooltip": true,
+        "on-click": "kitty --class rabble-popup -e python3 $HOME/.config/waybar/scripts/score-usage-detail.py antigravity --live"
+    }
+}

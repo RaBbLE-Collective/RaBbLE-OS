@@ -1,0 +1,9 @@
+---
+# ansible/roles/layer/niri/vars/main.yml
+# Trial session alongside Hyprland (S328). All from official Fedora repos —
+# unlike Hyprland's COPR, these go through Bodhi gating, so no versionlock.
+# niri hard-requires xwayland-satellite; dnf pulls it in.
+niri_packages:
+  - niri                       # compositor; ships /usr/share/wayland-sessions/niri.desktop for SDDM
+  - swaybg                     # wallpaper (hyprpaper is Hyprland-only)
+  - xdg-desktop-portal-gnome   # niri-portals.conf prefers gnome;gtk — screencast/screenshot

@@ -1,0 +1,12 @@
+---
+# ansible/roles/layer/niri/tasks/main.yml — niri trial session (opt-in)
+#
+# Packages only. Config is deployed by dotctl, not Ansible:
+#   ./RaBbLE-OS-dotctl.sh apply niri     (config/niri → ~/.config/niri)
+#   ./RaBbLE-OS-dotctl.sh apply waybar   (config-niri.jsonc, the bar niri spawns)
+# remove.yml is gated on ansible_run_tags for the reason documented in
+# layer/gnome/tasks/main.yml (play-level tags match every task).
+- { ansible.builtin.include_tasks: packages.yml, tags: [layer, niri, packages] }
+- ansible.builtin.include_tasks: remove.yml
+  tags: [layer, niri, remove]
+  when: "'remove' in ansible_run_tags"

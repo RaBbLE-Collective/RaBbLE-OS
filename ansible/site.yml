@@ -399,6 +399,14 @@
     - role: layer/gnome
       when: rabble_enable_gnome_desktop | default(false) | bool
 
+- name: "Layer — niri (opt-in trial compositor session alongside Hyprland)"
+  hosts: all
+  become: true
+  tags: [layer, niri]
+  roles:
+    - role: layer/niri
+      when: rabble_enable_niri | default(false) | bool
+
 - name: "Layer — Creator Apps (data-driven single-Flatpak apps for creators)"
   hosts: all
   become: true

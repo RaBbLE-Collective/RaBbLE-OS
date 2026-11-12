@@ -1,0 +1,15 @@
+---
+# ansible/roles/layer/niri/tasks/remove.yml
+#
+# Tag: remove. Selected via `layerctl remove niri` → `--tags niri,remove`.
+# Uninstalls the niri session; SDDM and Hyprland are untouched.
+# xdg-desktop-portal-gnome is deliberately left installed: dnf removes a
+# package's dependents along with it, so removing the portal here would take
+# gnome-shell with it on machines that also run the gnome layer.
+
+- name: niri-remove | uninstall niri packages
+  ansible.builtin.dnf:
+    name: "{{ niri_packages | reject('equalto', 'xdg-desktop-portal-gnome') | list }}"
+    state: absent
+  become: true
+  tags: [layer, niri, remove]
