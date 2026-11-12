@@ -1,7 +1,8 @@
 // =============================================================================
 // Main.qml — RaBbLE Aether SDDM greeter — Retrowave Edition
 //
-// Synthwave outrun grid. Qt6 / SDDM 0.21. Components: EntityDisplay, LoginForm.
+// Synthwave outrun grid. Qt6 / SDDM 0.21. Components: EntityDisplay, LoginForm,
+// SessionPicker (F2, the session label, or the footer ⊞ opens it).
 // Palette: RaBbLE-Grimoire/RaBbLE-Agent/RaBbLE-Palette.md only.
 // To reposition elements edit the LAYOUT KNOBS section — not the anchors.
 // =============================================================================
@@ -82,16 +83,14 @@ Rectangle {
         }
     }
 
-    function cycleSession() {
-        if (sessionModel.count < 2) {
-            root.notifyMsg = "no other sessions";
+    // Open the session menu (SessionPicker). Replaces the old silent cycle.
+    function openSessionPicker() {
+        if (sessionModel.count < 1) {
+            root.notifyMsg = "no sessions found";
             notifyAnim.restart();
             return;
         }
-        currentSessionIndex = (currentSessionIndex + 1) % sessionModel.count;
-        // Name the session we just switched to — the cycle was silent before.
-        root.notifyMsg = sessionNames[currentSessionIndex] || ("session " + (currentSessionIndex + 1));
-        notifyAnim.restart();
+        sessionPicker.open();
     }
 
     // Session names via Repeater (roles only, same reason as userNames). On a
@@ -261,7 +260,7 @@ Rectangle {
         onLoginRequested: root.doLogin()
     }
 
-    // ── Notify toast (no other user / no other session) ───────────────────────
+    // ── Notify toast (no other user / no sessions) ───────────────────────
     Text {
         id: notifyLine
         anchors.horizontalCenter: parent.horizontalCenter
@@ -288,12 +287,22 @@ Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: footerRow.top
         anchors.bottomMargin: 8
-        text: sessionModel.count > 0 ? sessionModel.get(root.currentSessionIndex, "name") : ""
-        color: root.cMuted
+        width: Math.min(implicitWidth, root.width - 80)
+        elide: Text.ElideRight
+        text: sessionModel.count > 0 ? sessionModel.get(root.currentSessionIndex, "name") + "  ▾" : ""
+        color: sessionLabelMouse.containsMouse ? root.cCyan : root.cMuted
         font.family: root.monoFamily
         font.pixelSize: 11
         font.letterSpacing: 2
-        opacity: 0.6
+        opacity: sessionLabelMouse.containsMouse ? 1 : 0.6
+        MouseArea {
+            id: sessionLabelMouse
+            anchors.fill: parent
+            anchors.margins: -8
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openSessionPicker()
+        }
     }
 
     // ── Footer ────────────────────────────────────────────────────────────────
@@ -385,8 +394,38 @@ Rectangle {
                 anchors.margins: -10
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.cycleSession()
+                onClicked: root.openSessionPicker()
             }
+        }
+    }
+
+    // ── Session menu (topmost, modal) ─────────────────────────────────────────
+    SessionPicker {
+        id: sessionPicker
+        anchors.fill: parent
+        z: 100
+        model:         sessionModel
+        currentIndex:  root.currentSessionIndex
+        cVoid:         root.cVoid
+        cSurface:      root.cSurface
+        cRaised:       root.cRaised
+        cBorder:       root.cBorder
+        cCyan:         root.cCyan
+        cViolet:       root.cViolet
+        cText:         root.cText
+        cMuted:        root.cMuted
+        monoFamily:    root.monoFamily
+        displayFamily: root.displayFamily
+
+        onPicked: function(index) { root.currentSessionIndex = index; }
+        onClosed: loginForm.focusInput()
+    }
+
+    // F2 opens the session menu from anywhere (the pass field leaves it unhandled)
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_F2) {
+            root.openSessionPicker();
+            event.accepted = true;
         }
     }
 
