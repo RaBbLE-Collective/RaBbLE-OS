@@ -57,6 +57,7 @@ esac
 # Avoid forking `date` every tick — bash's strftime builtin is free.
 now_s() { printf -v "$1" '%(%s)T' -1; }
 
+last_out=""
 while true; do
     if [[ -r "$CACHE" ]]; then
         raw="$(<"$CACHE")"
@@ -164,7 +165,13 @@ while true; do
             *)       glyph="$IDLE_GLYPH" ;;
         esac
 
-        printf '%s\n' "${raw//@GLYPH@/$glyph}"
+        # Dedupe: Waybar repaints on every line even when identical, so only
+        # emit on change (the busy wave moves 1/s, state flips are rare).
+        out="${raw//@GLYPH@/$glyph}"
+        if [[ "$out" != "$last_out" ]]; then
+            printf '%s\n' "$out"
+            last_out="$out"
+        fi
     fi
 
     # Sleep by reading the wake-FIFO with a timeout: a hook poking the FIFO
