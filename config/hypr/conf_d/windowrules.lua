@@ -947,56 +947,56 @@ hl.window_rule({
 
 hl.layer_rule({
     match = {
-        namespace = "match:namespace fuzzel",
+        namespace = "^(fuzzel)$",
     },
     blur = true,
 })
 
 hl.layer_rule({
     match = {
-        namespace = "match:namespace notifications",
+        namespace = "^(notifications)$",
     },
     blur = true,
 })
 
 hl.layer_rule({
     match = {
-        namespace = "match:namespace notifications",
+        namespace = "^(notifications)$",
     },
     ignore_alpha = 0.0,
 })
 
 hl.layer_rule({
     match = {
-        namespace = "match:namespace swaync-notification-window",
+        namespace = "^(swaync-notification-window)$",
     },
     blur = true,
 })
 
 hl.layer_rule({
     match = {
-        namespace = "match:namespace swaync-notification-window",
+        namespace = "^(swaync-notification-window)$",
     },
     ignore_alpha = 0.0,
 })
 
 hl.layer_rule({
     match = {
-        namespace = "match:namespace swaync-control-center",
+        namespace = "^(swaync-control-center)$",
     },
     blur = true,
 })
 
 hl.layer_rule({
     match = {
-        namespace = "match:namespace swaync-control-center",
+        namespace = "^(swaync-control-center)$",
     },
     ignore_alpha = 0.0,
 })
 
 hl.layer_rule({
     match = {
-        namespace = "match:namespace logout_dialog",
+        namespace = "^(logout_dialog)$",
     },
     blur = true,
 })

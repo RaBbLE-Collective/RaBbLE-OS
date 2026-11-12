@@ -121,7 +121,7 @@ hl.bind("SHIFT" .. " + " .. "Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/scr
 
 -- Region select capture → copy to clipboard (no file saved)
 
-hl.bind("CTRL" .. " + " .. "Print", hl.dsp.exec_cmd("grim -g \"$(slurp)\"-| wl-copy"))
+hl.bind("CTRL" .. " + " .. "Print", hl.dsp.exec_cmd("grim -g \"$(slurp)\" - | wl-copy"))
 
 -- ── Emoji Launcher ────────────────────────────────────────────────────────────
 

@@ -113,9 +113,9 @@ hl.bind(mod .. " + " .. "T", hl.dsp.exec_cmd("~/.config/hypr/scripts/toggle-spli
 
 -- Toggle layout: dwindle ↔ master (Super+O — "O" for orientation)
 
-hl.bind(mod .. " + " .. "O", hl.dsp.exec_cmd("hyprctl keyword general:layout master"))
+hl.bind(mod .. " + " .. "O", function() hl.config({ general = { layout = "master" } }) end)  -- hyprctl keyword is dead under the Lua config provider
 
-hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "O", hl.dsp.exec_cmd("hyprctl keyword general:layout dwindle"))
+hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "O", function() hl.config({ general = { layout = "dwindle" } }) end)
 
 -- Master layout helpers (useful when toggled into master mode)
 

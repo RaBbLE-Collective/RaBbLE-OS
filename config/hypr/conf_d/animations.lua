@@ -5,9 +5,29 @@
 ---@module 'hl'
 
 -- dotfiles/hyprland/conf.d/animations.conf
+-- hyprconf2lua dropped every bezier/animation line here (S223); restored by hand against
+-- /usr/share/hypr/hyprland.lua (0.57 hl.curve / hl.animation form). borderangle loop is the
+-- rotating magenta→cyan border gradient.
 
 hl.config({
     animations = {
         enabled = true,
     },
 })
+
+hl.curve("smoothOut", { type = "bezier", points = { {0.36, 0},    {0.66, -0.56} } })
+hl.curve("smoothIn",  { type = "bezier", points = { {0.25, 1},    {0.5, 1}      } })
+hl.curve("overshot",  { type = "bezier", points = { {0.05, 0.9},  {0.1, 1.05}   } })
+hl.curve("linear",    { type = "bezier", points = { {1, 1},       {1, 1}        } })
+hl.curve("rabble",    { type = "bezier", points = { {0.22, 1},    {0.36, 1}     } })
+
+hl.animation({ leaf = "windows",          enabled = true, speed = 5,  bezier = "rabble",    style = "slide" })
+hl.animation({ leaf = "windowsOut",       enabled = true, speed = 4,  bezier = "smoothOut", style = "slide" })
+hl.animation({ leaf = "windowsMove",      enabled = true, speed = 4,  bezier = "rabble" })
+hl.animation({ leaf = "fade",             enabled = true, speed = 4,  bezier = "smoothIn" })
+hl.animation({ leaf = "fadeOut",          enabled = true, speed = 3,  bezier = "smoothOut" })
+hl.animation({ leaf = "border",           enabled = true, speed = 8,  bezier = "linear" })
+hl.animation({ leaf = "borderangle",      enabled = true, speed = 30, bezier = "linear",    style = "loop" })
+hl.animation({ leaf = "workspaces",       enabled = true, speed = 5,  bezier = "rabble",    style = "slidehoriz" })
+hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 5,  bezier = "rabble",    style = "slidefadehoriz" })
+hl.animation({ leaf = "layers",           enabled = true, speed = 3,  bezier = "rabble",    style = "slide" })
