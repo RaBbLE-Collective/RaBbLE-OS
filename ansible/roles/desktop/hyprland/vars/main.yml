@@ -86,3 +86,40 @@ hyprland_core_packages:
   - polkit                         # Privilege escalation framework
   - hyprpolkitagent                # Polkit authentication agent for Hyprland
 
+# ── Version pin ───────────────────────────────────────────────────────────────
+# The COPR publishes with no update gating. 2026-11-07 a plain `dnf update` took
+# hyprpaper 0.8.5 but skipped the hyprgraphics 0.6.0 / hyprtoolkit 0.6.0-2 it was
+# built against (a libheif dep wasn't resolvable yet): heap corruption at launch,
+# no wallpaper, hyprlock on the same skewed libs. So the whole hypr* family is
+# locked as one set in /etc/dnf/versionlock.toml; routine `dnf upgrade` leaves it
+# alone. To move Hyprland: bump every EVR here together (repoquery the COPR for
+# the latest coherent set), test in a VM, then layerctl. Epoch is explicit.
+hyprland_pin_set: "0.57.2"         # label only, for the versionlock comment
+hyprland_pins:
+  - { name: hyprland,                    evr: "0:0.57.2-1.fc44" }
+  - { name: hyprland-devel,              evr: "0:0.57.2-1.fc44" }
+  - { name: hyprland-uwsm,               evr: "0:0.57.2-1.fc44" }
+  - { name: hyprland-guiutils,           evr: "0:0.2.2-2.fc44" }
+  - { name: hyprland-qt-support,         evr: "0:0.1.0-12.fc44" }
+  - { name: hyprland-protocols-devel,    evr: "0:0.8.0-1.fc44" }
+  - { name: xdg-desktop-portal-hyprland, evr: "1:1.5.0-1.fc44" }
+  - { name: aquamarine,                  evr: "0:0.16.0-1.fc44" }
+  - { name: aquamarine-devel,            evr: "0:0.16.0-1.fc44" }
+  - { name: hyprgraphics,                evr: "0:0.6.0-1.fc44" }
+  - { name: hyprgraphics-devel,          evr: "0:0.6.0-1.fc44" }
+  - { name: hyprtoolkit,                 evr: "0:0.6.0-2.fc44" }
+  - { name: hyprutils,                   evr: "0:0.14.3-1.fc44" }
+  - { name: hyprutils-devel,             evr: "0:0.14.3-1.fc44" }
+  - { name: hyprlang,                    evr: "0:0.6.8-4.fc44" }
+  - { name: hyprlang-devel,              evr: "0:0.6.8-4.fc44" }
+  - { name: hyprwire,                    evr: "0:0.3.1-3.fc44" }
+  - { name: hyprwire-devel,              evr: "0:0.3.1-3.fc44" }
+  - { name: hyprcursor,                  evr: "0:0.1.14-1.fc44" }
+  - { name: hyprcursor-devel,            evr: "0:0.1.14-1.fc44" }
+  - { name: hyprwayland-scanner-devel,   evr: "0:0.4.6-1.fc44" }
+  - { name: hyprlock,                    evr: "0:0.9.7-1.fc44" }
+  - { name: hyprpaper,                   evr: "0:0.8.5-1.fc44" }
+  - { name: hypridle,                    evr: "0:0.1.8-1.fc44" }
+  - { name: hyprpicker,                  evr: "0:0.4.8-1.fc44" }
+  - { name: hyprpolkitagent,             evr: "0:0.2.0-2.fc44" }
+

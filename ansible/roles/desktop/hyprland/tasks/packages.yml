@@ -7,9 +7,52 @@
   become: true
   tags: [desktop, hyprland,  packages, copr]
 
+# Lock before install so a fresh machine lands on the pinned set too.
+# community.general.dnf_versionlock doesn't support dnf5, so the lock file
+# (/etc/dnf/versionlock.toml, TOML, see `man dnf5-versionlock`) is written
+# directly: one marked block, leaving any other locks in the file alone.
+- name: Versionlock file header
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/versionlock.toml
+    regexp: '^version\s*='
+    line: 'version = "1.0"'
+    insertbefore: BOF
+    create: true
+    mode: '0644'
+  become: true
+  tags: [desktop, hyprland, packages, hyprland_pin]
+
+- name: Pin the Hyprland package set
+  ansible.builtin.blockinfile:
+    path: /etc/dnf/versionlock.toml
+    marker: "# {mark} RaBbLE-OS hyprland pin (desktop/hyprland role)"
+    block: |
+      {% for p in hyprland_pins %}
+      [[packages]]
+      name = "{{ p.name }}"
+      comment = "RaBbLE-OS hyprland pin set {{ hyprland_pin_set }}"
+      [[packages.conditions]]
+      key = "evr"
+      comparator = "="
+      value = "{{ p.evr }}"
+      {% endfor %}
+  become: true
+  tags: [desktop, hyprland, packages, hyprland_pin]
+
 - name: Install Hyprland core packages
   ansible.builtin.dnf:
     name: "{{ hyprland_core_packages }}"
     state: present
   become: true
   tags: [desktop, hyprland, packages, hyprland_core]
+
+# Moves already-installed members of the set to their pinned EVR (with the lock
+# in place, "latest" means the pin). update_only: never installs extras like the
+# -devel packages on machines that don't have them.
+- name: Bring installed Hyprland packages to the pinned set
+  ansible.builtin.dnf:
+    name: "{{ hyprland_pins | map(attribute='name') | list }}"
+    state: latest
+    update_only: true
+  become: true
+  tags: [desktop, hyprland, packages, hyprland_pin]
