@@ -27,7 +27,7 @@ echo "- [ ] $(date +%Y-%m-%d) | WISH | description here" >> ~/RaBbLE-Collective/
 
 ## Gripes
 
-- [ ] 2026-11-11 | GRIPE | Hyprland feels unfinished and too rolling-release: config and behaviour change between versions. The flowing gradient window border stopped working (`config/hypr/conf_d/look.lua` has a static two-colour gradient; `animations.lua` has no border animation). Compositor decision deferred (Mark, S323); candidates Sway, niri, GNOME. See Grimoire `log/DECISIONS.md` S323.
+- [ ] 2026-11-11 | GRIPE | Hyprland feels unfinished and too rolling-release: config and behaviour change between versions. The flowing gradient window border stopped working (`config/hypr/conf_d/look.lua` has a static two-colour gradient; `animations.lua` has no border animation). Compositor decision deferred (Mark, S323); candidates Sway, niri, GNOME. See Grimoire `log/DECISIONS.md` S323. **S328:** border restored (hyprconf2lua had dropped it; now ruled optional), Hyprland pinned as a set, niri trial layer added; see `log/DECISIONS.md` S328.
 
 ---
 
