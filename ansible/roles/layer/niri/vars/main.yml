@@ -7,3 +7,15 @@ niri_packages:
   - niri                       # compositor; ships /usr/share/wayland-sessions/niri.desktop for SDDM
   - swaybg                     # wallpaper (hyprpaper is Hyprland-only)
   - xdg-desktop-portal-gnome   # niri-portals.conf prefers gnome;gtk — screencast/screenshot
+  # rabble-shell (config/rabble-shell/) is compositor-agnostic: rabble-idle runs hypridle,
+  # rabble-lock runs hyprlock. Both ship only in the Hyprland COPR, and the hypr* family is
+  # versionlocked as one set by desktop/hyprland (hyprland_pins). Apply that role first on a
+  # fresh machine so the COPR and the lock exist; do not enable the COPR from this layer.
+  - hypridle                   # idle daemon behind rabble-idle (ext-idle-notify, works on niri)
+  - hyprlock                   # locker behind rabble-lock (ext-session-lock, works on niri)
+
+# Left installed by `layerctl remove niri` (see remove.yml for why).
+niri_keep_packages:
+  - xdg-desktop-portal-gnome
+  - hypridle
+  - hyprlock

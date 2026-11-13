@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# rabble-idle — start the idle daemon with the shared, compositor-agnostic config.
+exec hypridle -c "$HOME/.config/rabble-shell/idle.conf"

@@ -43,10 +43,8 @@ hypr_config_files:
   - src:  config/hypr/conf.d/functionkeys.conf
     dest: "{{ hypr_config_dir }}/conf.d/functionkeys.conf"
 
-  # hypridle.conf — must live at ~/.config/hypr/hypridle.conf 
-  # hypridle aborts with SIGABRT if this file is missing at launch.
-  - src:  config/hypr/conf.d/hypridle.conf
-    dest: "{{ hypr_config_dir }}/hypridle.conf"
+  # hypridle.conf is gone: the idle chain moved to config/rabble-shell/idle.conf (dotctl bundle
+  # rabble-shell, shared with niri), started by rabble-idle. Nothing to deploy here.
 
   # hyprlock.conf — must live at ~/.config/hypr/hyprlock.conf
   - src:  config/hypr/hyprlock.conf

@@ -583,7 +583,7 @@ packages:
 
   - name: hypridle
     category: compositor.idle
-    reason: Idle daemon — triggers hyprlock and display power-off on inactivity
+    reason: Idle daemon — runs the shared rabble-shell idle chain (config/rabble-shell/idle.conf) on Hyprland and niri; lock and display power-off go through rabble-lock / rabble-dpms
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor
@@ -592,7 +592,7 @@ packages:
 
   - name: hyprlock
     category: compositor.lock
-    reason: Screen locker — activated by hypridle before-sleep and Super+L keybind
+    reason: Screen locker — launched only via rabble-lock (config/rabble-shell/bin), on Hyprland and niri, by hypridle before-sleep and the lock keybind
     source: "copr:lionheartp/Hyprland"
     platform: all
     layer: compositor

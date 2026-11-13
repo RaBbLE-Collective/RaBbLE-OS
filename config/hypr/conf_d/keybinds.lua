@@ -22,7 +22,7 @@ local browser = "firefox"
 
 local files = "dolphin"
 
-local lock = "hyprlock"
+local lock = "~/.config/rabble-shell/bin/rabble-lock"
 
 -- ── Session ───────────────────────────────────────────────────────────────────
 
@@ -30,7 +30,7 @@ hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "Q", hl.dsp.window.close())
 
 hl.bind(mod .. " + " .. "SHIFT" .. " + " .. "E", hl.dsp.exit())
 
-hl.bind(mod .. " + " .. "L", hl.dsp.exec_cmd("hyprlock"))
+hl.bind(mod .. " + " .. "L", hl.dsp.exec_cmd(lock))
 
 hl.bind(mod .. " + " .. "F1", hl.dsp.exec_cmd("~/.config/hypr/scripts/help.sh"))
 

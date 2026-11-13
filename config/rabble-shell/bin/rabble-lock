@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# rabble-lock — lock the session. The one place that knows which locker is in use.
+# Compositor-agnostic: swap the locker here (Quickshell lock later) and every WM follows.
+set -u
+pidof hyprlock >/dev/null 2>&1 && exit 0   # never stack lockers
+exec hyprlock -c "$HOME/.config/hypr/hyprlock.conf"

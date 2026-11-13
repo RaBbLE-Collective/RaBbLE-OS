@@ -5,13 +5,16 @@
 // Deploy: ./RaBbLE-OS-dotctl.sh apply niri  (live-reloaded by niri; validate: niri validate -c config.kdl)
 // Bind map, gaps vs Hyprland: /tmp/rabble-crew/niri-trial.md
 
+// Machine-specific bits (render GPU pin), generated at session start by rabble-gpu via the niri.service
+// drop-in (config/systemd-user). Never edit. Missing = warning only.
+include optional=true "machine.kdl"
+
 // ── Outputs ──────────────────────────────────────────────────────────────────
 // eDP-1 logical 1920x1200; HDMI-A-1 logical 1920x1080 sits above it (y = -1080).
 output "eDP-1" {
     mode "3840x2400"
     scale 2
     position x=0 y=0
-    variable-refresh-rate
 }
 output "HDMI-A-1" {
     mode "2560x1440@75"
@@ -35,6 +38,10 @@ input {
         drag true
         middle-emulation
         click-method "clickfinger"
+        // Match Hyprland input.lua: its top-level sensitivity 0.2 + adaptive profile also applies
+        // to the touchpad; niri's touchpad block defaults to speed 0, which felt different.
+        accel-profile "adaptive"
+        accel-speed 0.2
         scroll-factor 0.8
     }
     mouse {
@@ -100,9 +107,11 @@ layout {
         inactive-color "#2a2840"
         urgent-color "#ff2d78"
     }
+    // Shadows OFF: a soft shadow is a per-window blurred layer repainted on every swipe frame.
+    // Re-enable by replacing `off` with `on` (softness 16 was the tuned value).
     shadow {
-        on
-        softness 24
+        off
+        softness 16
         spread 0
         offset x=0 y=4
         color "#bf5fff18"
@@ -127,23 +136,23 @@ layout {
 }
 
 // Blur: niri blur is global (passes/offset/noise/saturation) and enabled per surface by rule.
-// Hyprland's size 6 / passes 2 / noise 0.02 -> passes 2 offset 3 noise 0.02.
+// Hyprland's size 6 / passes 2 / noise 0.02 -> passes 1 offset 5: one pass costs half as much on the
+// 3840x2400 panel; offset 5 keeps a similar blur radius. (Was passes 2 offset 3; lighter for swipes.)
 // No equivalent for Hyprland's contrast 0.9 / brightness 0.8.
 blur {
-    passes 2
-    offset 3
+    passes 1
+    offset 5
     noise 0.02
     saturation 1.0
 }
 
-// Rounding 10 + blur behind every window (xray, like Hyprland xray = true).
+// Rounding 10. Blur behind windows is OFF: it is the single biggest per-frame cost on the
+// 3840x2400 panel, and the goal is a desktop that stays smooth at minimum clocks on battery.
+// To restore the glass look, add inside this rule:
+//     background-effect { blur true; xray true; }
 window-rule {
     geometry-corner-radius 10
     clip-to-geometry true
-    background-effect {
-        blur true
-        xray true
-    }
 }
 
 window-rule {
@@ -163,42 +172,41 @@ overview {
     backdrop-color "#0a0010"
 }
 
-// ── Animations (animations.lua) ──────────────────────────────────────────────
-// Hyprland speed N = N * 100 ms. Bezier points are the same curves.
+// ── Animations ───────────────────────────────────────────────────────────────
+// Feel target: instant, 1:1 with input, never slower than the user.
+// Everything that follows a gesture or a keypress is a critically damped spring
+// (damping-ratio 1.0: no overshoot, no wobble). Springs inherit the release velocity of a
+// touchpad swipe, so the view keeps moving and settles; a fixed duration + curve restarts
+// from rest and reads as a hitch. Only open/close (no gesture to inherit) use short fixed times.
 // Gap: niri has no animated/rotating border gradient (Hyprland `borderangle` loop).
 //      The 45 degree magenta -> cyan border is static. Not faked.
 animations {
-    // windows: rabble, speed 5 ; windowsOut: smoothOut, speed 4
-    window-open {
-        duration-ms 500
-        curve "cubic-bezier" 0.22 1 0.36 1
+    // Sideways swipe / focus-column scroll: tracks the finger 1:1, then settles in ~100 ms.
+    horizontal-view-movement {
+        spring damping-ratio=1.0 stiffness=1000 epsilon=0.0001
     }
-    window-close {
-        duration-ms 400
-        curve "cubic-bezier" 0.36 0 0.66 -0.56
+    // Vertical workspace swipe and Mod+N hops.
+    workspace-switch {
+        spring damping-ratio=1.0 stiffness=1200 epsilon=0.0001
     }
-    // windowsMove: rabble, speed 4
     window-movement {
-        duration-ms 400
-        curve "cubic-bezier" 0.22 1 0.36 1
+        spring damping-ratio=1.0 stiffness=1000 epsilon=0.0001
     }
     window-resize {
-        duration-ms 400
-        curve "cubic-bezier" 0.22 1 0.36 1
+        spring damping-ratio=1.0 stiffness=1000 epsilon=0.0001
     }
-    horizontal-view-movement {
-        duration-ms 400
-        curve "cubic-bezier" 0.22 1 0.36 1
+    window-open {
+        duration-ms 120
+        curve "ease-out-expo"
     }
-    // workspaces: rabble, speed 5
-    workspace-switch {
-        duration-ms 500
-        curve "cubic-bezier" 0.22 1 0.36 1
+    window-close {
+        duration-ms 100
+        curve "ease-out-quad"
     }
 }
 
 // ── Autostart (autostart.lua) ────────────────────────────────────────────────
-// Skipped (Hyprland-only): hyprpaper, hypridle (its config calls hyprctl), split-dir-daemon,
+// Skipped (Hyprland-only): hyprpaper, split-dir-daemon,
 // rdisplay daemon (hyprctl), xdg-desktop-portal-hyprland.
 spawn-at-startup "sh" "-c" "dbus-update-activation-environment --systemd --all; systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
 spawn-at-startup "sh" "-c" "gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'"
@@ -207,6 +215,7 @@ spawn-at-startup "systemctl" "--user" "start" "hyprpolkitagent"
 spawn-at-startup "sh" "-c" "swaybg -m fill -i $HOME/.config/wallpapers/RaBbLE_WP.PNG"
 spawn-at-startup "sh" "-c" "waybar -c $HOME/.config/waybar/config-niri.jsonc"
 spawn-at-startup "mako"
+spawn-at-startup "sh" "-c" "$HOME/.config/rabble-shell/bin/rabble-idle"
 spawn-at-startup "wl-paste" "--type" "text" "--watch" "cliphist" "store"
 spawn-at-startup "wl-paste" "--type" "image" "--watch" "cliphist" "store"
 spawn-at-startup "nm-applet" "--indicator"
@@ -220,7 +229,7 @@ binds {
     // Session
     Mod+Shift+Q repeat=false hotkey-overlay-title="Close window" { close-window; }
     Mod+Shift+E { quit; }
-    Mod+Escape { spawn "hyprlock"; }
+    Mod+Escape hotkey-overlay-title="Lock" { spawn-sh "~/.config/rabble-shell/bin/rabble-lock"; }
     Mod+F1 hotkey-overlay-title="This cheat sheet" { show-hotkey-overlay; }
 
     // Apps

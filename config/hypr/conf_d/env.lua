@@ -62,6 +62,17 @@ hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Classic")
 -- roles write conf_d/machine.lua; dotctl never deploys it, so on a machine
 -- without one this is a no-op and aquamarine picks the GPU itself.
 
+-- GPU choice is the OS's, not Hyprland's: rabble-gpu picks the GPU that drives the panel and
+-- prints nothing on single-GPU machines, so this is a no-op there. Same logic niri uses.
+do
+    local ok, h = pcall(io.popen, (os.getenv("HOME") or "") .. "/.config/rabble-shell/bin/rabble-gpu aq-devices 2>/dev/null")
+    if ok and h then
+        local devs = (h:read("*l") or ""):gsub("%s+$", "")
+        h:close()
+        if devs ~= "" then hl.env("AQ_DRM_DEVICES", devs) end
+    end
+end
+
 pcall(require, "conf_d.machine")
 
 -- ── Editors / tools ───────────────────────────────────────────────────────────

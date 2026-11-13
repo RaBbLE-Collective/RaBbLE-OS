@@ -6,10 +6,12 @@
 # xdg-desktop-portal-gnome is deliberately left installed: dnf removes a
 # package's dependents along with it, so removing the portal here would take
 # gnome-shell with it on machines that also run the gnome layer.
+# hypridle and hyprlock are likewise left installed: they belong to the Hyprland COPR set
+# (desktop/hyprland) and the Hyprland session still uses them via rabble-shell.
 
 - name: niri-remove | uninstall niri packages
   ansible.builtin.dnf:
-    name: "{{ niri_packages | reject('equalto', 'xdg-desktop-portal-gnome') | list }}"
+    name: "{{ niri_packages | difference(niri_keep_packages) }}"
     state: absent
   become: true
   tags: [layer, niri, remove]
