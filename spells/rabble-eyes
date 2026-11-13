@@ -196,7 +196,23 @@ class NiriBackend(Backend):
             "visible": visible, "focused": bool(w.get("is_focused")),
             # maximized-to-edges: the tile covers the whole output; the nudge must re-apply it
             "_edges": bool(out_w and (lay.get("tile_size") or [0])[0] >= out_w),
+            "output": ws.get("output"), "ws_idx": ws.get("idx"),
+            "floating": bool(w.get("is_floating")),
+            "maximized_to_edges": bool(out_w and (lay.get("tile_size") or [0])[0] >= out_w),
+            "column": (lay.get("pos_in_scrolling_layout") or [None, None])[0],
+            "row": (lay.get("pos_in_scrolling_layout") or [None, None])[1],
+            "size": [int(v) for v in (lay.get("tile_size") or [])],
         }
+
+    def workspaces(self):
+        outs = self._json(["niri", "msg", "--json", "outputs"])
+        res = []
+        for w in self._json(["niri", "msg", "--json", "workspaces"]):
+            lg = (outs.get(w.get("output")) or {}).get("logical") or {}
+            res.append({"idx": w.get("idx"), "name": w.get("name"), "output": w.get("output"),
+                        "active": bool(w.get("is_active")), "focused": bool(w.get("is_focused")),
+                        "output_size": [lg.get("width"), lg.get("height")]})
+        return res
 
     def capture(self, win, path):
         r = self.run(["niri", "msg", "action", "screenshot-window", "--id", str(win["id"]), "--path", path])
@@ -230,7 +246,9 @@ class HyprBackend(Backend):
         return self._json(["hyprctl", "-j", "clients"])
 
     def list_windows(self):
-        active = {m["activeWorkspace"]["id"] for m in self._json(["hyprctl", "-j", "monitors"])}
+        monl = self._json(["hyprctl", "-j", "monitors"])
+        active = {m["activeWorkspace"]["id"] for m in monl}
+        mons = {m["id"]: m["name"] for m in monl}
         out = []
         for c in self._clients():
             if not c.get("mapped", True):
@@ -243,8 +261,21 @@ class HyprBackend(Backend):
                 "visible": bool(visible), "focused": c.get("focusHistoryID") == 0,
                 "_geom": (c.get("at"), c.get("size")),
                 "_ident": c.get("foreignToplevelId") or c.get("toplevelIdentifier"),
+                "output": mons.get(c.get("monitor")), "ws_idx": ws.get("id"),
+                "floating": bool(c.get("floating")), "column": None, "row": None,
+                "at": c.get("at"), "size": c.get("size") or [],
             })
         return out
+
+    def workspaces(self):
+        mon = self._json(["hyprctl", "-j", "monitors"])
+        active = {m["activeWorkspace"]["id"] for m in mon}
+        focused = {m["activeWorkspace"]["id"] for m in mon if m.get("focused")}
+        size = {m["name"]: [m.get("width"), m.get("height")] for m in mon}
+        return [{"idx": w["id"], "name": w.get("name"), "output": w.get("monitor"),
+                 "active": w["id"] in active, "focused": w["id"] in focused,
+                 "output_size": size.get(w.get("monitor"), [None, None])}
+                for w in sorted(self._json(["hyprctl", "-j", "workspaces"]), key=lambda w: w["id"])]
 
     def capture(self, win, path):
         ident = win.get("_ident")
@@ -373,11 +404,63 @@ def cmd_list(args, backend, rules):
     print("flags: V=visible F=focused D=denied", file=sys.stderr)
 
 
+def build_map(backend, rules):
+    """Outputs -> workspaces -> columns/windows, for agents that reason about placement."""
+    wins = [{k: v for k, v in w.items() if not k.startswith("_")} for w in annotate(backend.list_windows(), rules)]
+    outs = {}
+    for ws in sorted(backend.workspaces(), key=lambda w: (str(w["output"]), w["idx"] if w["idx"] is not None else 0)):
+        o = outs.setdefault(ws["output"], {"output": ws["output"], "size": ws["output_size"], "workspaces": []})
+        mine = [w for w in wins if w.get("ws_idx") == ws["idx"] and w.get("output") == ws["output"]]
+        cols = {}
+        for w in mine:
+            if not w["floating"] and w.get("column") is not None:
+                cols.setdefault(w["column"], []).append(w)
+        o["workspaces"].append(dict(ws,
+            columns=[sorted(cols[c], key=lambda w: w["row"] or 0) for c in sorted(cols)],
+            floating=[w for w in mine if w["floating"]],
+            tiled=[w for w in mine if not w["floating"] and w.get("column") is None]))
+    return list(outs.values())
+
+
+def cmd_map(args, backend, rules):
+    m = build_map(backend, rules)
+    if args.json:
+        print(json.dumps(m, indent=1))
+        return
+    def line(w, pre):
+        where = "ON SCREEN" if w["visible"] else "off screen"
+        if w.get("maximized_to_edges"):
+            where += ", maximized to edges"
+        if w["focused"]:
+            where += ", focused"
+        size = "x".join(str(v) for v in w.get("size") or []) or "?"
+        at = " at %s,%s" % tuple(w["at"]) if w.get("at") else ""
+        title = "[denied]" if w["denied"] else (w["title"] or "")
+        return "%s[%s] %s \"%s\" %s%s  %s" % (pre, w["id"], w.get("app_id") or "", title[:60], size, at, where)
+    for o in m:
+        print("%s (%s)" % (o["output"], "x".join(str(v) for v in o["size"])))
+        for ws in o["workspaces"]:
+            state = "showing" + (", focused" if ws["focused"] else "") if ws["active"] else "hidden"
+            print("  ws %s%s  [%s]%s" % (ws["idx"], ' "%s"' % ws["name"] if ws["name"] else "", state,
+                                        "" if (ws["columns"] or ws["floating"] or ws["tiled"]) else "  empty"))
+            for i, col in enumerate(ws["columns"], 1):
+                for j, w in enumerate(col):
+                    pre = ("    col %d: " % i) if j == 0 else "            "
+                    print(line(w, pre + ("" if len(col) == 1 else "row %d " % (j + 1))))
+            for w in ws["tiled"]:
+                print(line(w, "    "))
+            for w in ws["floating"]:
+                print(line(w, "    float: "))
+    print("niri: columns run left to right on a scrolling strip; rows stack inside a column", file=sys.stderr)
+
+
 def main(argv=None, backend=None):
     ap = argparse.ArgumentParser(prog="rabble-eyes", description="window capture for agents, no focus change")
     sub = ap.add_subparsers(dest="cmd", required=True)
     pl = sub.add_parser("list")
     pl.add_argument("--json", action="store_true")
+    pm = sub.add_parser("map")
+    pm.add_argument("--json", action="store_true")
     ps = sub.add_parser("shot")
     ps.add_argument("query")
     ps.add_argument("--out", default=DEFAULT_OUT)
@@ -390,6 +473,9 @@ def main(argv=None, backend=None):
         backend = backend or detect_backend()
         if args.cmd == "list":
             cmd_list(args, backend, rules)
+            return 0
+        if args.cmd == "map":
+            cmd_map(args, backend, rules)
             return 0
         res = do_shot(backend, rules, args.query, args.out, args.probe, args.fresh)
         if args.json:

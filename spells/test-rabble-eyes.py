@@ -4,6 +4,7 @@
 import importlib.machinery
 import importlib.util
 import os
+import json
 import subprocess
 import tempfile
 import unittest
@@ -135,6 +136,24 @@ class T(unittest.TestCase):
         n = eyes.NiriBackend().fresh_commands({"id": "17", "_edges": True})
         self.assertEqual(n[-1], ["niri", "msg", "action", "maximize-window-to-edges", "--id", "17"])
         self.assertEqual(len(eyes.NiriBackend().fresh_commands({"id": "17"})), 2)
+
+    def test_map_groups_columns_and_redacts(self):
+        class M(Fake):
+            def workspaces(self):
+                return [{"idx": 2, "name": "b", "output": "o", "active": False, "focused": False, "output_size": [1920, 1200]},
+                        {"idx": 1, "name": "a", "output": "o", "active": True, "focused": True, "output_size": [1920, 1200]}]
+        def P(i, ws, col, row, title="t", floating=False):
+            w = W(i, "app", title)
+            w.update(output="o", ws_idx=ws, column=None if floating else col, row=row, floating=floating, size=[10, 10])
+            return w
+        m = eyes.build_map(M([P(1, 1, 2, 1), P(2, 1, 1, 1), P(3, 1, 2, 2), P(4, 2, 1, 1, "Online Banking"), P(5, 1, 0, 0, floating=True)]),
+                           eyes.parse_deny("title:\\bbank\\w*"))
+        a, b = m[0]["workspaces"]
+        self.assertEqual((a["idx"], b["idx"]), (1, 2))
+        self.assertEqual([[w["id"] for w in c] for c in a["columns"]], [["2"], ["1", "3"]])
+        self.assertEqual([w["id"] for w in a["floating"]], ["5"])
+        self.assertTrue(b["columns"][0][0]["denied"])
+        self.assertNotIn("Banking", json.dumps(m))
 
     def test_real_fresh_commands(self):
         n = eyes.NiriBackend().fresh_commands({"id": "9"})
