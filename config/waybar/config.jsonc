@@ -212,7 +212,7 @@
     "custom/gpu": {
         "exec": "~/.config/waybar/scripts/gpu-status.sh",
         "return-type": "json",
-        "interval": 3,
+        "interval": 5,
         "tooltip": true
     },
     "cpu": {
