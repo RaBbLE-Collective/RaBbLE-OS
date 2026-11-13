@@ -24,6 +24,7 @@
         "pulseaudio",
         "network",
         "cpu",
+        "custom/gpu",
         "memory",
         "temperature",
         "custom/power-profile",
@@ -123,6 +124,12 @@
         "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
         "format":     "{:%I:%M %p}",
         "format-alt": "{:%a %d %b  %I:%M %p}"
+    },
+    "custom/gpu": {
+        "exec": "~/.config/waybar/scripts/gpu-status.sh",
+        "return-type": "json",
+        "interval": 3,
+        "tooltip": true
     },
     "cpu": {
         "format": "{usage}% ",

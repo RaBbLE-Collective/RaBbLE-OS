@@ -69,6 +69,7 @@ window#waybar.empty {
 #pulseaudio,
 #pulseaudio.microphone,
 #cpu,
+#custom-gpu,
 #temperature,
 #battery,
 #clock,
@@ -185,6 +186,15 @@ window#waybar.empty {
     background:     rgba(0, 245, 255, 0.10);
 }
 
+
+/* ── GPU (iGPU load; dGPU badge turns yellow while the dGPU is awake) ────── */
+#custom-gpu {
+    color:          @orange;
+}
+
+#custom-gpu.dgpu-on {
+    color:          @yellow;
+}
 
 /* ── CPU ─────────────────────────────────────────────────────────────────── */
 #cpu {
