@@ -1,0 +1,393 @@
+#!/usr/bin/env python3
+# =============================================================================
+# rabble-eyes -- window capture for agents ("eyes" on the desktop)
+#
+# Captures any window WITHOUT moving focus, raising, typing, or otherwise
+# changing the session. Python 3 stdlib only. Backends: niri (verified),
+# Hyprland (UNVERIFIED, see RaBbLE-Grimoire/RaBbLE-OS/RaBbLE-OS-Eyes.md).
+#
+# Usage:
+#   rabble-eyes list [--json]
+#   rabble-eyes shot <id|app_id|title-substring> [--out DIR] [--json]
+#                    [--probe] [--fresh]
+#
+#   --probe   two captures ~0.5s apart: "changing" or "unchanged (may be stale)"
+#   --fresh   hidden windows only: nudge size by 1px and back, then capture
+#             (UNTESTED LIVE). Refuses visible windows.
+#
+# Privacy: windows matching eyes-deny.conf are redacted in `list` and refused
+# by `shot`. No override flag. Deny file: ~/.config/RaBbLE/eyes-deny.conf if
+# deployed, else config/RaBbLE/eyes-deny.conf in the repo.
+#
+# Quirk: niri's screenshot-window always copies to the clipboard; the tool
+# saves and restores it (wl-paste/wl-copy).
+# =============================================================================
+import argparse
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+DEFAULT_OUT = "/tmp/rabble-eyes"
+REDACTED = "[redacted]"
+
+
+class EyesError(Exception):
+    pass
+
+
+def run(args, input=None, timeout=15):
+    return subprocess.run(args, input=input, capture_output=True, timeout=timeout)
+
+
+def run_detached(args, input=None):
+    """For wl-copy: it daemonises, so do not wait on its pipes."""
+    class R:
+        returncode = 0
+        stderr = b""
+    p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    p.stdin.write(input or b"")
+    p.stdin.close()
+    try:
+        R.returncode = p.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        pass  # still serving the selection: fine
+    return R
+
+
+# ---------------------------------------------------------------- deny list
+def deny_path():
+    home = os.path.expanduser("~/.config/RaBbLE/eyes-deny.conf")
+    if os.path.exists(home):
+        return home
+    here = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(here, "..", "config", "RaBbLE", "eyes-deny.conf")
+
+
+def parse_deny(text):
+    rules = []
+    for ln in text.splitlines():
+        ln = ln.strip()
+        if not ln or ln.startswith("#"):
+            continue
+        kind, sep, pat = ln.partition(":")
+        kind = kind.strip().lower()
+        if not sep or kind not in ("app", "title") or not pat.strip():
+            raise EyesError("bad deny rule: %r" % ln)
+        rules.append((kind, re.compile(pat.strip(), re.I)))
+    return rules
+
+
+def load_deny(path=None):
+    path = path or deny_path()
+    try:
+        with open(path) as f:
+            return parse_deny(f.read())
+    except OSError as e:
+        # fail closed: no policy file means no capture
+        raise EyesError("cannot read deny list %s (%s); refusing" % (path, e))
+
+
+def is_denied(win, rules):
+    for kind, rx in rules:
+        val = win.get("app_id") if kind == "app" else win.get("title")
+        if val and rx.search(val):
+            return True
+    return False
+
+
+def annotate(wins, rules):
+    out = []
+    for w in wins:
+        w = dict(w)
+        w["denied"] = is_denied(w, rules)
+        if w["denied"]:
+            w["title"] = REDACTED
+        out.append(w)
+    return out
+
+
+# ------------------------------------------------------------ match resolve
+def resolve(query, wins):
+    """wins: annotated (denied titles already redacted, so they only match by
+    id or app_id). Returns one window or raises EyesError."""
+    q = str(query)
+    by_id = [w for w in wins if str(w["id"]) == q]
+    if by_id:
+        return by_id[0]
+    ql = q.lower()
+    cands = [w for w in wins if (w.get("app_id") or "").lower() == ql]
+    if not cands:
+        cands = [w for w in wins if ql in (w.get("title") or "").lower()]
+    if not cands:
+        raise EyesError("no window matches %r" % q)
+    if len(cands) > 1:
+        lines = ["ambiguous %r, %d candidates (use the id):" % (q, len(cands))]
+        for w in cands:
+            lines.append("  %s  %s  %s" % (w["id"], w.get("app_id"), w.get("title")))
+        raise EyesError("\n".join(lines))
+    return cands[0]
+
+
+# ----------------------------------------------------------------- backends
+class Backend:
+    name = "base"
+    clobbers_clipboard = False
+
+    def __init__(self, runner=run):
+        self.run = runner
+
+    def list_windows(self):
+        raise NotImplementedError
+
+    def capture(self, win, path):
+        raise NotImplementedError
+
+    def fresh_commands(self, win):
+        """Pure: list of argv lists for the 1px nudge and back."""
+        raise NotImplementedError
+
+    def fresh(self, win):
+        for cmd in self.fresh_commands(win):
+            r = self.run(cmd)
+            if r.returncode != 0:
+                raise EyesError("fresh nudge failed: %s: %s" % (cmd, r.stderr.decode(errors="replace")))
+            time.sleep(0.15)
+
+    def _json(self, cmd):
+        r = self.run(cmd)
+        if r.returncode != 0:
+            raise EyesError("%s failed: %s" % (" ".join(cmd), r.stderr.decode(errors="replace").strip()))
+        return json.loads(r.stdout)
+
+
+class NiriBackend(Backend):
+    name = "niri"
+    clobbers_clipboard = True
+
+    def list_windows(self):
+        wins = self._json(["niri", "msg", "--json", "windows"])
+        wss = {w["id"]: w for w in self._json(["niri", "msg", "--json", "workspaces"])}
+        out = []
+        for w in wins:
+            ws = wss.get(w.get("workspace_id"), {})
+            # Conservative: anything on an active workspace counts as visible
+            # (niri 26.04 reports tile_pos_in_workspace_view null even for the
+            # focused window, so offscreen columns cannot be told apart).
+            visible = bool(ws.get("is_active"))
+            out.append({
+                "id": str(w["id"]), "app_id": w.get("app_id"), "title": w.get("title"),
+                "workspace": ws.get("name") or ws.get("idx") or w.get("workspace_id"),
+                "visible": visible, "focused": bool(w.get("is_focused")),
+            })
+        return out
+
+    def capture(self, win, path):
+        r = self.run(["niri", "msg", "action", "screenshot-window", "--id", str(win["id"]), "--path", path])
+        if r.returncode != 0:
+            raise EyesError("screenshot-window failed: %s" % r.stderr.decode(errors="replace").strip())
+        for _ in range(40):
+            if os.path.exists(path) and os.path.getsize(path) > 0:
+                time.sleep(0.05)
+                return
+            time.sleep(0.1)
+        raise EyesError("niri reported success but %s never appeared" % path)
+
+    def fresh_commands(self, win):
+        i = str(win["id"])
+        base = ["niri", "msg", "action", "set-window-width", "--id", i]
+        return [base + ["+1"], base + ["-1"]]
+
+
+class HyprBackend(Backend):
+    # UNVERIFIED. Open question: hyprctl clients exposes no ext-foreign-toplevel
+    # identifier, so `grim -T` cannot be fed from it. Uses a key if present,
+    # else falls back to `grim -g` on the window geometry (visible windows only,
+    # captures whatever is on screen there, overlaps included).
+    name = "hyprland"
+
+    def _clients(self):
+        return self._json(["hyprctl", "-j", "clients"])
+
+    def list_windows(self):
+        active = {m["activeWorkspace"]["id"] for m in self._json(["hyprctl", "-j", "monitors"])}
+        out = []
+        for c in self._clients():
+            if not c.get("mapped", True):
+                continue
+            ws = c.get("workspace", {})
+            visible = ws.get("id") in active and not c.get("hidden")
+            out.append({
+                "id": c["address"], "app_id": c.get("class"), "title": c.get("title"),
+                "workspace": ws.get("name") or ws.get("id"),
+                "visible": bool(visible), "focused": c.get("focusHistoryID") == 0,
+                "_geom": (c.get("at"), c.get("size")),
+                "_ident": c.get("foreignToplevelId") or c.get("toplevelIdentifier"),
+            })
+        return out
+
+    def capture(self, win, path):
+        ident = win.get("_ident")
+        if ident:
+            cmd = ["grim", "-T", ident, path]
+        elif win.get("visible") and win.get("_geom", (None, None))[0]:
+            (x, y), (w, h) = win["_geom"]
+            cmd = ["grim", "-g", "%d,%d %dx%d" % (x, y, w, h), path]
+        else:
+            raise EyesError("hyprland: no toplevel identifier for this window and it is not visible (UNVERIFIED backend)")
+        r = self.run(cmd)
+        if r.returncode != 0:
+            raise EyesError("grim failed: %s" % r.stderr.decode(errors="replace").strip())
+
+    def fresh_commands(self, win):
+        a = "address:" + str(win["id"])
+        (_, (w, h)) = win.get("_geom", (None, (0, 0)))
+        return [["hyprctl", "dispatch", "resizewindowpixel", "exact %d %d,%s" % (w + 1, h, a)],
+                ["hyprctl", "dispatch", "resizewindowpixel", "exact %d %d,%s" % (w, h, a)]]
+
+
+def detect_backend():
+    if os.environ.get("NIRI_SOCKET"):
+        return NiriBackend()
+    if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+        return HyprBackend()
+    raise EyesError("no supported compositor (need $NIRI_SOCKET or $HYPRLAND_INSTANCE_SIGNATURE)")
+
+
+# --------------------------------------------------------------- clipboard
+class Clipboard:
+    PREF = ("text/plain;charset=utf-8", "text/plain", "UTF8_STRING", "STRING", "TEXT")
+
+    def __init__(self, runner=run, copier=None):
+        self.run = runner
+        self.copy = copier or run_detached
+        self.saved = {}
+        self.empty = False
+
+    def save(self):
+        r = self.run(["wl-paste", "--list-types"])
+        types = [t for t in r.stdout.decode(errors="replace").split("\n") if t.strip()]
+        if r.returncode != 0 or not types:
+            self.empty = True
+            return
+        for t in types:
+            rr = self.run(["wl-paste", "--no-newline", "-t", t])
+            if rr.returncode == 0:
+                self.saved[t] = rr.stdout
+        self.types = types
+
+    def restore(self):
+        """Returns a note string ('' if fully restored)."""
+        if self.empty:
+            self.copy(["wl-copy", "--clear"], b"")
+            return ""
+        if not self.saved:
+            return "clipboard restore impossible: no type could be read"
+        pick = next((t for t in self.PREF if t in self.saved), None) or next(iter(self.saved))
+        # wl-copy forks a server that inherits pipes; run() would hang on it
+        r = self.copy(["wl-copy", "-t", pick], self.saved[pick])
+        if r.returncode != 0:
+            return "clipboard restore failed: %s" % r.stderr.decode(errors="replace").strip()
+        textish = set(self.PREF) if pick in self.PREF else set()
+        lost = [t for t in self.types if t != pick and t not in textish]
+        if lost:
+            return "clipboard restored as %s only (wl-copy sets one type); not restored: %s" % (pick, ", ".join(lost))
+        return ""
+
+
+# --------------------------------------------------------------- operations
+def safe(s):
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", s or "x")[:40]
+
+
+def sha(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def do_shot(backend, rules, query, out_dir, probe=False, fresh=False, clipboard=None, sleep=time.sleep):
+    wins = annotate(backend.list_windows(), rules)
+    win = resolve(query, wins)
+    if win["denied"]:
+        raise EyesError("refused: window %s (%s) is on the deny list" % (win["id"], win.get("app_id")))
+    if fresh and win["visible"]:
+        raise EyesError("--fresh refused: window %s is visible; capture it plainly" % win["id"])
+    os.makedirs(out_dir, mode=0o700, exist_ok=True)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    base = "%s-%s-%s" % (safe(win["id"]), safe(win.get("app_id")), stamp)
+    path = os.path.join(out_dir, base + ".png")
+    note = ""
+    clip = (clipboard or Clipboard(backend.run)) if backend.clobbers_clipboard else None
+    if clip:
+        clip.save()
+    result = {"id": win["id"], "app_id": win.get("app_id"), "title": win["title"],
+              "visible": win["visible"], "path": path}
+    try:
+        if fresh:
+            backend.fresh(win)
+        backend.capture(win, path)
+        if probe:
+            p2 = os.path.join(out_dir, base + "-b.png")
+            sleep(0.5)
+            backend.capture(win, p2)
+            same = sha(path) == sha(p2)
+            result["probe"] = "unchanged (may be stale or static)" if same else "changing"
+            result["path2"] = p2
+    finally:
+        if clip:
+            note = clip.restore()
+    if note:
+        result["clipboard_note"] = note
+    return result
+
+
+def cmd_list(args, backend, rules):
+    wins = annotate(backend.list_windows(), rules)
+    wins = [{k: v for k, v in w.items() if not k.startswith("_")} for w in wins]
+    if args.json:
+        print(json.dumps(wins, indent=1))
+        return
+    for w in wins:
+        flags = ("V" if w["visible"] else "-") + ("F" if w["focused"] else "-") + ("D" if w["denied"] else "-")
+        print("%-8s %s  ws=%-10s %-18s %s" % (w["id"], flags, w["workspace"], w.get("app_id") or "", w["title"] or ""))
+    print("flags: V=visible F=focused D=denied", file=sys.stderr)
+
+
+def main(argv=None, backend=None):
+    ap = argparse.ArgumentParser(prog="rabble-eyes", description="window capture for agents, no focus change")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    pl = sub.add_parser("list")
+    pl.add_argument("--json", action="store_true")
+    ps = sub.add_parser("shot")
+    ps.add_argument("query")
+    ps.add_argument("--out", default=DEFAULT_OUT)
+    ps.add_argument("--json", action="store_true")
+    ps.add_argument("--probe", action="store_true")
+    ps.add_argument("--fresh", action="store_true")
+    args = ap.parse_args(argv)
+    try:
+        rules = load_deny()
+        backend = backend or detect_backend()
+        if args.cmd == "list":
+            cmd_list(args, backend, rules)
+            return 0
+        res = do_shot(backend, rules, args.query, args.out, args.probe, args.fresh)
+        if args.json:
+            print(json.dumps(res, indent=1))
+        else:
+            print(res["path"])
+            if "probe" in res:
+                print("probe: " + res["probe"] + "  (" + res["path2"] + ")")
+            if "clipboard_note" in res:
+                print("note: " + res["clipboard_note"], file=sys.stderr)
+        return 0
+    except EyesError as e:
+        print("rabble-eyes: %s" % e, file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
