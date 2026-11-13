@@ -90,7 +90,7 @@ def run(label, dur, settle):
     pre = {"on_ac": rd(f"{AC}/online") == "1", "battery_status": rd(f"{BAT}/status"),
            "battery_pct": rd(f"{BAT}/capacity"), "platform_profile": prof,
            "brightness": [rd(b) for b in glob.glob("/sys/class/backlight/*/brightness")],
-           "dgpu_fds": dgpu_users(), "kernel": os.uname().release}
+           "compositor": os.environ.get("XDG_CURRENT_DESKTOP", "?"), "dgpu_fds": dgpu_users(), "kernel": os.uname().release}
     print(f"pre: {json.dumps(pre)}")
     if pre["on_ac"]: print("WARNING: on AC. Battery draw reads 0; unplug for real numbers.")
     print(f"settling {settle}s, then sampling {dur}s. Hands off.")
