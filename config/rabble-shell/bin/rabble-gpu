@@ -6,7 +6,7 @@
 # Single-GPU machines get no pin. The dGPU is for per-app offload (capability/power gated),
 # never for drawing the desktop. Compositors consume this, none of them decide it:
 #   niri      systemd drop-in runs `rabble-gpu write-niri` before niri starts (machine.kdl)
-#   hyprland  env.lua can call `rabble-gpu aq-devices`
+#   hyprland  env.lua calls `rabble-gpu aq-devices` (panel GPU only, plus any GPU with a monitor)
 # Idle non-panel GPUs are also ignored (niri ignore-drm-device) so they can power down.
 # RABBLE_RENDER_NODE=/dev/dri/... overrides the choice.
 set -u
@@ -70,10 +70,13 @@ write_niri() {
 
 case "${1:-explain}" in
     render-node) choice ;;
-    aq-devices)  # colon list, panel GPU first; empty on single-GPU machines (nothing to choose)
+    aq-devices)  # colon list, panel GPU first; empty on single-GPU machines (nothing to choose).
+        # Idle non-panel GPUs are left out (same rule as niri): Aquamarine opens every listed
+        # device, and an open dGPU never runtime-suspends. One with a monitor plugged in stays.
         [ "$(gpu_cards | wc -l)" -ge 2 ] || exit 0
         p=$(panel_card); out=""
         for c in "$p" $(gpu_cards | grep -vx "$p"); do
+            [ "$c" != "$p" ] && ! has_output "$c" && [ -z "${RABBLE_RENDER_NODE:-}" ] && continue
             [ -e "$(card_path "$c")" ] && out="${out:+$out:}$(card_path "$c")"
         done
         echo "$out" ;;
