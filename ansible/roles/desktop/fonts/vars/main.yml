@@ -4,5 +4,6 @@ fonts_packages:
   - jetbrains-mono-fonts-all
   - fontawesome-6-free-fonts
   - fontawesome-6-brands-fonts
+  - cascadia-code-nf-fonts   # Nerd Font symbol fallback (OFL-1.1-RFN, unmodified): waybar GPU card glyph
   - google-noto-sans-fonts
   - google-noto-emoji-fonts

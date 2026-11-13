@@ -417,6 +417,15 @@ packages:
     edition: core
     ks: false
 
+  - name: cascadia-code-nf-fonts
+    category: fonts
+    reason: Nerd Font symbol fallback (OFL-1.1-RFN, unmodified) — waybar glyphs outside Font Awesome, e.g. Material Design Icons GPU card
+    source: fedora
+    platform: all
+    layer: fonts
+    edition: core
+    ks: false
+
   - name: google-noto-sans-fonts
     category: fonts
     reason: Fallback sans-serif — GTK apps and system UI where monospace doesn't apply

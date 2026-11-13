@@ -29,7 +29,7 @@ PLATFORM_PROFILE=/sys/firmware/acpi/platform_profile
 MODE_NAMES=("quiet-low-power" "quiet-balanced" "unbounded")
 PLATFORM_NAMES=("quiet" "balanced" "performance")
 ASUS_PROFILES=("Quiet" "Balanced" "Performance")
-ICONS=("󰌪" "󰗑" "󱐋")
+ICONS=("" "" "")
 TIPS=("Quiet · Low Power — max battery life" "Quiet · Balanced — CPU headroom, fans held quiet" "Unbounded — max clocks, fans unrestricted (AC only)")
 
 is_on_ac() {
@@ -64,7 +64,7 @@ case "$1" in
             printf '{"text":"%s  %s","tooltip":"%s","class":"%s"}\n' \
                 "${ICONS[$idx]}" "${MODE_NAMES[$idx]}" "${TIPS[$idx]}" "${MODE_NAMES[$idx]}"
         else
-            printf '{"text":"󰀦  power-unknown","tooltip":"Cannot read %s (is asusd running?)","class":"unknown"}\n' \
+            printf '{"text":"  power-unknown","tooltip":"Cannot read %s (is asusd running?)","class":"unknown"}\n' \
                 "$PLATFORM_PROFILE"
         fi
         ;;

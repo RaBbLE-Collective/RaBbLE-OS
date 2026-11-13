@@ -27,7 +27,7 @@
 
 /* ── Global reset ────────────────────────────────────────────────────────── */
 * {
-    font-family: "JetBrains Mono", "Font Awesome 6 Free", "Font Awesome 6 Brands", "Noto Sans Symbols 2", monospace;
+    font-family: "JetBrains Mono", "Font Awesome 6 Free", "Font Awesome 6 Brands", "Cascadia Code NF", "Noto Sans Symbols 2", monospace;
     font-size:      13px;
     font-weight:    500;
     min-height:     0;

@@ -3,6 +3,9 @@
 # Never wakes a suspended dGPU: nvidia-smi is only called when runtime PM says it is active.
 # Works on any compositor. Vendor-based, so it also reads a lone iGPU or lone dGPU.
 set -u
+# iGPU glyph = display with a small chip centred on it (Pango: negative letter_spacing pulls the
+# chip back over the display; tune spacing/rise/size if the font size changes). Font Awesome only.
+IGPU_ICON="<span letter_spacing='-9000'>\uf26c</span><span size='85%' rise='900'>\uf2db</span>"
 amd_busy="" amd_clk="" nv_state="" nv_line=""
 
 for d in /sys/class/drm/card[0-9]/device; do
@@ -21,7 +24,7 @@ done
 
 text=""; tip=""; class=""
 if [ -n "$amd_busy" ]; then
-    text="󰾲 ${amd_busy}%"; tip="iGPU: ${amd_busy}% @ ${amd_clk:-?}"
+    text="${IGPU_ICON} ${amd_busy}%"; tip="iGPU: ${amd_busy}% @ ${amd_clk:-?}"
 fi
 if [ -n "$nv_state" ]; then
     if [ "$nv_state" = active ] && command -v nvidia-smi >/dev/null; then
