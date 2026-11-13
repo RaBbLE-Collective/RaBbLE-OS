@@ -8,7 +8,7 @@ set -u
 # Icon colour = power state (palette): active green, runtime-suspended yellow, powered off (D3cold) grey.
 C_ON="#50fa7b" C_SUSP="#f1fa8c" C_OFF="#6b6880"
 igpu_icon() { echo "<span foreground='$1'><span letter_spacing='-9000'>\uf26c</span><span size='85%' rise='900'>\uf2db</span></span>"; }
-dgpu_icon() { echo "<span foreground='$1' size='185%' rise='-3000'>󰢮</span>"; }
+dgpu_icon() { echo "<span foreground='$1' size='240%' rise='-5000' line_height='0.6'>󰢮</span>"; }
 # state colour from runtime_status + power_state of a PCI device dir
 state_color() {
     case "$(cat "$1/power/runtime_status" 2>/dev/null)" in
