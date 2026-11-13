@@ -3,19 +3,22 @@
 #
 # harmonize ~ layer-ctl >> apply/remove/status/verify per layer // %LAYERCTL_READY%
 #
-# Usage:
-#   ./layer-ctl.sh apply base                    — packages + config
-#   ./layer-ctl.sh apply hardware --packages     — packages only
-#   ./layer-ctl.sh apply boot --config           — config only
-#   ./layer-ctl.sh apply all                     — full system
-#   ./layer-ctl.sh upgrade                       — dnf + firmware + apply all
-#   ./layer-ctl.sh remove desktop                — teardown a layer
-#   ./layer-ctl.sh status                        — show all layer states
-#   ./layer-ctl.sh verify hardware               — run layer health checks
-#   ./layer-ctl.sh dotfiles                      — re-link dotfiles only
-#   ./layer-ctl.sh menu                          — launch interactive menu
-#   ./layer-ctl.sh app freecad                   — install one registered creator app
-#   ./layer-ctl.sh app list                      — list registered creator apps
+# Usage (run from any directory; `layerctl` is symlinked into ~/.local/bin):
+#   layerctl vscode                     — bare name = apply (layer, alias or ansible tag)
+#   layerctl apply base                 — packages + config
+#   layerctl apply apps vscode niri     — several targets in one go
+#   layerctl apply hardware --packages  — layer minus its config tasks (see `help`)
+#   layerctl apply all                  — full system
+#   layerctl upgrade                    — dnf + firmware + apply all
+#   layerctl remove niri                — teardown a layer
+#   layerctl status                     — show all layer states
+#   layerctl verify hardware            — run layer health checks
+#   layerctl list                       — every layer, alias and ansible tag
+#   layerctl info                       — detected system, version, hardware
+#   layerctl dotfiles                   — re-link dotfiles only
+#   layerctl app freecad                — install one registered creator app
+#
+# Layers live in ansible/layers.conf (add a section, no script edit needed).
 
 set -euo pipefail
 
@@ -26,6 +29,10 @@ ANSIBLE_DIR="${SCRIPT_DIR}/ansible"
 INVENTORY="${ANSIBLE_DIR}/inventory/hosts.yml"
 SITE_YML="${ANSIBLE_DIR}/site.yml"
 CREATOR_APPS_VARS="${ANSIBLE_DIR}/roles/layer/creator-apps/vars/main.yml"
+LAYERS_CONF="${ANSIBLE_DIR}/layers.conf"
+
+# Always use the repo's ansible.cfg, whatever directory we were launched from.
+export ANSIBLE_CONFIG="${ANSIBLE_DIR}/ansible.cfg"
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 
@@ -52,97 +59,90 @@ fail()    { echo -e "${RED}${BOLD}  ✗${RESET} ${RED}$*${RESET}"; exit 1; }
 muted()   { echo -e "${MUTED}    $*${RESET}"; }
 divider() { echo -e "${MUTED}────────────────────────────────────────────────${RESET}"; }
 
-# ── Layer definitions ─────────────────────────────────────────────────────────
+# ── Layer registry ────────────────────────────────────────────────────────────
 #
-# Format: LAYER_TAG : "Human name" : verify_command
+# Loaded from ansible/layers.conf (INI-ish: [layer] then key = value lines).
+# Layer tags map directly to Ansible tags in site.yml. "all" runs site.yml
+# without tag filtering. Opt-in layers carry an `extra` var so `apply all` /
+# `upgrade` never pick them up silently.
+
+declare -A LAYER_NAMES=() LAYER_EXTRA_VARS=() LAYER_VERIFY=() LAYER_ALIAS=() LAYER_GROUP=()
+LAYER_ORDER=()
+
+load_registry() {
+  [[ -f "$LAYERS_CONF" ]] || fail "Layer registry missing: ${LAYERS_CONF}"
+  local line key val cur=""
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"; line="${line%"${line##*[![:space:]]}"}"
+    [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
+    if [[ "$line" =~ ^\[([A-Za-z0-9._-]+)\]$ ]]; then
+      cur="${BASH_REMATCH[1]}"
+      LAYER_ORDER+=("$cur"); LAYER_NAMES[$cur]=""; LAYER_GROUP[$cur]="main"
+      continue
+    fi
+    [[ -z "$cur" || "$line" != *=* ]] && continue
+    key="${line%%=*}"; val="${line#*=}"
+    key="${key//[[:space:]]/}"
+    val="${val#"${val%%[![:space:]]*}"}"
+    case "$key" in
+      desc)   LAYER_NAMES[$cur]="$val" ;;
+      verify) LAYER_VERIFY[$cur]="$val" ;;
+      extra)  LAYER_EXTRA_VARS[$cur]="$val" ;;
+      group)  LAYER_GROUP[$cur]="$val" ;;
+      alias)  local a; for a in $val; do LAYER_ALIAS[$a]="$cur"; done ;;
+    esac
+  done < "$LAYERS_CONF"
+}
+load_registry
+
+# ── Target resolution ─────────────────────────────────────────────────────────
 #
-# Tags map directly to Ansible tags in site.yml.
-# "all" is a special alias that runs site.yml without tag filtering.
+# A target can be: a registered layer, an alias, or any Ansible tag found in
+# site.yml / roles (vscode, waybar, hyprland, plymouth, ...). Tags too generic
+# to run on their own are excluded.
 
-declare -A LAYER_NAMES=(
-  [base]="Base system (repos, packages, locale, fonts)"
-  [hardware]="Hardware abstraction (GPU, asusctl, NPU, power)"
-  [runtime]="GPU/NPU runtimes (llama.cpp, XRT, FastFlowLM, Lemonade)"
-  [monitoring]="System observability (btop, htop, nvtop, sensors)"
-  [virtualization]="QEMU/KVM host stack"
-  [boot]="Boot chain (GRUB2, Plymouth, SDDM)"
-  [snapper]="Snapper (Btrfs snapshots)"
-  [desktop]="Desktop (Hyprland, Quickshell, terminal, shell)"
-  [apps]="Applications (VSCode, dev tools)"
-  [dotfiles]="Dotfiles (symlink ~/.config entries + dotctl deploy)"
-  [ai-harnesses]="AI coding harnesses — all agents"
-  [claude-code]="Claude Code CLI"
-  [free-claude-code]="free-claude-code proxy (Anthropic API → NIM/Groq/etc)"
-  [codex]="OpenAI Codex CLI"
-  [opencode]="OpenCode agent"
-  [aider]="Aider pair-programmer"
-  [gemini-cli]="Gemini CLI"
-  [ollama]="Ollama local inference server"
-  [vllm]="vLLM inference server (heavy — GPU required)"
-  [builder-skills]="BuilderIO slash-command skills for Claude Code"
-  [bottles]="Bottles — Wine app compat (opt-in: creates+installs UP Studio/Cetus3D bottle, planned Affinity)"
-  [containers]="Docker CE + Podman container runtimes (opt-in)"
-  [esp-idf]="ESP-IDF embedded toolchain(s) via EIM CLI + picocom/usbutils/fzf — Espressif SDK for RaBbLE-Pocket firmware (opt-in)"
-  [arduino-cli]="arduino-cli + ESP32 core — builds the vendor's reference .ino examples only, RaBbLE-Pocket firmware itself stays on ESP-IDF (opt-in)"
-  [atlas-sentry]="ATLAS sentry host dev tooling — opencv/numpy/pyserial, dialout, Arduino Nano Every core (opt-in)"
-  [dotnet-sdk]=".NET SDK (dotnet-sdk-8.0) — dev tool, Fedora-native package (opt-in)"
-  [gnome]="GNOME Shell — Aether-themed secondary DE, SDDM fallback + theming testbed (opt-in)"
-  [niri]="niri — scrolling-tiling compositor, trial session alongside Hyprland; config via dotctl (opt-in)"
-  [creator-apps]="Creator apps — data-driven single-Flatpak apps (see 'app list') (opt-in)"
-  [all]="Full system — all layers in order"
-)
+GENERIC_TAGS=" always never packages config remove layer plans "
+_TAGS_CACHE=""
 
-# Optional/opt-in layers: extra --extra-vars flipped automatically when
-# applying by name, so `apply all` / `upgrade` never picks them up silently.
-# Each var's off-by-default lives in the layer role's defaults/main.yml.
-declare -A LAYER_EXTRA_VARS=(
-  [bottles]="rabble_enable_wine_bottles=true"
-  [containers]="rabble_enable_containers=true"
-  [esp-idf]="rabble_enable_esp_idf=true"
-  [arduino-cli]="rabble_enable_arduino_cli=true"
-  [atlas-sentry]="rabble_enable_atlas_sentry=true"
-  [dotnet-sdk]="rabble_enable_dotnet_sdk=true"
-  [gnome]="rabble_enable_gnome_desktop=true"
-  [niri]="rabble_enable_niri=true"
-  [creator-apps]="rabble_enable_creator_apps=true"
-)
+discover_tags() {
+  if [[ -z "$_TAGS_CACHE" ]]; then
+    _TAGS_CACHE="$(grep -rhoE 'tags:[[:space:]]*\[[^]]*\]' "$SITE_YML" "${ANSIBLE_DIR}/roles" 2>/dev/null \
+      | sed -E 's/tags:[[:space:]]*\[//; s/\]//' | tr ',' '\n' | tr -d " \"'" \
+      | grep -E '^[a-z0-9][a-z0-9_-]*$' | sort -u \
+      | while read -r t; do [[ "$GENERIC_TAGS" == *" $t "* ]] || echo "$t"; done)"
+  fi
+  printf '%s\n' "$_TAGS_CACHE"
+}
 
-declare -A LAYER_VERIFY=(
-  [base]="rpm -q git ansible-core"
-  [hardware]="asusctl profile -l && supergfxctl --status"
-  [runtime]="LD_LIBRARY_PATH=/usr/local/lib64 llama-server --version"
-  [monitoring]="command -v btop && command -v sensors"
-  [virtualization]="systemctl is-active libvirtd"
-  [boot]="systemctl is-active sddm && plymouth-set-default-theme"
-  [snapper]="snapper -c root list"
-  [desktop]="hyprctl version && systemctl --user is-active waybar || true"
-  [apps]="command -v code"
-  [dotfiles]="test -L ~/.config/hypr/hyprland.conf"
-  [ai-harnesses]="command -v claude && systemctl --user is-active free-claude-code || true"
-  [claude-code]="command -v claude"
-  [free-claude-code]="systemctl --user is-active free-claude-code && curl -sf http://127.0.0.1:8082/health || curl -sf http://127.0.0.1:8082/"
-  [codex]="command -v codex"
-  [opencode]="command -v opencode"
-  [aider]="command -v aider"
-  [gemini-cli]="command -v gemini"
-  [ollama]="systemctl is-active ollama"
-  [vllm]="command -v vllm"
-  [builder-skills]="test -d ${HOME}/.claude/skills"
-  [bottles]="flatpak info com.usebottles.bottles"
-  [containers]="docker --version && podman --version"
-  [esp-idf]="command -v eim && eim list && test -L ${HOME}/esp/esp-idf-default"
-  [arduino-cli]="${HOME}/.local/bin/arduino-cli version && ${HOME}/.local/bin/arduino-cli core list | grep -q esp32:esp32"
-  [atlas-sentry]="python3 -c 'import cv2, numpy, serial'"
-  [dotnet-sdk]="command -v dotnet && dotnet --list-sdks"
-  [gnome]="rpm -q gnome-shell gnome-session-wayland-session >/dev/null && ! rpm -q gdm >/dev/null 2>&1 && test -f /usr/share/wayland-sessions/gnome.desktop"
-  [niri]="rpm -q niri swaybg >/dev/null && test -f /usr/share/wayland-sessions/niri.desktop"
-  [creator-apps]="verify_creator_apps"
-  [all]=""
-)
+# Sets RESOLVED_KIND (layer|tag) and RESOLVED_NAME. Returns 1 if unknown.
+resolve_target() {
+  local t="${1,,}"
+  RESOLVED_KIND="" RESOLVED_NAME=""
+  if [[ -n "${LAYER_NAMES[$t]+_}" ]]; then
+    RESOLVED_KIND=layer RESOLVED_NAME="$t"
+  elif [[ -n "${LAYER_ALIAS[$t]:-}" ]]; then
+    RESOLVED_KIND=layer RESOLVED_NAME="${LAYER_ALIAS[$t]}"
+  elif discover_tags | grep -qx -- "$t"; then
+    RESOLVED_KIND=tag RESOLVED_NAME="$t"
+  else
+    return 1
+  fi
+}
 
-# Ordered list for status display and sequential all-deploy
-# Mirrors site.yml play order: base → hardware → runtime → monitoring → virtualization → boot → ...
-LAYER_ORDER=(base hardware runtime monitoring virtualization boot snapper desktop apps ai-harnesses dotfiles bottles containers esp-idf arduino-cli atlas-sentry dotnet-sdk gnome niri creator-apps)
+# Unknown target: say what is close, then what is valid, then exit.
+unknown_target() {
+  local t="$1" names close
+  names="$( { printf '%s\n' "${!LAYER_NAMES[@]}" "${!LAYER_ALIAS[@]}"; discover_tags; } | sort -u)"
+  close="$(printf '%s\n' "$names" | python3 -I -c '
+import difflib,sys
+t=sys.argv[1]; n=[l.strip() for l in sys.stdin if l.strip()]
+sub=[x for x in n if t in x or x in t]
+print(" ".join(dict.fromkeys(sub+difflib.get_close_matches(t,n,5,0.5))))' "$t" 2>/dev/null || true)"
+  echo -e "${RED}${BOLD}  ✗${RESET} ${RED}Unknown layer or tag: '${t}'${RESET}" >&2
+  [[ -n "$close" ]] && echo -e "${TEXT}    Did you mean: ${CYAN}${close}${RESET}" >&2
+  echo -e "${MUTED}    Run 'layerctl list' to see everything valid.${RESET}" >&2
+  exit 1
+}
 
 # ── State tracking ────────────────────────────────────────────────────────────
 
@@ -176,36 +176,67 @@ get_state_time() {
   fi
 }
 
-# ── Ansible runner ────────────────────────────────────────────────────────────
+# ── System detection ──────────────────────────────────────────────────────────
+#
+# Same rule as site.yml's hardware-detection play: DMI product_name matching
+# "ProArt P16" is asus_proart_p16, anything else is generic_x64. Override with
+# RABBLE_HARDWARE or --hardware.
 
-# Resolved at runtime so RABBLE_HARDWARE can be set after sourcing
-# Empty unless RABBLE_HARDWARE is set: site.yml auto-detects hardware from DMI.
-ansible_hardware_var() {
-  echo "${RABBLE_HARDWARE:-}"
+detect_system() {
+  SYS_ARCH="$(uname -m)"
+  SYS_KERNEL="$(uname -r)"
+  SYS_PRODUCT="$(cat /sys/class/dmi/id/product_name 2>/dev/null || echo unknown)"
+  if [[ -n "${RABBLE_HARDWARE:-}" ]]; then
+    SYS_HW="$RABBLE_HARDWARE"; SYS_HW_SRC="override"
+  elif [[ "$SYS_PRODUCT" == "ProArt P16"* ]]; then
+    SYS_HW="asus_proart_p16"; SYS_HW_SRC="DMI"
+  else
+    SYS_HW="generic_x64"; SYS_HW_SRC="DMI"
+  fi
+  # shellcheck disable=SC1091
+  eval "$(
+    . /etc/os-release 2>/dev/null || true
+    printf 'OS_ID=%q OS_PRETTY=%q OS_VERSION_ID=%q RABBLE_OS_VERSION=%q RABBLE_OS_BASE=%q' \
+      "${ID:-unknown}" "${PRETTY_NAME:-unknown}" "${VERSION_ID:-?}" "${RABBLE_VERSION:-}" "${RABBLE_BASE:-}"
+  )"
+  REPO_BRANCH="$(git -C "$SCRIPT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '-')"
+  REPO_REV="$(git -C "$SCRIPT_DIR" describe --tags --always --dirty 2>/dev/null || echo '-')"
 }
+
+context_line() {
+  detect_system
+  muted "${OS_PRETTY} · fedora ${OS_VERSION_ID} · ${SYS_HW} (${SYS_HW_SRC}) · ${REPO_BRANCH}@${REPO_REV}"
+}
+
+# Fail early on conditions that would otherwise die deep inside ansible.
+preflight() {
+  command -v ansible-playbook &>/dev/null \
+    || fail "ansible-playbook not found. Install: sudo dnf install ansible-core"
+  [[ -f "$SITE_YML" ]] || fail "Playbook not found: ${SITE_YML}"
+  detect_system
+  [[ "$OS_ID" == "fedora" ]] || warn "OS id is '${OS_ID}', roles assume Fedora (dnf)."
+  if [[ -n "$RABBLE_OS_BASE" && "$RABBLE_OS_BASE" != "f${OS_VERSION_ID}" ]]; then
+    warn "os-release says RABBLE_BASE=${RABBLE_OS_BASE} but Fedora is ${OS_VERSION_ID}."
+  fi
+}
+
+# ── Ansible runner ────────────────────────────────────────────────────────────
 
 run_playbook() {
   local tags="$1"
   shift
   local extra_args=("$@")
 
-  local cmd=(
-    ansible-playbook
-    -i "$INVENTORY"
-    "$SITE_YML"
-    -K
-  )
-  [[ -n "$(ansible_hardware_var)" ]] && cmd+=(--extra-vars "rabble_hardware=$(ansible_hardware_var)")
-
-  if [[ "$tags" != "all" ]]; then
-    cmd+=(--tags "$tags")
-  fi
-
+  local cmd=(ansible-playbook -i "$INVENTORY" "$SITE_YML")
+  [[ $EUID -ne 0 ]] && cmd+=(-K)
+  [[ -n "${RABBLE_HARDWARE:-}" ]] && cmd+=(--extra-vars "rabble_hardware=${RABBLE_HARDWARE}")
+  [[ "$tags" != "all" ]] && cmd+=(--tags "$tags")
   cmd+=("${extra_args[@]}")
 
   info "Running: ${cmd[*]}"
   divider
-  "${cmd[@]}"
+  # cd so relative paths in ansible.cfg / roles resolve regardless of caller cwd
+  (cd "$ANSIBLE_DIR" && "${cmd[@]}")
 }
 
 run_playbook_check() {
@@ -247,71 +278,95 @@ verify_creator_apps() {
 
 # ── Commands ──────────────────────────────────────────────────────────────────
 
+# Prints extra-vars args for a layer (empty for tags / non-opt-in layers).
+layer_extra_args() {
+  [[ -n "${LAYER_EXTRA_VARS[$1]:-}" ]] && printf '%s\n' --extra-vars "${LAYER_EXTRA_VARS[$1]}"
+  return 0
+}
+
 cmd_apply() {
-  local layer="${1:-}"
-  shift || true
-  local packages_only=false config_only=false dry_run=false
+  local targets=() packages_only=false config_only=false dry_run=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --packages)  packages_only=true  ; shift ;;
       --config)    config_only=true    ; shift ;;
       --check|--dry-run) dry_run=true  ; shift ;;
-      --hardware)  RABBLE_HARDWARE="${2:-}"; shift 2 ;;
-      *) warn "Unknown flag: $1"; shift ;;
+      --hardware)  [[ -n "${2:-}" ]] || fail "--hardware needs a profile (asus_proart_p16|generic_x64)"
+                   RABBLE_HARDWARE="$2"; shift 2 ;;
+      -*)          warn "Unknown flag: $1"; shift ;;
+      *)           targets+=("$1"); shift ;;
     esac
   done
 
-  [[ -z "$layer" ]] && fail "Usage: layer-ctl apply LAYER [--packages|--config] [--check]"
-  [[ -z "${LAYER_NAMES[$layer]+_}" ]] && fail "Unknown layer: '$layer'. Valid: ${!LAYER_NAMES[*]}"
-
-  # Build tag string
-  local tag="$layer"
-  if $packages_only; then
-    tag="${layer},packages"
-    pulse "Applying packages: ${LAYER_NAMES[$layer]}"
-  elif $config_only; then
-    tag="${layer},config"
-    pulse "Applying config: ${LAYER_NAMES[$layer]}"
-  else
-    pulse "Applying layer: ${LAYER_NAMES[$layer]}"
+  if [[ ${#targets[@]} -eq 0 ]]; then
+    warn "No target given. Usage: layerctl apply TARGET... [--packages|--config] [--check]"
+    cmd_list
+    exit 1
   fi
 
-  local extra_vars=()
-  if [[ -n "${LAYER_EXTRA_VARS[$layer]:-}" ]]; then
-    extra_vars+=(--extra-vars "${LAYER_EXTRA_VARS[$layer]}")
-  fi
+  # Resolve everything first so a typo in target 3 fails before target 1 runs.
+  local t kinds=() names=()
+  for t in "${targets[@]}"; do
+    resolve_target "$t" || unknown_target "$t"
+    kinds+=("$RESOLVED_KIND"); names+=("$RESOLVED_NAME")
+  done
 
-  if $dry_run; then
-    warn "Dry-run mode — no changes will be made."
-    run_playbook_check "$tag" "${extra_vars[@]}"
-    return
-  fi
+  preflight
+  local i name kind tag desc extra_vars skip_args
+  for i in "${!names[@]}"; do
+    name="${names[$i]}"; kind="${kinds[$i]}"
+    # Ansible ORs --tags, so "layer,packages" would run every packages task in
+    # the playbook. Select the layer, then skip the opposite kind instead.
+    tag="$name"; skip_args=()
+    $packages_only && skip_args=(--skip-tags config)
+    $config_only   && skip_args=(--skip-tags packages)
 
-  run_playbook "$tag" "${extra_vars[@]}"
-  set_state "$layer" "applied"
-  ok "Layer '${layer}' applied. // %LAYER_STABLE%"
+    if [[ "$kind" == layer ]]; then
+      desc="${LAYER_NAMES[$name]}"
+    else
+      desc="ansible tag '${name}'"
+    fi
+    [[ "${targets[$i],,}" != "$name" ]] && info "'${targets[$i]}' → ${name}"
+    $packages_only && pulse "Applying packages: ${desc}"
+    $config_only   && pulse "Applying config: ${desc}"
+    $packages_only || $config_only || pulse "Applying ${kind}: ${desc}"
+    context_line
+
+    extra_vars=()
+    [[ "$kind" == layer ]] && mapfile -t extra_vars < <(layer_extra_args "$name")
+
+    if $dry_run; then
+      warn "Dry-run mode — no changes will be made."
+      run_playbook_check "$tag" "${skip_args[@]}" "${extra_vars[@]}"
+      continue
+    fi
+
+    run_playbook "$tag" "${skip_args[@]}" "${extra_vars[@]}"
+    set_state "$([[ $kind == tag ]] && echo "tag-${name}" || echo "$name")" "applied"
+    ok "'${name}' applied. // %LAYER_STABLE%"
+  done
 }
 
 cmd_remove() {
   local layer="${1:-}"
-  [[ -z "$layer" ]] && fail "Usage: layer-ctl remove LAYER"
-  [[ -z "${LAYER_NAMES[$layer]+_}" ]] && fail "Unknown layer: '$layer'"
+  [[ -z "$layer" ]] && fail "Usage: layerctl remove LAYER"
+  resolve_target "$layer" || unknown_target "$layer"
+  [[ "$RESOLVED_KIND" == layer ]] || fail "'${layer}' is an ansible tag, not a layer. remove works on layers."
+  layer="$RESOLVED_NAME"
   [[ "$layer" == "base" ]] && fail "Cannot remove the base layer."
   [[ "$layer" == "all" ]] && fail "Use 'remove' per-layer. 'all' is not valid for remove."
 
+  preflight
   pulse "Removing layer: ${LAYER_NAMES[$layer]}"
   warn "This will run the 'remove' tagged tasks for this layer."
   read -rp "$(echo -e "${RED}  Confirm removal of '${layer}'? [y/N]: ${RESET}")" confirm
   [[ "${confirm:-N}" =~ ^[Yy]$ ]] || { info "Aborted."; return; }
 
-  # Pass the same LAYER_EXTRA_VARS as `apply` — most opt-in roles are gated by
-  # a `when: rabble_enable_*` on the role itself (see site.yml), so without
-  # this the role — including its `remove` tagged tasks — never runs at all.
+  # Same extra vars as `apply`: opt-in roles are gated by `when: rabble_enable_*`
+  # in site.yml, so without them the role (and its `remove` tasks) never runs.
   local extra_vars=()
-  if [[ -n "${LAYER_EXTRA_VARS[$layer]:-}" ]]; then
-    extra_vars+=(--extra-vars "${LAYER_EXTRA_VARS[$layer]}")
-  fi
+  mapfile -t extra_vars < <(layer_extra_args "$layer")
 
   run_playbook "${layer},remove" "${extra_vars[@]}"
   set_state "$layer" "removed"
@@ -320,12 +375,14 @@ cmd_remove() {
 
 cmd_verify() {
   local layer="${1:-}"
-  [[ -z "$layer" ]] && fail "Usage: layer-ctl verify LAYER"
-  [[ -z "${LAYER_NAMES[$layer]+_}" ]] && fail "Unknown layer: '$layer'"
+  [[ -z "$layer" ]] && fail "Usage: layerctl verify LAYER"
+  resolve_target "$layer" || unknown_target "$layer"
+  [[ "$RESOLVED_KIND" == layer ]] || fail "'${layer}' is an ansible tag, not a layer; no verify command."
+  layer="$RESOLVED_NAME"
 
   local verify_cmd="${LAYER_VERIFY[$layer]:-}"
   if [[ -z "$verify_cmd" ]]; then
-    warn "No verify command defined for layer '${layer}'."
+    warn "No verify command defined for layer '${layer}' (add 'verify =' in layers.conf)."
     return
   fi
 
@@ -335,7 +392,7 @@ cmd_verify() {
     ok "Layer '${layer}' verification passed."
     set_state "$layer" "verified"
   else
-    warn "Layer '${layer}' verification failed. Run 'apply ${layer}' to repair."
+    warn "Layer '${layer}' verification failed. Run 'layerctl apply ${layer}' to repair."
     set_state "$layer" "degraded"
   fi
 }
@@ -351,14 +408,14 @@ cmd_app() {
       [[ -n "$cli" ]] && muted "                 shell alias: ${cli}"
     done
     echo
-    muted "Install one:  layer-ctl app <id>"
-    muted "Install all:  layer-ctl apply creator-apps"
+    muted "Install one:  layerctl app <id>"
+    muted "Install all:  layerctl apply creator-apps"
     return
   fi
 
   local flatpak_id
   flatpak_id=$(creator_apps_list | awk -F'\t' -v id="$target" '$1==id{print $2}')
-  [[ -z "$flatpak_id" ]] && fail "Unknown creator app: '${target}'. Run 'layer-ctl app list' to see registered apps."
+  [[ -z "$flatpak_id" ]] && fail "Unknown creator app: '${target}'. Run 'layerctl app list' to see registered apps."
 
   pulse "Applying creator app: ${target} (${flatpak_id})"
   divider
@@ -375,6 +432,7 @@ cmd_status() {
   divider
 
   for layer in "${LAYER_ORDER[@]}"; do
+    [[ "$layer" == all ]] && continue
     local state time color
     state=$(get_state "$layer")
     time=$(get_state_time "$layer")
@@ -392,7 +450,9 @@ cmd_status() {
 
   divider
   echo
-  muted "Hardware profile: ${RABBLE_HARDWARE:-not set (auto-detect on apply)}"
+  detect_system
+  muted "System: ${OS_PRETTY} (fedora ${OS_VERSION_ID}, ${SYS_ARCH}) · kernel ${SYS_KERNEL}"
+  muted "Hardware profile: ${SYS_HW} (${SYS_HW_SRC}; product '${SYS_PRODUCT}')"
   muted "State dir: ${STATE_DIR}"
   echo
 }
@@ -453,14 +513,8 @@ cmd_upgrade() {
 }
 
 cmd_diff() {
-  local layer="${1:-}"
-  [[ -z "$layer" ]] && fail "Usage: layer-ctl diff LAYER"
-  pulse "Diff (dry-run): ${LAYER_NAMES[$layer]:-$layer}"
-  local extra_vars=()
-  if [[ -n "${LAYER_EXTRA_VARS[$layer]:-}" ]]; then
-    extra_vars+=(--extra-vars "${LAYER_EXTRA_VARS[$layer]}")
-  fi
-  run_playbook_check "$layer" "${extra_vars[@]}"
+  [[ $# -gt 0 ]] || fail "Usage: layerctl diff TARGET"
+  cmd_apply "$@" --check
 }
 
 cmd_menu() {
@@ -472,105 +526,160 @@ cmd_menu() {
   fi
 }
 
-cmd_help() {
-  echo
-  echo -e "${MAGENTA}${BOLD}layer-ctl${RESET} — RaBbLE-OS Layer Control"
-  echo
-  echo -e "${BOLD}COMMANDS${RESET}"
-  echo -e "  ${CYAN}apply${RESET}   LAYER [--packages] [--config] [--check]"
-  echo -e "          Apply a layer. Default: packages + config."
-  echo -e "          --packages  packages only"
-  echo -e "          --config    config/dotfiles only"
-  echo -e "          --check     dry-run, no changes"
-  echo
-  echo -e "  ${CYAN}upgrade${RESET} [--no-packages] [--no-firmware] [--no-apply]"
-  echo -e "          Upgrade the system: dnf upgrade → firmware (fwupdmgr) → apply all."
-  echo -e "          Skip steps with --no-packages / --no-firmware / --no-apply."
-  echo
-  echo -e "  ${CYAN}remove${RESET}  LAYER"
-  echo -e "          Remove a layer (with confirmation)."
-  echo
-  echo -e "  ${CYAN}verify${RESET}  LAYER"
-  echo -e "          Run layer health checks."
-  echo
-  echo -e "  ${CYAN}status${RESET}"
-  echo -e "          Show all layers and their current state."
-  echo
-  echo -e "  ${CYAN}diff${RESET}    LAYER"
-  echo -e "          Show what 'apply' would change (dry-run + diff)."
-  echo
-  echo -e "  ${CYAN}dotfiles${RESET}"
-  echo -e "          Re-link all dotfiles into ~/.config/."
-  echo
-  echo -e "  ${CYAN}menu${RESET}"
-  echo -e "          Launch the interactive bootstrap menu."
-  echo
-  echo -e "  ${CYAN}app${RESET}     [ID | list]"
-  echo -e "          Install one registered creator app by id, or list them all."
-  echo -e "          Registry: ansible/roles/layer/creator-apps/vars/main.yml — add"
-  echo -e "          an app there and 'app <id>' picks it up with no other edits."
-  echo
-  echo -e "${BOLD}LAYERS${RESET}"
-  for layer in "${LAYER_ORDER[@]}" all; do
-    printf "  ${CYAN}%-16s${RESET} %s\n" "$layer" "${LAYER_NAMES[$layer]}"
+cmd_list() {
+  local layer group
+  pulse "Layers  (layerctl apply NAME)"
+  divider
+  for group in main sub; do
+    [[ $group == sub ]] && { echo; echo -e "  ${BOLD}Sub-layers${RESET}"; }
+    for layer in "${LAYER_ORDER[@]}"; do
+      [[ "${LAYER_GROUP[$layer]}" == "$group" ]] || continue
+      local al="" k
+      for k in "${!LAYER_ALIAS[@]}"; do [[ "${LAYER_ALIAS[$k]}" == "$layer" ]] && al+="$k "; done
+      printf "  ${CYAN}%-16s${RESET} %s" "$layer" "${LAYER_NAMES[$layer]}"
+      [[ -n "$al" ]] && printf " ${MUTED}[aka %s]${RESET}" "${al% }"
+      echo
+    done
   done
   echo
-  echo -e "${BOLD}AI HARNESS SUB-LAYERS${RESET} (targeted apply/verify)"
-  for layer in claude-code free-claude-code codex opencode aider gemini-cli ollama vllm builder-skills; do
-    printf "  ${CYAN}%-16s${RESET} %s\n" "$layer" "${LAYER_NAMES[$layer]}"
-  done
+  echo -e "  ${BOLD}Ansible tags${RESET} ${MUTED}(finer-grained; 'layerctl apply <tag>' runs just that)${RESET}"
+  local tags
+  tags="$(discover_tags | while read -r t; do [[ -n "${LAYER_NAMES[$t]+_}" ]] || echo "$t"; done | tr '\n' ' ')"
+  echo -e "  ${MUTED}$(echo "$tags" | fold -s -w 76 | sed '2,$s/^/  /')${RESET}"
   echo
-  echo -e "${BOLD}HARDWARE PROFILES${RESET}"
-  echo -e "  Set via ${CYAN}--hardware PROFILE${RESET} or ${CYAN}RABBLE_HARDWARE${RESET} env var."
-  echo -e "  ${MUTED}asus_proart_p16  (auto-detected from DMI)${RESET}"
-  echo -e "  ${MUTED}generic_x64${RESET}"
-  echo
-  echo -e "${BOLD}EXAMPLES${RESET}"
-  echo -e "  ${MUTED}./layer-ctl.sh upgrade${RESET}                          — full system upgrade"
-  echo -e "  ${MUTED}./layer-ctl.sh upgrade --no-apply${RESET}               — dnf + firmware only"
-  echo -e "  ${MUTED}./layer-ctl.sh apply all${RESET}"
-  echo -e "  ${MUTED}./layer-ctl.sh apply hardware --packages${RESET}"
-  echo -e "  ${MUTED}./layer-ctl.sh apply boot --config${RESET}"
-  echo -e "  ${MUTED}./layer-ctl.sh verify hardware${RESET}"
-  echo -e "  ${MUTED}./layer-ctl.sh status${RESET}"
-  echo -e "  ${MUTED}./layer-ctl.sh app freecad${RESET}                      — install just FreeCAD"
-  echo -e "  ${MUTED}./layer-ctl.sh app list${RESET}                         — list registered creator apps"
-  echo -e "  ${MUTED}RABBLE_HARDWARE=generic_x64 ./layer-ctl.sh apply hardware${RESET}"
+  muted "Add a layer: edit ansible/layers.conf. Add a tag: tag tasks in the role."
   echo
 }
 
-# ── Hardware arg (global, before subcommand parsing) ──────────────────────────
+cmd_info() {
+  detect_system
+  pulse "RaBbLE-OS system"
+  divider
+  printf "  ${CYAN}%-12s${RESET} %s\n" \
+    "OS"        "${OS_PRETTY} (id=${OS_ID}, fedora ${OS_VERSION_ID}${RABBLE_OS_BASE:+, base ${RABBLE_OS_BASE}})" \
+    "Version"   "${RABBLE_OS_VERSION:-unset} (os-release) · repo ${REPO_BRANCH}@${REPO_REV}" \
+    "Hardware"  "${SYS_HW} (${SYS_HW_SRC}) · product '${SYS_PRODUCT}'" \
+    "Arch"      "${SYS_ARCH} · kernel ${SYS_KERNEL}" \
+    "Session"   "${XDG_CURRENT_DESKTOP:-none} (${XDG_SESSION_TYPE:-?})" \
+    "Ansible"   "$(ansible-playbook --version 2>/dev/null | head -1 || echo 'not installed')" \
+    "Repo"      "${SCRIPT_DIR}" \
+    "State"     "${STATE_DIR}"
+  [[ ":$PATH:" == *":${HOME}/.local/bin:"* ]] || warn "~/.local/bin is not on PATH; 'layerctl' will not resolve."
+  [[ -x "${HOME}/.local/bin/layerctl" ]] || warn "No ~/.local/bin/layerctl link. Run: layerctl link"
+  echo
+}
 
-for arg in "$@"; do
-  if [[ "$arg" == "--hardware" ]]; then
-    idx=$((${#} - 1))
-    # handled inside cmd_apply; also catch at global level
-    :
-  fi
-done
+# (Re)create ~/.local/bin/{layerctl,dotctl,vmctl} -> repo scripts.
+cmd_link() {
+  mkdir -p "${HOME}/.local/bin"
+  local n
+  for n in layerctl dotctl vmctl; do
+    ln -sfn "${SCRIPT_DIR}/RaBbLE-OS-${n}.sh" "${HOME}/.local/bin/${n}"
+    ok "~/.local/bin/${n} → RaBbLE-OS-${n}.sh"
+  done
+}
+
+cmd_completion() {
+  case "${1:-}" in
+    zsh)
+      cat <<'EOS'
+_layerctl() {
+  local -a cmds; cmds=(apply upgrade remove verify status diff list info link app dotfiles help)
+  if (( CURRENT == 2 )); then compadd -- $cmds $(layerctl names); else compadd -- $(layerctl names); fi
+}
+compdef _layerctl layerctl
+EOS
+      ;;
+    bash)
+      cat <<'EOS'
+_layerctl() {
+  local cmds="apply upgrade remove verify status diff list info link app dotfiles help"
+  COMPREPLY=( $(compgen -W "$cmds $(layerctl names)" -- "${COMP_WORDS[COMP_CWORD]}") )
+}
+complete -F _layerctl layerctl
+EOS
+      ;;
+    *) fail "Usage: layerctl completion zsh|bash   (e.g. source <(layerctl completion zsh))" ;;
+  esac
+}
+
+cmd_help() {
+  echo
+  echo -e "${MAGENTA}${BOLD}layerctl${RESET} — RaBbLE-OS Layer Control  ${MUTED}(works from any directory)${RESET}"
+  echo
+  echo -e "${BOLD}QUICK${RESET}"
+  echo -e "  ${CYAN}layerctl vscode${RESET}            apply a layer, alias or ansible tag by bare name"
+  echo -e "  ${CYAN}layerctl list${RESET}              everything you can name"
+  echo -e "  ${CYAN}layerctl info${RESET}              detected OS, version, hardware, repo"
+  echo -e "  ${CYAN}layerctl status${RESET}            state of every layer"
+  echo
+  echo -e "${BOLD}COMMANDS${RESET}"
+  echo -e "  ${CYAN}apply${RESET}   TARGET... [--packages] [--config] [--check] [--hardware P]"
+  echo -e "          TARGET = layer, alias, or ansible tag (see 'list'). Default: packages + config."
+  echo -e "          ${MUTED}--packages skips 'config' tasks, --config skips 'packages' tasks, within${RESET}"
+  echo -e "          ${MUTED}the layer. Other kinds (services, dotfiles) still run; use a tag to narrow.${RESET}"
+  echo -e "          --check     dry-run, no changes"
+  echo -e "  ${CYAN}diff${RESET}    TARGET     dry-run with diff (same as apply --check)"
+  echo -e "  ${CYAN}remove${RESET}  LAYER      remove a layer (with confirmation)"
+  echo -e "  ${CYAN}verify${RESET}  LAYER      run layer health checks"
+  echo -e "  ${CYAN}status${RESET}             all layers and their state"
+  echo -e "  ${CYAN}list${RESET}               layers, aliases, ansible tags"
+  echo -e "  ${CYAN}info${RESET}               detected system / version / hardware"
+  echo -e "  ${CYAN}upgrade${RESET} [--no-packages] [--no-firmware] [--no-apply]"
+  echo -e "          dnf upgrade → firmware (fwupdmgr) → apply all"
+  echo -e "  ${CYAN}dotfiles${RESET}           re-link dotfiles into ~/.config/ and run dotctl"
+  echo -e "  ${CYAN}app${RESET}     [ID|list]  install one registered creator app"
+  echo -e "          registry: ansible/roles/layer/creator-apps/vars/main.yml"
+  echo -e "  ${CYAN}link${RESET}               (re)create ~/.local/bin/{layerctl,dotctl,vmctl}"
+  echo -e "  ${CYAN}completion${RESET} zsh|bash   tab completion:  source <(layerctl completion zsh)"
+  echo
+  echo -e "${BOLD}ALIASES${RESET}  install/add/enable/update → apply · rm/uninstall → remove · check/test → verify · ls/layers → list"
+  echo
+  echo -e "${BOLD}HARDWARE${RESET}  auto-detected from DMI; override with ${CYAN}--hardware P${RESET} or ${CYAN}RABBLE_HARDWARE${RESET}"
+  echo -e "  ${MUTED}asus_proart_p16 · generic_x64${RESET}"
+  echo
+  echo -e "${BOLD}EXAMPLES${RESET}"
+  echo -e "  ${MUTED}layerctl vscode                       — redeploy VSCodium theme/settings${RESET}"
+  echo -e "  ${MUTED}layerctl apply niri apps              — two targets, one command${RESET}"
+  echo -e "  ${MUTED}layerctl apply boot --check           — dry run${RESET}"
+  echo -e "  ${MUTED}layerctl verify hardware${RESET}"
+  echo -e "  ${MUTED}layerctl app freecad${RESET}"
+  echo -e "  ${MUTED}RABBLE_HARDWARE=generic_x64 layerctl apply hardware${RESET}"
+  echo
+  echo -e "${MUTED}  Layers are defined in ansible/layers.conf.${RESET}"
+  echo
+}
+
+# ── Dispatch ──────────────────────────────────────────────────────────────────
 
 # Export so Ansible inherits it
 export RABBLE_HARDWARE="${RABBLE_HARDWARE:-}"
-
-# ── Dispatch ──────────────────────────────────────────────────────────────────
 
 COMMAND="${1:-help}"
 shift || true
 
 case "$COMMAND" in
-  apply)    cmd_apply "$@" ;;
-  upgrade)  cmd_upgrade "$@" ;;
-  remove)   cmd_remove "$@" ;;
-  verify)   cmd_verify "$@" ;;
-  app)      cmd_app "$@" ;;
-  status)   cmd_status ;;
-  diff)     cmd_diff "$@" ;;
-  dotfiles) cmd_dotfiles ;;
-  menu)     cmd_menu ;;
-  help|-h|--help) cmd_help ;;
+  apply|install|add|enable|update|deploy) cmd_apply "$@" ;;
+  upgrade)             cmd_upgrade "$@" ;;
+  remove|rm|uninstall|disable) cmd_remove "$@" ;;
+  verify|check|test|health)    cmd_verify "$@" ;;
+  app)                 cmd_app "$@" ;;
+  status|st)           cmd_status ;;
+  diff)                cmd_diff "$@" ;;
+  list|ls|layers|tags) cmd_list ;;
+  info|version|system|doctor) cmd_info ;;
+  link)                cmd_link ;;
+  completion)          cmd_completion "$@" ;;
+  names)               { printf '%s\n' "${!LAYER_NAMES[@]}" "${!LAYER_ALIAS[@]}"; discover_tags; } | sort -u ;;
+  dotfiles)            cmd_dotfiles ;;
+  menu)                cmd_menu ;;
+  help|-h|--help)      cmd_help ;;
   *)
-    warn "Unknown command: '${COMMAND}'"
-    cmd_help
-    exit 1
+    # Bare name: `layerctl vscode` == `layerctl apply vscode`
+    if resolve_target "$COMMAND"; then
+      cmd_apply "$COMMAND" "$@"
+    else
+      unknown_target "$COMMAND"
+    fi
     ;;
 esac
