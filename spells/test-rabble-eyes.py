@@ -119,6 +119,23 @@ class T(unittest.TestCase):
         self.assertEqual(f.cmds, [["nudge", "7", "+1"], ["nudge", "7", "-1"]])
         self.assertEqual(f.captured, ["7"])
 
+    def test_niri_column_visibility(self):
+        wss = {1: {"id": 1, "is_active": True, "output": "o", "active_window_id": 4}}
+        outs = {"o": {"logical": {"width": 1920}}}
+        def win(i, col, width):
+            return {"id": i, "workspace_id": 1, "layout": {"pos_in_scrolling_layout": [col, 1], "tile_size": [width, 1000]}}
+        wins = [win(4, 2, 1900), win(7, 4, 1900), win(9, 2, 1900)]
+        rows = {r["id"]: r["visible"] for r in (eyes.NiriBackend._row(w, wss, outs, wins) for w in wins)}
+        self.assertEqual(rows, {"4": True, "7": False, "9": True})
+        narrow = [win(4, 2, 900), win(7, 3, 900)]
+        rows = {r["id"]: r["visible"] for r in (eyes.NiriBackend._row(w, wss, outs, narrow) for w in narrow)}
+        self.assertEqual(rows, {"4": True, "7": True})  # cannot prove off screen: stays visible
+
+    def test_niri_fresh_restores_edges(self):
+        n = eyes.NiriBackend().fresh_commands({"id": "17", "_edges": True})
+        self.assertEqual(n[-1], ["niri", "msg", "action", "maximize-window-to-edges", "--id", "17"])
+        self.assertEqual(len(eyes.NiriBackend().fresh_commands({"id": "17"})), 2)
+
     def test_real_fresh_commands(self):
         n = eyes.NiriBackend().fresh_commands({"id": "9"})
         self.assertEqual(n[0], ["niri", "msg", "action", "set-window-width", "--id", "9", "+1"])

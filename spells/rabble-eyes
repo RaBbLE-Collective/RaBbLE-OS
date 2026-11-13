@@ -171,19 +171,32 @@ class NiriBackend(Backend):
     def list_windows(self):
         wins = self._json(["niri", "msg", "--json", "windows"])
         wss = {w["id"]: w for w in self._json(["niri", "msg", "--json", "workspaces"])}
-        out = []
-        for w in wins:
-            ws = wss.get(w.get("workspace_id"), {})
-            # Conservative: anything on an active workspace counts as visible
-            # (niri 26.04 reports tile_pos_in_workspace_view null even for the
-            # focused window, so offscreen columns cannot be told apart).
-            visible = bool(ws.get("is_active"))
-            out.append({
-                "id": str(w["id"]), "app_id": w.get("app_id"), "title": w.get("title"),
-                "workspace": ws.get("name") or ws.get("idx") or w.get("workspace_id"),
-                "visible": visible, "focused": bool(w.get("is_focused")),
-            })
-        return out
+        outs = self._json(["niri", "msg", "--json", "outputs"])
+        return [self._row(w, wss, outs, wins) for w in wins]
+
+    @staticmethod
+    def _row(w, wss, outs, wins):
+        ws = wss.get(w.get("workspace_id"), {})
+        lay = w.get("layout") or {}
+        out_w = ((outs.get(ws.get("output")) or {}).get("logical") or {}).get("width")
+        visible = bool(ws.get("is_active"))
+        # niri 26.04 leaves tile_pos_in_workspace_view null, so infer columns: when the workspace's
+        # active window fills the output width, no other column can be on screen. Anything we
+        # cannot prove off screen stays "visible" (the safe answer for --fresh).
+        if visible and not w.get("is_floating") and out_w and lay.get("pos_in_scrolling_layout"):
+            act = next((x for x in wins if x["id"] == ws.get("active_window_id")), None)
+            alay = (act or {}).get("layout") or {}
+            if act and not act.get("is_floating") and alay.get("pos_in_scrolling_layout") \
+                    and (alay.get("tile_size") or [0])[0] >= out_w - 40 \
+                    and lay["pos_in_scrolling_layout"][0] != alay["pos_in_scrolling_layout"][0]:
+                visible = False
+        return {
+            "id": str(w["id"]), "app_id": w.get("app_id"), "title": w.get("title"),
+            "workspace": ws.get("name") or ws.get("idx") or w.get("workspace_id"),
+            "visible": visible, "focused": bool(w.get("is_focused")),
+            # maximized-to-edges: the tile covers the whole output; the nudge must re-apply it
+            "_edges": bool(out_w and (lay.get("tile_size") or [0])[0] >= out_w),
+        }
 
     def capture(self, win, path):
         r = self.run(["niri", "msg", "action", "screenshot-window", "--id", str(win["id"]), "--path", path])
@@ -199,7 +212,11 @@ class NiriBackend(Backend):
     def fresh_commands(self, win):
         i = str(win["id"])
         base = ["niri", "msg", "action", "set-window-width", "--id", i]
-        return [base + ["+1"], base + ["-1"]]
+        cmds = [base + ["+1"], base + ["-1"]]
+        if win.get("_edges"):
+            # resizing drops maximized-to-edges (seen live S334: 1920x1167 -> 1900x1147); toggle it back
+            cmds.append(["niri", "msg", "action", "maximize-window-to-edges", "--id", i])
+        return cmds
 
 
 class HyprBackend(Backend):
