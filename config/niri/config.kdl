@@ -48,7 +48,8 @@ input {
         accel-profile "adaptive"
         accel-speed 0.2
     }
-    focus-follows-mouse
+    // max-scroll-amount 0%: hovering a half-visible column focuses it without scrolling the strip.
+    focus-follows-mouse max-scroll-amount="0%"
 }
 
 // ── Environment ──────────────────────────────────────────────────────────────
@@ -157,6 +158,14 @@ window-rule {
 
 window-rule {
     match app-id=r#"firefox$"# title="^Picture-in-Picture$"
+    open-floating true
+}
+
+// Waybar popups (audio mixer, usage detail): float so opening one never inserts a column
+// and scrolls the tiled windows.
+window-rule {
+    match app-id="rabble-popup"
+    match app-id="org.pulseaudio.pavucontrol"
     open-floating true
 }
 
