@@ -33,8 +33,10 @@ asus_power_profile_battery: "Quiet"
 # a 35 W FLOOR, so 35 is the lowest legal burst value. Keys are asusd's
 # FirmwareAttribute names (verified in the installed asusd binary).
 # STARTING VALUES, judgment not measured: tune against idle watts + temperature.
+# S338: AC raised 18/35/35 -> 28/40/40 (28 W = HX 370 nominal TDP) because 18 W
+# sustained throttled builds/compiles on AC. Battery unchanged.
 asus_balanced_ppt:
-  ac:      { PptPl1Spl: 18, PptPl2Sppt: 35, PptPl3Fppt: 35 }
+  ac:      { PptPl1Spl: 28, PptPl2Sppt: 40, PptPl3Fppt: 40 }
   battery: { PptPl1Spl: 15, PptPl2Sppt: 35, PptPl3Fppt: 35 }
 
 # ── GPU ───────────────────────────────────────────────────────

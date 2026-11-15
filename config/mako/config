@@ -30,7 +30,7 @@ default-timeout=5000
 ignore-timeout=0
 
 # ── Icons ─────────────────────────────────────────────────────────────────────
-icon-theme=Papirus-Dark
+icon-path=/usr/share/icons/Papirus-Dark
 icon-location=left
 max-icon-size=48
 
