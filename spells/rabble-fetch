@@ -2,7 +2,7 @@
 # rabble-fetch — fastfetch sized to the window.
 # Tries each tier in turn, renders it, and keeps the first whose real output fits the terminal
 # (width includes the info column, so a narrow pane drops a tier instead of wrapping):
-#   full     the rabble-face mark at distro-logo size + "RaBbLE OS", all modules
+#   full     the nebula_glyph mark at distro-logo size + "RaBbLE OS", all modules
 #   compact  the TUI header face (24x6), eight modules
 #   micro    the 10x3 micro mark, eight modules
 #   mini     no logo, same eight modules

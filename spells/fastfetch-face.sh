@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fastfetch-face.sh — regenerate the fastfetch logos from rabble-face (the mark's master).
+# fastfetch-face.sh — regenerate the fastfetch logos from nebula_glyph (the mark's master).
 #   rabble-portals.txt          default: the face at distro-logo size (38x18), one-line block wordmark "RaBbLE-OS" beneath, palette gradient
 #   rabble-portals.compact.txt  the TUI header face (24x6) + "RaBbLE OS" label
 #   rabble-portals.micro.txt    the 10x3 micro mark + label
@@ -11,7 +11,7 @@ here=$(cd "$(dirname "$0")/.." && pwd)
 tui=$here/../RaBbLE-sCoRE/tui
 out=$here/config/fastfetch
 aspect=${RABBLE_CELL_ASPECT:-2.3}
-(cd "$tui" && cargo build -q --release --offline -p rabble-face --example export)
+(cd "$tui" && cargo build -q --release --offline -p nebula_glyph --example export)
 exe=$tui/target/release/examples/export
 "$exe" micro "label=RaBbLE-OS" > "$out/rabble-portals.micro.txt"
 python3 - "$exe" "$aspect" "$out" <<'PY'
